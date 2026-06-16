@@ -2,16 +2,22 @@
 'use strict';
 
 /*
- * DeliverHQ skill 安装器（npx deliverhq）
+ * DeliverHQ 安装器（npx deliverhq）—— 多 Agent 通用
  *
  * 子命令：
- *   init [--global] [--force] [--yes]   把 skill 装到 .claude/skills/deliverhq/
- *   doctor [--path <skill目录>]          检测 Python/PyYAML 环境 + 跑 selftest
+ *   init [--target <agent>] [--global] [--local] [--force] [--yes]
+ *   doctor [--path <skill目录>]
  *   --help
  *
- * 设计：纯 Node 内置模块（零依赖，npx 才能零安装直接跑）。
- * 注意：本工具只负责"搬文件 + 环境检测"。skill 真正的执行体是 Python gate，
- *       由 Claude 在对话里按需调用——npx 不运行 DeliverHQ 流程本身。
+ * 支持的 --target：
+ *   claude   文件夹 skill → .claude/skills/deliverhq/        （默认）
+ *   hermes   文件夹 skill → ~/.hermes/skills/deliverhq/
+ *   codex    核心 → .deliverhq/ + 注入指针到 AGENTS.md
+ *   gemini   核心 → .deliverhq/ + 注入指针到 GEMINI.md
+ *   generic  核心 → .deliverhq/ + 生成 DELIVERHQ.md 指针（任意 agent）
+ *
+ * 设计：纯 Node 内置模块（零依赖）。本工具只负责"搬文件 + 注入入口 + 环境检测"。
+ *       DeliverHQ 的门禁是 agent 无关的 Python 脚本，由各 agent 在对话中按需调用。
  */
 
 const fs = require('fs');
@@ -29,9 +35,42 @@ const C = {
   b: (s) => `\x1b[94m${s}\x1b[0m`,
 };
 
+const POINTER_BEGIN = '<!-- BEGIN DELIVERHQ -->';
+const POINTER_END = '<!-- END DELIVERHQ -->';
+
+// Agent 注册表。kind: 'folder'（带 skills 目录的 agent）| 'flat'（扁平指令文件的 agent）
+const TARGETS = {
+  claude: {
+    kind: 'folder',
+    projectDir: (cwd) => path.join(cwd, '.claude', 'skills', 'deliverhq'),
+    globalDir: () => path.join(os.homedir(), '.claude', 'skills', 'deliverhq'),
+    note: '重启 Claude Code，靠 SKILL.md frontmatter 自动发现',
+  },
+  hermes: {
+    kind: 'folder',
+    projectDir: (cwd) => path.join(cwd, '.hermes', 'skills', 'deliverhq'),
+    globalDir: () => path.join(os.homedir(), '.hermes', 'skills', 'deliverhq'),
+    note: '重启 Hermes，靠 SKILL.md frontmatter 自动发现',
+  },
+  codex: {
+    kind: 'flat',
+    instructionFile: 'AGENTS.md',
+    note: '已把核心放入 .deliverhq/，并向 AGENTS.md 注入指针',
+  },
+  gemini: {
+    kind: 'flat',
+    instructionFile: 'GEMINI.md',
+    note: '已把核心放入 .deliverhq/，并向 GEMINI.md 注入指针',
+  },
+  generic: {
+    kind: 'flat',
+    instructionFile: 'DELIVERHQ.md',
+    note: '已把核心放入 .deliverhq/，并生成 DELIVERHQ.md 指针（让你的 agent 读取它）',
+  },
+};
+
 function parseArgs(argv) {
-  // 需要取值的 flag（支持 `--path 值` 空格形式；其余按布尔）
-  const VALUE_FLAGS = new Set(['path']);
+  const VALUE_FLAGS = new Set(['path', 'target']);
   const out = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -61,14 +100,12 @@ function ask(question) {
   });
 }
 
-// 递归复制目录（跳过缓存/运行时产物，双保险）
 function copyDir(src, dst) {
-  const SKIP_DIRS = new Set(['__pycache__', 'evidence', 'workspace', 'outputs', 'artifacts', '.baseline']);
+  const SKIP_DIRS = new Set(['__pycache__', 'workspace', 'outputs', 'artifacts', '.baseline']);
   fs.mkdirSync(dst, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      // evidence 例外：保留 CR-EXAMPLE 下的 fixture（changed-files.json 等），只跳运行时产物名
-      if (SKIP_DIRS.has(entry.name) && entry.name !== 'evidence') continue;
+      if (SKIP_DIRS.has(entry.name)) continue; // evidence 保留（含 fixture）
       copyDir(path.join(src, entry.name), path.join(dst, entry.name));
     } else if (entry.isFile()) {
       if (entry.name.endsWith('.pyc')) continue;
@@ -83,107 +120,151 @@ function detectPython() {
       const out = execFileSync(cmd, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] })
         .toString().trim();
       return { cmd, version: out };
-    } catch (_) { /* try next */ }
+    } catch (_) { /* next */ }
   }
   return null;
 }
 
 function checkPyYAML(pyCmd) {
-  try {
-    execFileSync(pyCmd, ['-c', 'import yaml'], { stdio: 'ignore' });
-    return true;
-  } catch (_) { return false; }
+  try { execFileSync(pyCmd, ['-c', 'import yaml'], { stdio: 'ignore' }); return true; }
+  catch (_) { return false; }
 }
 
-function resolveTargetBase(flags) {
-  if (flags.global) return path.join(os.homedir(), '.claude', 'skills');
-  return path.join(process.cwd(), '.claude', 'skills');
-}
-
-async function cmdInit(flags) {
-  console.log(C.b('=== DeliverHQ skill 安装 ==='));
-
-  // 1. 选择位置（--global / --yes 跳过询问）
-  let base;
-  if (flags.global) {
-    base = path.join(os.homedir(), '.claude', 'skills');
-  } else if (flags.local || flags.yes) {
-    base = path.join(process.cwd(), '.claude', 'skills');
-  } else {
-    const ans = await ask(
-      '安装到哪里?\n' +
-      `  1) 项目级  ${path.join(process.cwd(), '.claude/skills/deliverhq')}\n` +
-      `  2) 全局    ${path.join(os.homedir(), '.claude/skills/deliverhq')}\n` +
-      '选择 [1]: ');
-    base = ans === '2'
-      ? path.join(os.homedir(), '.claude', 'skills')
-      : path.join(process.cwd(), '.claude', 'skills');
-  }
-
-  const target = path.join(base, 'deliverhq');
-
-  // 2. 已存在处理
-  if (fs.existsSync(target) && !flags.force) {
-    console.log(C.y(`⚠ 目标已存在: ${target}`));
-    console.log('  用 --force 覆盖，或先手动删除。');
-    process.exit(1);
-  }
-
-  // 3. 复制
-  console.log(`复制 skill → ${target}`);
-  if (fs.existsSync(target)) fs.rmSync(target, { recursive: true, force: true });
-  copyDir(SKILL_SRC, target);
-
-  // 4. 环境检测（不阻断安装，但明确提示）
+function reportEnv() {
   console.log(C.b('\n[环境检测]'));
   const py = detectPython();
   if (!py) {
     console.log(C.r('  ✗ 未找到 Python (python3/python/py)'));
-    console.log('    DeliverHQ 的门禁是 Python 脚本，需安装 Python 3.6+：https://python.org');
+    console.log('    DeliverHQ 门禁是 Python 脚本，需 Python 3.6+：https://python.org');
+    return;
+  }
+  console.log(C.g(`  ✓ ${py.version} (${py.cmd})`));
+  if (!checkPyYAML(py.cmd)) {
+    console.log(C.r('  ✗ 缺少 PyYAML'));
+    console.log(`    请安装：${py.cmd} -m pip install PyYAML`);
   } else {
-    console.log(C.g(`  ✓ ${py.version} (${py.cmd})`));
-    if (!checkPyYAML(py.cmd)) {
-      console.log(C.r('  ✗ 缺少 PyYAML'));
-      console.log(`    请安装：${py.cmd} -m pip install PyYAML`);
-    } else {
-      console.log(C.g('  ✓ PyYAML 已安装'));
+    console.log(C.g('  ✓ PyYAML 已安装'));
+  }
+}
+
+// 扁平型 agent：向其指令文件注入/更新 DeliverHQ 指针段（幂等，带 BEGIN/END 标记）
+function injectPointer(instructionPath, coreRelDir) {
+  const block = [
+    POINTER_BEGIN,
+    '## DeliverHQ — AI 交付治理框架',
+    '',
+    `本项目已安装 DeliverHQ 治理框架，核心位于 \`${coreRelDir}/\`。`,
+    '当进行正式多阶段交付、需要"文档不完备不开发"、扫描老项目技术债、',
+    '或需要可执行门禁（信证据不信声明）时，先阅读：',
+    '',
+    `- \`${coreRelDir}/SKILL.md\` — 入口与"何时使用"`,
+    `- \`${coreRelDir}/AGENTS.md\` — Agent 行为规则与门禁链`,
+    '',
+    '门禁是 Python 脚本（需 Python 3.6+ 与 PyYAML），用 shell 调用，例如：',
+    '',
+    '```bash',
+    `python ${coreRelDir}/scripts/selftest.py ${coreRelDir}   # 自检`,
+    `python ${coreRelDir}/scripts/specgate.py <acceptance-spec.md>`,
+    '```',
+    POINTER_END,
+  ].join('\n');
+
+  let content = '';
+  if (fs.existsSync(instructionPath)) content = fs.readFileSync(instructionPath, 'utf8');
+
+  if (content.includes(POINTER_BEGIN) && content.includes(POINTER_END)) {
+    // 替换已有段（幂等升级）
+    const re = new RegExp(`${POINTER_BEGIN}[\\s\\S]*?${POINTER_END}`);
+    content = content.replace(re, block);
+  } else {
+    content = (content.trim() ? content.trimEnd() + '\n\n' : '') + block + '\n';
+  }
+  fs.writeFileSync(instructionPath, content, 'utf8');
+}
+
+async function chooseScope(flags) {
+  if (flags.global) return 'global';
+  if (flags.local || flags.yes) return 'local';
+  const ans = await ask('安装到 1) 项目级  2) 全局 ?  [1]: ');
+  return ans === '2' ? 'global' : 'local';
+}
+
+async function cmdInit(flags) {
+  console.log(C.b('=== DeliverHQ 安装 ==='));
+
+  // 选 target
+  let target = (flags.target || 'claude').toLowerCase();
+  if (!TARGETS[target]) {
+    console.log(C.r(`未知 target: ${target}`));
+    console.log('可选: ' + Object.keys(TARGETS).join(', '));
+    process.exit(1);
+  }
+  const t = TARGETS[target];
+  console.log(`目标 agent: ${C.b(target)} (${t.kind === 'folder' ? '文件夹 skill' : '扁平指令 + 指针'})`);
+
+  let installedDir;
+
+  if (t.kind === 'folder') {
+    const scope = await chooseScope(flags);
+    installedDir = scope === 'global' ? t.globalDir() : t.projectDir(process.cwd());
+    if (fs.existsSync(installedDir) && !flags.force) {
+      console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
+      process.exit(1);
     }
+    if (fs.existsSync(installedDir)) fs.rmSync(installedDir, { recursive: true, force: true });
+    console.log(`复制核心 → ${installedDir}`);
+    copyDir(SKILL_SRC, installedDir);
+  } else {
+    // 扁平型：核心固定放项目 .deliverhq/，指针注入指令文件
+    installedDir = path.join(process.cwd(), '.deliverhq');
+    if (fs.existsSync(installedDir) && !flags.force) {
+      console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
+      process.exit(1);
+    }
+    if (fs.existsSync(installedDir)) fs.rmSync(installedDir, { recursive: true, force: true });
+    console.log(`复制核心 → ${installedDir}`);
+    copyDir(SKILL_SRC, installedDir);
+
+    const instrPath = path.join(process.cwd(), t.instructionFile);
+    console.log(`注入指针 → ${instrPath}`);
+    injectPointer(instrPath, '.deliverhq');
   }
 
-  console.log(C.g(`\n✅ 安装完成: ${target}`));
+  reportEnv();
+
+  console.log(C.g(`\n✅ 安装完成（target=${target}）`));
+  console.log('  ' + t.note);
   console.log('\n下一步：');
-  console.log(`  1. 验证健康度:  npx deliverhq doctor --path "${target}"`);
-  console.log('  2. 重启 Claude Code，skill 会被自动发现（靠 SKILL.md frontmatter）');
-  console.log('  3. 用法见 skill 内 README.md / SKILL.md');
+  console.log(`  验证健康度:  npx deliverhq doctor --path "${installedDir}"`);
 }
 
 function cmdDoctor(flags) {
   console.log(C.b('=== DeliverHQ doctor ==='));
-  // 定位 skill 目录
   let skillDir = flags.path;
   if (!skillDir) {
+    const cwd = process.cwd();
+    const home = os.homedir();
     const candidates = [
-      path.join(process.cwd(), '.claude', 'skills', 'deliverhq'),
-      path.join(os.homedir(), '.claude', 'skills', 'deliverhq'),
+      path.join(cwd, '.claude', 'skills', 'deliverhq'),
+      path.join(cwd, '.hermes', 'skills', 'deliverhq'),
+      path.join(cwd, '.deliverhq'),
+      path.join(home, '.claude', 'skills', 'deliverhq'),
+      path.join(home, '.hermes', 'skills', 'deliverhq'),
       SKILL_SRC,
     ];
     skillDir = candidates.find((p) => fs.existsSync(path.join(p, 'scripts', 'selftest.py')));
   }
   if (!skillDir || !fs.existsSync(path.join(skillDir, 'scripts', 'selftest.py'))) {
-    console.log(C.r('✗ 找不到已安装的 skill（用 --path 指定，或先 init）'));
+    console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
     process.exit(1);
   }
-  console.log(`skill 目录: ${skillDir}`);
+  console.log(`核心目录: ${skillDir}`);
 
   const py = detectPython();
-  if (!py) {
-    console.log(C.r('✗ 未找到 Python，无法运行 selftest'));
-    process.exit(1);
-  }
+  if (!py) { console.log(C.r('✗ 未找到 Python，无法运行 selftest')); process.exit(1); }
   console.log(C.g(`✓ ${py.version}`));
   if (!checkPyYAML(py.cmd)) {
-    console.log(C.r(`✗ 缺少 PyYAML：${py.cmd} -m pip install PyYAML`));
-    process.exit(1);
+    console.log(C.r(`✗ 缺少 PyYAML：${py.cmd} -m pip install PyYAML`)); process.exit(1);
   }
   console.log(C.g('✓ PyYAML 已安装'));
 
@@ -203,25 +284,34 @@ function cmdDoctor(flags) {
 }
 
 function help() {
-  console.log(`DeliverHQ — AI 交付防翻车治理框架（Claude Agent Skill 安装器）
+  console.log(`DeliverHQ — AI 交付防翻车治理框架（多 Agent 安装器）
 
 用法:
-  npx deliverhq init [--global] [--local] [--force] [--yes]
-      把 skill 装到 .claude/skills/deliverhq/
-        --global  装到 ~/.claude/skills（默认项目级 ./.claude/skills）
-        --local   强制项目级，不询问
-        --force   覆盖已存在的安装
-        --yes     非交互，用默认（项目级）
+  npx deliverhq init [--target <agent>] [--global|--local] [--force] [--yes]
 
-  npx deliverhq doctor [--path <skill目录>]
-      检测 Python/PyYAML 环境并运行 selftest
+  --target 支持的 agent:
+    claude   文件夹 skill → .claude/skills/deliverhq/   （默认）
+    hermes   文件夹 skill → ~/.hermes/skills/deliverhq/
+    codex    核心 → .deliverhq/ + 注入指针到 AGENTS.md
+    gemini   核心 → .deliverhq/ + 注入指针到 GEMINI.md
+    generic  核心 → .deliverhq/ + 生成 DELIVERHQ.md（任意 agent 通用）
 
-  npx deliverhq --help
+  --global / --local   仅文件夹型：全局或项目级（默认问；--yes 取项目级）
+  --force              覆盖已存在的安装
+  --yes                非交互
+
+  npx deliverhq doctor [--path <核心目录>]
+      检测 Python/PyYAML + 运行 selftest
+
+示例:
+  npx deliverhq init                      # Claude Code，问位置
+  npx deliverhq init --target hermes --global
+  npx deliverhq init --target codex       # 写 .deliverhq/ + AGENTS.md 指针
+  npx deliverhq init --target generic     # 任意 agent
 
 说明:
-  本工具只负责"安装 + 环境检测"。DeliverHQ 的门禁是 Python 脚本，
-  由 Claude 在对话中按需调用——npx 不运行 DeliverHQ 流程本身。
-  运行时需要 Python 3.6+ 与 PyYAML。`);
+  DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.6+ 与 PyYAML）。
+  本工具只负责按目标 agent 放置文件 + 注入入口，不运行流程本身。`);
 }
 
 async function main() {

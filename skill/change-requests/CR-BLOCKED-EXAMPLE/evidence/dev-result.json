@@ -1,7 +1,7 @@
 {
   "gate_name": "dev",
   "result": "blocked",
-  "timestamp": "2026-06-16T15:29:34.696703",
+  "timestamp": "2026-06-16T18:17:27.559688",
   "blocking_items": [
     "PreDevGate 未通过，不能进入开发阶段"
   ],
@@ -28,7 +28,7 @@
   ],
   "metadata": {
     "cr_id": "CR-BLOCKED-EXAMPLE",
-    "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm/skill/change-requests/CR-BLOCKED-EXAMPLE",
+    "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package/skill/change-requests/CR-BLOCKED-EXAMPLE",
     "lane": "standard",
     "worktree_path": null,
     "must_read_files": [

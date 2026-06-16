@@ -1,6 +1,6 @@
 {
   "cr_id": "CR-BLOCKED-EXAMPLE",
-  "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm/skill/change-requests/CR-BLOCKED-EXAMPLE",
+  "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package/skill/change-requests/CR-BLOCKED-EXAMPLE",
   "lane": "standard",
   "worktree_path": null,
   "must_read_files": [

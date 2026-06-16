@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-06-16T15:29:34.913115",
+  "timestamp": "2026-06-16T18:17:27.774311",
   "commit_hash": "901de0d829b52e9901bb562a2a6791c6506844b3",
   "commands_run": [
     "python -c \"print('Build succeeded')\"",
@@ -58,7 +58,7 @@
       "name": "build",
       "category": "build",
       "command": "python -c \"print('Build succeeded')\"",
-      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package",
       "timeout": 30,
       "success": true,
       "returncode": 0,
@@ -69,7 +69,7 @@
       "name": "test-unit",
       "category": "test",
       "command": "python -c \"print('92% passed')\"",
-      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package",
       "timeout": 30,
       "success": true,
       "returncode": 0,
@@ -80,7 +80,7 @@
       "name": "smoke-lint",
       "category": "lint",
       "command": "python -c \"print('lint ok')\"",
-      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package",
       "timeout": 300,
       "success": true,
       "returncode": 0,

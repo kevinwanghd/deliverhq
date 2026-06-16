@@ -1,0 +1,48 @@
+# Plan —— 结构化任务分解（执行层，借鉴 GSD plan.yml）
+#
+# 用途：把大任务拆成"单个 Agent 可独立完成"的 plan item，由 plan_checker.py 机检后才允许执行。
+#   解决 GSD 点出的"大任务上下文腐烂、状态丢失、执行失控"，但不照搬其 33 Agent / 86 命令。
+#
+# 与 DeliverHQ 既有能力的关系（去重，不重复造轮子）：
+#   - Worker  = 现有 Dev Agent（按 plan item 实现，读 context-packs/dev-agent.md）
+#   - Verifier = 现有 ReviewGate + QualityGate + anti_gaming_check（信证据不信自报）
+#   本文件只新增"结构化计划 + PlanChecker"这块真正缺失的能力。
+#
+# plan_checker.py 强制（fail-closed）：
+#   - 每个 task 必须有 verify(验收命令) 和 done(完成标准)
+#   - 每个 acceptance criteria(AC-N) 必须被至少一个 task 的 covers 覆盖
+#   - 多个 task 改同一文件但未声明 depends_on → 文件冲突 BLOCK
+#   - 依赖必须无环（循环依赖 BLOCK）
+#   - 派生 waves：无依赖入同 wave，有依赖等上游
+
+schema: deliverhq-plan
+version: 1
+
+cr_id: "{{CR-ID}}"
+goal: "{{这个 CR 的总目标，与 goal-contract.yml 的 goal 一致}}"
+
+tasks:
+  - task_id: "T1"
+    goal: "{{该任务要达成什么，单个 Agent 可独立完成的粒度}}"
+    files: []                 # 该任务将修改的文件（用于文件冲突检测）
+    depends_on: []             # 依赖的 task_id 列表，无依赖留空
+    covers: []                 # 覆盖的验收条件 ID，如 ["AC-1", "AC-2"]
+    verify: ""                 # 验收命令，如 "pytest tests/test_todos.py::test_create"
+    done: ""                   # 完成标准（人类可读），如 "POST /api/todos 返回 201 且测试通过"
+
+  - task_id: "T2"
+    goal: "{{...}}"
+    files: []
+    depends_on: ["T1"]         # 示例：T2 依赖 T1
+    covers: []
+    verify: ""
+    done: ""
+
+# waves 由 plan_checker.py --emit-waves 自动派生，无需手填。
+# 形如：
+# waves:
+#   - wave: 1
+#     tasks: ["T1"]
+#   - wave: 2
+#     tasks: ["T2"]
+#     depends_on: ["T1"]

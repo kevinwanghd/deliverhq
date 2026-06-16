@@ -28,6 +28,20 @@
 
 ---
 
+## 三层定位
+
+DeliverHQ 借鉴三个开源实践的**能力**，但不照搬任何一个的复杂度：
+
+| 层 | 借鉴 | DeliverHQ 落地 |
+|----|------|---------------|
+| **规范层** | OpenSpec | 验收条件（AC-N）、acceptance-spec、GIVEN/WHEN/THEN，由 SpecGate 强制 |
+| **纪律层** | Superpowers | TDD（test-plan/QualityGate 真跑）、独立 Review（ReviewGate 信证据）、worktree 隔离、收尾检查 |
+| **执行层** | GSD | `state.yml`（文件化状态，不靠会话记忆）、`plan.yml` + PlanChecker（结构化分解）、wave 派生、独立 context-pack |
+
+**刻意不做**：GSD 式的 33 Agent / 86 命令。执行层只新增"结构化计划 + PlanChecker"这一真缺口——Worker 复用现有 Dev Agent，Verifier 复用 ReviewGate/QualityGate，不新增平行角色。详见 `PLAN-GUIDE.md`。
+
+---
+
 ## 目录结构
 
 ```
@@ -230,6 +244,21 @@ python scripts/retry_guard.py change-requests/CR-XXX record --gate QualityGate -
 ```
 
 **三条信条**：① 指标是必要条件不是目标（`metrics` 必须配 `invariants`）；② 信证据不信声明（反钻空子从 diff 取证，绝不问 Agent）；③ 失败有上限有出口（达 `max_retries` → `needs_human`）。
+
+---
+
+## 证据补全 Loop（可恢复 / 有停止条件）
+
+把现有积木串成一个**具体场景的可恢复 loop**——不是抽象"loop engineering 模块"，也不是"让 Agent 干到完成"，而是在状态/证据/停止条件/人工边界下推进可自动化节点。
+
+```bash
+python scripts/evidence_loop.py change-requests/CR-001          # 扫描 + 推进一轮
+python scripts/evidence_loop.py change-requests/CR-001 --json   # 机器可读
+```
+
+每轮：读 `state.yml` 恢复进度（无则 fail-closed，要求先 init_cr）→ 扫描缺哪些真实证据（acceptance-spec / traceability / changed-files / verification-manifest / test-plan）→ 缺则列出 **gaps + 明确 next_action**、写 evidence bundle、状态置 `needs_human`；齐则 `done`（进入 ReviewGate/QualityGate）。
+
+**不新增 Agent**：复用 `cr_state`（状态/恢复）、ReviewGate 同款证据口径、`retry_guard`（重试纪律）、`write_gate_evidence`（留痕）。停止条件明确：齐全=done / 有缺口=needs-human / 无状态=fail-closed。
 
 ---
 

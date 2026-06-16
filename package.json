@@ -1,15 +1,17 @@
 {
   "name": "deliverhq",
-  "version": "5.0.0",
-  "description": "AI 交付防翻车治理框架 — 文档驱动开发 + 可执行门禁 + 老项目逆向 + loop 可控性。一行命令装成 Claude Agent Skill。",
-  "bin": {
-    "deliverhq": "bin/cli.js"
+  "version": "5.3.0",
+  "description": "AI 交付防翻车治理框架 — 多 Agent 安装。三层定位(规范/纪律/执行)：文档驱动+可执行门禁+老项目逆向+loop可控+结构化Plan机检。",
+  "author": "kevinwanghd",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kevinwanghd/deliverhq.git"
   },
-  "files": [
-    "bin/",
-    "skill/",
-    "README.md"
-  ],
+  "homepage": "https://github.com/kevinwanghd/deliverhq#readme",
+  "bugs": {
+    "url": "https://github.com/kevinwanghd/deliverhq/issues"
+  },
   "keywords": [
     "claude",
     "agent-skill",
@@ -18,8 +20,17 @@
     "spec-driven-development",
     "quality-gate"
   ],
+  "bin": {
+    "deliverhq": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "skill/",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
   "engines": {
     "node": ">=14"
-  },
-  "license": "MIT"
+  }
 }

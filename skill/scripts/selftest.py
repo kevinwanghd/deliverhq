@@ -800,9 +800,150 @@ def check_high_risk_approval_failclosed():
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+def check_plan_checker_contract():
+    """检查 PlanChecker 契约（执行层），防止沦为文档摆设。
+
+    临时 fixture 跑：合规 plan → PASS；缺 verify / AC 未覆盖 / 文件冲突 / 循环依赖 → BLOCK；
+    并验证 --emit-waves 能派生 wave。
+    """
+    section("20. PlanChecker 契约 (plan.yml)")
+    import tempfile
+    pc = ROOT / "scripts" / "plan_checker.py"
+    if not pc.exists():
+        print(f"  {FAIL} 缺少 plan_checker.py")
+        return False
+
+    tmp = Path(tempfile.mkdtemp())
+
+    def run(args):
+        return subprocess.run([sys.executable, str(pc)] + args,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=SUBPROCESS_ENV).returncode
+
+    def make_cr(plan_yaml):
+        cr = tmp / ("cr_%d" % make_cr.n); make_cr.n += 1
+        cr.mkdir()
+        (cr / "acceptance-spec.md").write_text(
+            "## 验收条件\n### AC-1: a\n### AC-2: b\n", encoding="utf-8")
+        (cr / "plan.yml").write_text(plan_yaml, encoding="utf-8")
+        return cr
+    make_cr.n = 0
+
+    GOOD = ("schema: deliverhq-plan\ncr_id: C\ntasks:\n"
+            "  - task_id: T1\n    goal: a\n    files: [a.py]\n    covers: [AC-1]\n    verify: v\n    done: d\n"
+            "  - task_id: T2\n    goal: b\n    files: [b.py]\n    depends_on: [T1]\n    covers: [AC-2]\n    verify: v\n    done: d\n")
+    try:
+        # 正例 → PASS
+        if run([str(make_cr(GOOD))]) != 0:
+            print(f"  {FAIL} 合规 plan 应 PASS"); return False
+        print(f"  {PASS} 合规 plan → PASS")
+
+        # 缺 verify → BLOCK
+        bad = GOOD.replace("    verify: v\n    done: d\n", "    verify: ''\n    done: d\n", 1)
+        if run([str(make_cr(bad))]) == 0:
+            print(f"  {FAIL} 缺 verify 应 BLOCK"); return False
+        print(f"  {PASS} 缺 verify → BLOCKED")
+
+        # AC 未覆盖 → BLOCK（只覆盖 AC-1）
+        miss = ("schema: deliverhq-plan\ncr_id: C\ntasks:\n"
+                "  - task_id: T1\n    goal: a\n    covers: [AC-1]\n    verify: v\n    done: d\n")
+        if run([str(make_cr(miss))]) == 0:
+            print(f"  {FAIL} AC 未覆盖应 BLOCK"); return False
+        print(f"  {PASS} AC 未覆盖 → BLOCKED")
+
+        # 文件冲突 → BLOCK
+        conflict = ("schema: deliverhq-plan\ncr_id: C\ntasks:\n"
+                    "  - task_id: T1\n    goal: a\n    files: [x.py]\n    covers: [AC-1]\n    verify: v\n    done: d\n"
+                    "  - task_id: T2\n    goal: b\n    files: [x.py]\n    covers: [AC-2]\n    verify: v\n    done: d\n")
+        if run([str(make_cr(conflict))]) == 0:
+            print(f"  {FAIL} 文件冲突应 BLOCK"); return False
+        print(f"  {PASS} 文件冲突 → BLOCKED")
+
+        # 循环依赖 → BLOCK
+        cycle = ("schema: deliverhq-plan\ncr_id: C\ntasks:\n"
+                 "  - task_id: T1\n    goal: a\n    covers: [AC-1]\n    depends_on: [T2]\n    verify: v\n    done: d\n"
+                 "  - task_id: T2\n    goal: b\n    covers: [AC-2]\n    depends_on: [T1]\n    verify: v\n    done: d\n")
+        if run([str(make_cr(cycle))]) == 0:
+            print(f"  {FAIL} 循环依赖应 BLOCK"); return False
+        print(f"  {PASS} 循环依赖 → BLOCKED")
+
+        # wave 派生
+        if run([str(make_cr(GOOD)), "--emit-waves"]) != 0:
+            print(f"  {FAIL} --emit-waves 应成功"); return False
+        print(f"  {PASS} wave 派生可运行")
+        return True
+    except Exception as e:
+        print(f"  {FAIL} PlanChecker 契约异常: {e}")
+        return False
+    finally:
+        import shutil
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_evidence_loop_contract():
+    """检查证据补全 Loop 契约（执行层），防止沦为文档摆设。
+
+    临时 fixture 跑：无 state → fail_closed；缺证据 → needs_human(列 gaps)；齐全 → done。
+    验证 loop 可恢复（读 state.yml）、有停止条件、缺口转 needs-human。
+    """
+    section("22. 证据补全 Loop 契约")
+    import tempfile
+    el = ROOT / "scripts" / "evidence_loop.py"
+    if not el.exists():
+        print(f"  {FAIL} 缺少 evidence_loop.py")
+        return False
+
+    tmp = Path(tempfile.mkdtemp())
+
+    def run(args):
+        return subprocess.run([sys.executable, str(el)] + args,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              env=SUBPROCESS_ENV).returncode
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import cr_state
+
+        # 1. 无 state → fail_closed（非 0）
+        empty = tmp / "empty"; empty.mkdir()
+        if run([str(empty)]) == 0:
+            print(f"  {FAIL} 无 state.yml 应 fail-closed"); return False
+        print(f"  {PASS} 无 state → fail-closed")
+
+        # 2. 有 state 但缺证据 → needs_human（非 0）
+        miss = tmp / "miss"; miss.mkdir()
+        cr_state.create_state(miss, "CR-T", "t", lane="standard")
+        if run([str(miss)]) == 0:
+            print(f"  {FAIL} 缺证据应 needs-human"); return False
+        # 状态确实被写回 needs_human
+        st = cr_state.load_state(miss)
+        if not st or st.current_state.value != "needs_human":
+            print(f"  {FAIL} 缺证据后状态未置 needs_human"); return False
+        print(f"  {PASS} 缺证据 → needs-human（状态已写回）")
+
+        # 3. 证据齐全 → done（0）
+        full = tmp / "full"; full.mkdir()
+        cr_state.create_state(full, "CR-F", "t", lane="standard")
+        (full / "acceptance-spec.md").write_text("## 验收条件\n### AC-1: a\n", encoding="utf-8")
+        (full / "traceability.yml").write_text("schema: t\nCR-F:\n  implementation:\n    - file: a.py\n", encoding="utf-8")
+        (full / "evidence").mkdir(exist_ok=True)
+        (full / "evidence" / "changed-files.json").write_text('{"changed_files":["a.py"]}', encoding="utf-8")
+        (full / "verification-manifest.yml").write_text("build:\n  enabled: true\n  command: true\n", encoding="utf-8")
+        (full / "test-plan.md").write_text("# 测试计划\n- 用例1\n", encoding="utf-8")
+        if run([str(full)]) != 0:
+            print(f"  {FAIL} 证据齐全应 done"); return False
+        print(f"  {PASS} 证据齐全 → done")
+        return True
+    except Exception as e:
+        print(f"  {FAIL} 证据 Loop 契约异常: {e}")
+        return False
+    finally:
+        import shutil
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_packaging_hygiene():
     """检查发布包中不应包含运行时垃圾文件。"""
-    section("20. Packaging Hygiene")
+    section("23. Packaging Hygiene")
     pycache_dirs = [path for path in ROOT.rglob("__pycache__") if path.is_dir()]
     pyc_files = list(ROOT.rglob("*.pyc"))
 
@@ -868,6 +1009,8 @@ def main():
     results["reverse_spec_contract"] = check_reverse_spec_contract()
     results["loop_control_contract"] = check_loop_control_contract()
     results["high_risk_approval_failclosed"] = check_high_risk_approval_failclosed()
+    results["plan_checker_contract"] = check_plan_checker_contract()
+    results["evidence_loop_contract"] = check_evidence_loop_contract()
     results["packaging_hygiene"] = check_packaging_hygiene()
 
     section("总结")

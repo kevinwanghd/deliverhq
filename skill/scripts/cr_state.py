@@ -81,6 +81,9 @@ class CRStateSnapshot:
     current_state: CRState
     current_phase: str
     current_owner: str
+    goal: str = ""
+    current_plan: Optional[str] = None
+    completed_steps: List[str] = field(default_factory=list)
     blocking_reason: Optional[str] = None
     blocked_by: List[str] = field(default_factory=list)
     last_gate: Optional[str] = None
@@ -135,6 +138,9 @@ def _serialize_state(state: CRStateSnapshot) -> Dict:
         "current_state": state.current_state.value,
         "current_phase": state.current_phase,
         "current_owner": state.current_owner,
+        "goal": state.goal,
+        "current_plan": state.current_plan,
+        "completed_steps": list(state.completed_steps),
         "blocking_reason": state.blocking_reason,
         "blocked_by": list(state.blocked_by),
         "last_gate": state.last_gate,
@@ -166,6 +172,7 @@ def create_state(
     title: str,
     lane: str = DEFAULT_LANE,
     owner: str = "human",
+    goal: str = "",
 ) -> CRStateSnapshot:
     """创建并保存初始 CR 状态。"""
 
@@ -176,6 +183,9 @@ def create_state(
         current_state=CRState.DRAFT,
         current_phase="request",
         current_owner=owner,
+        goal=goal,
+        current_plan=None,
+        completed_steps=[],
         blocking_reason=None,
         blocked_by=[],
         last_gate=None,
@@ -233,6 +243,9 @@ def load_state(cr_path: Path) -> Optional[CRStateSnapshot]:
         current_state=_coerce_state(data.get("current_state", CRState.DRAFT.value)),
         current_phase=data.get("current_phase", "request"),
         current_owner=data.get("current_owner", "human"),
+        goal=data.get("goal", "") or "",
+        current_plan=data.get("current_plan"),
+        completed_steps=data.get("completed_steps", []) or [],
         blocking_reason=data.get("blocking_reason"),
         blocked_by=data.get("blocked_by", []) or [],
         last_gate=data.get("last_gate"),
