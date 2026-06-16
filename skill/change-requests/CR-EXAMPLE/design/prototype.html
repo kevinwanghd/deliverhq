@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>CR-EXAMPLE: API 接口文档预览</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        h1 { color: #333; }
+        .endpoint { background: #f5f5f5; padding: 1rem; margin: 1rem 0; border-radius: 4px; }
+        .method { font-weight: bold; color: #fff; padding: 2px 8px; border-radius: 3px; }
+        .post { background: #49cc90; }
+        .get { background: #61affe; }
+        .patch { background: #fca130; }
+        .delete { background: #f93e3e; }
+        code { background: #e8e8e8; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>TodoApp API</h1>
+    <p>待办事项 CRUD 接口 — CR-EXAMPLE 示例</p>
+
+    <div class="endpoint">
+        <span class="method post">POST</span> <code>/api/todos</code>
+        <p>创建待办事项</p>
+    </div>
+
+    <div class="endpoint">
+        <span class="method get">GET</span> <code>/api/todos?page=1&amp;size=20&amp;status=pending</code>
+        <p>查询待办事项列表（分页 + 状态筛选）</p>
+    </div>
+
+    <div class="endpoint">
+        <span class="method patch">PATCH</span> <code>/api/todos/{id}</code>
+        <p>更新待办事项</p>
+    </div>
+
+    <div class="endpoint">
+        <span class="method delete">DELETE</span> <code>/api/todos/{id}</code>
+        <p>删除待办事项（软删除）</p>
+    </div>
+
+    <h2>响应格式</h2>
+    <pre><code>{
+  "id": 1,
+  "title": "完成项目文档",
+  "description": "编写 API 设计文档",
+  "status": "pending",
+  "due_date": "2026-06-10",
+  "created_at": "2026-06-01T10:00:00Z",
+  "updated_at": "2026-06-01T10:00:00Z"
+}</code></pre>
+</body>
+</html>

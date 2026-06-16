@@ -1,0 +1,19 @@
+{
+  "cr_id": "CR-EXAMPLE",
+  "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm/skill/change-requests/CR-EXAMPLE",
+  "lane": "standard",
+  "worktree_path": null,
+  "must_read_files": [
+    "request.md",
+    "acceptance-spec.md",
+    "implementation-plan.md",
+    "context-summary.md",
+    "traceability.yml",
+    "human-decisions.md"
+  ],
+  "next_agent_instructions": [
+    "在 worktree_path 或目标项目仓库中实现代码；本脚本不会自动写代码。",
+    "实现完成后更新 changed_files / traceability，并运行 ReviewGate。",
+    "不要跳过 verification-manifest.yml 中的真实验证命令。"
+  ]
+}

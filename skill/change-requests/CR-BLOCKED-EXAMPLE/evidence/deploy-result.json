@@ -1,0 +1,31 @@
+{
+  "gate_name": "deploy",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:35.107174",
+  "blocking_items": [
+    "缺少 deployment-checklist.md，Deploy Agent 未执行"
+  ],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "生成 deployment-checklist.md 后重新运行 DeployGate",
+  "failure_attribution": [
+    {
+      "gate": "deploy",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "缺少 deployment-checklist.md，Deploy Agent 未执行"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

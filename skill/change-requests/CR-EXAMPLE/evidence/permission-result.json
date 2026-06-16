@@ -1,0 +1,17 @@
+{
+  "gate_name": "permission",
+  "result": "pass",
+  "timestamp": "2026-06-16T15:29:34.468554",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "git status --porcelain"
+  ],
+  "artifacts": [],
+  "next_action": "继续执行 PreDevGate",
+  "failure_attribution": [],
+  "metadata": {
+    "protected_hits": [],
+    "lane": "standard"
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "gate_name": "deploy",
+  "result": "pass",
+  "timestamp": "2026-06-16T15:29:35.059986",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run writeback",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "deploy_ready",
+    "current_phase": "deploy",
+    "current_owner": "deploy-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

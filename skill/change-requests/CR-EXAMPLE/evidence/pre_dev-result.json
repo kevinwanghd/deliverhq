@@ -1,0 +1,26 @@
+{
+  "gate_name": "pre_dev",
+  "result": "pass",
+  "timestamp": "2026-06-16T15:29:34.504300",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "permissiongate.py",
+    "pre_dev_gate.py",
+    "python -c \"print('Build succeeded')\"",
+    "python -c \"print('92% passed')\"",
+    "python -c \"print('lint ok')\""
+  ],
+  "artifacts": [
+    "evidence/baseline-before.json"
+  ],
+  "next_action": "进入 ReviewGate / 开发执行阶段",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "dev",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

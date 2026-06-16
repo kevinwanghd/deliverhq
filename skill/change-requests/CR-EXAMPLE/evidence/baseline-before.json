@@ -1,0 +1,91 @@
+{
+  "timestamp": "2026-06-16T15:29:34.472056",
+  "commit_hash": "901de0d829b52e9901bb562a2a6791c6506844b3",
+  "commands_run": [
+    "python -c \"print('Build succeeded')\"",
+    "python -c \"print('92% passed')\"",
+    "python -c \"print('lint ok')\""
+  ],
+  "build_passed": true,
+  "build_errors": [],
+  "tests_total": 1,
+  "tests_passed": 1,
+  "tests_failed": 0,
+  "failing_tests": [],
+  "lint_errors": 0,
+  "lint_warnings": 0,
+  "type_errors": 0,
+  "coverage_percent": 92.0,
+  "command_config": {
+    "project": {
+      "name": "CR-EXAMPLE",
+      "type": "python"
+    },
+    "build": {
+      "enabled": true,
+      "command": "python -c \"print('Build succeeded')\"",
+      "working_dir": ".",
+      "timeout": 30
+    },
+    "test": {
+      "unit": {
+        "enabled": true,
+        "command": "python -c \"print('92% passed')\"",
+        "working_dir": ".",
+        "timeout": 30,
+        "coverage_enabled": true,
+        "coverage_threshold": 80
+      }
+    },
+    "lint": {
+      "enabled": true,
+      "tools": [
+        {
+          "name": "smoke-lint",
+          "command": "python -c \"print('lint ok')\"",
+          "severity": "warning"
+        }
+      ]
+    },
+    "qualitygate": {
+      "mode": "hybrid",
+      "fail_fast": true,
+      "auto_fix": false
+    }
+  },
+  "command_results": [
+    {
+      "name": "build",
+      "category": "build",
+      "command": "python -c \"print('Build succeeded')\"",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "timeout": 30,
+      "success": true,
+      "returncode": 0,
+      "stdout": "Build succeeded\n",
+      "stderr": ""
+    },
+    {
+      "name": "test-unit",
+      "category": "test",
+      "command": "python -c \"print('92% passed')\"",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "timeout": 30,
+      "success": true,
+      "returncode": 0,
+      "stdout": "92% passed\n",
+      "stderr": ""
+    },
+    {
+      "name": "smoke-lint",
+      "category": "lint",
+      "command": "python -c \"print('lint ok')\"",
+      "working_dir": "/home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/deliverhq-npm",
+      "timeout": 300,
+      "success": true,
+      "returncode": 0,
+      "stdout": "lint ok\n",
+      "stderr": ""
+    }
+  ]
+}

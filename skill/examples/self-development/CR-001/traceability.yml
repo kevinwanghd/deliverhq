@@ -1,0 +1,104 @@
+schema: deliverhq-traceability
+version: 1
+
+# 可追溯性：需求到代码到测试的双向映射
+
+CR-TEMPLATE:
+  requirement: "{{需求简述，从 request.md 提取}}"
+  priority: "P0 / P1 / P2"
+
+  acceptance_criteria:
+    - "{{验收条件 1，从 acceptance-spec.md 提取}}"
+    - "{{验收条件 2}}"
+    - "{{验收条件 3}}"
+
+  implementation:
+    - file: "{{项目路径}}/services/{{ServiceName}}.{{ext}}"
+      functions:
+        - "{{MethodName1}}"
+        - "{{MethodName2}}"
+      lines: "{{起始行}}-{{结束行}}"
+      commit: "{{commit_hash}}"
+
+    - file: "{{项目路径}}/controllers/{{ControllerName}}.{{ext}}"
+      endpoints:
+        - "POST /api/{{endpoint1}}"
+        - "GET /api/{{endpoint2}}"
+      lines: "{{起始行}}-{{结束行}}"
+      commit: "{{commit_hash}}"
+
+  tests:
+    - file: "{{项目路径}}/tests/{{ServiceName}}.test.{{ext}}"
+      cases:
+        - name: "{{TestMethodName1}}"
+          covers: "{{验收条件 #1}}"
+          type: "unit"
+        - name: "{{TestMethodName2}}"
+          covers: "{{验收条件 #2}}"
+          type: "integration"
+      lines: "{{起始行}}-{{结束行}}"
+      commit: "{{commit_hash}}"
+
+  data_changes:
+    - type: "nosql / postgres / mysql"
+      collection: "{{collection_name}}"
+      operation: "create / update / delete"
+      schema_change: true / false
+
+    - type: "postgres / mysql"
+      table: "{{table_name}}"
+      operation: "create / update / delete"
+      migration: "{{migration_file}}"
+
+  dependencies:
+    - type: "external_api"
+      name: "{{外部服务 API}}"
+      version: "{{v2.0}}"
+
+    - type: "internal_service"
+      name: "{{内部服务名}}"
+      interface: "{{interface_name}}"
+
+  verification:
+    - gate: "SpecGate"
+      status: "PASS"
+      report: "specgate-report.md"
+
+    - gate: "DesignGate"
+      status: "PASS / N/A"
+      report: "designgate-report.md"
+
+    - gate: "QualityGate"
+      status: "PASS"
+      report: "qualitygate-report.md"
+
+    - gate: "WritebackGate"
+      status: "PASS"
+      report: "writeback-gate-report.md"
+
+  delivery:
+    date: "{{2026-06-11}}"
+    commit: "{{commit_hash}}"
+    branch: "{{feature/cr-template}}"
+    archived_to: "delivery/2026-06/CR-TEMPLATE/"
+
+# 示例：真实 CR
+# CR-001:
+#   requirement: "实现用户订单支付接口"
+#   priority: "P0"
+#   acceptance_criteria:
+#     - "支持多种支付方式（微信/支付宝）"
+#     - "异步处理，返回支付链接"
+#     - "支付成功后更新订单状态"
+#   implementation:
+#     - file: "src/services/PaymentService.ts"
+#       functions: ["createPayment", "handleCallback"]
+#       lines: "120-450"
+#       commit: "abc1234"
+#   tests:
+#     - file: "tests/PaymentService.test.ts"
+#       cases:
+#         - name: "createPayment_validInput_returnsPaymentUrl"
+#           covers: "验收条件 #1, #2"
+#           type: "unit"
+#   ...

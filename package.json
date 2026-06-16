@@ -1,0 +1,25 @@
+{
+  "name": "deliverhq",
+  "version": "5.0.0",
+  "description": "AI 交付防翻车治理框架 — 文档驱动开发 + 可执行门禁 + 老项目逆向 + loop 可控性。一行命令装成 Claude Agent Skill。",
+  "bin": {
+    "deliverhq": "bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "skill/",
+    "README.md"
+  ],
+  "keywords": [
+    "claude",
+    "agent-skill",
+    "deliverhq",
+    "ai-governance",
+    "spec-driven-development",
+    "quality-gate"
+  ],
+  "engines": {
+    "node": ">=14"
+  },
+  "license": "MIT"
+}

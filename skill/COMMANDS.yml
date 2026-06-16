@@ -1,0 +1,22 @@
+# COMMANDS.yml
+# Authoritative project commands. Keep this aligned with change-requests/*/verification-manifest.yml.
+
+build:
+  command: "echo 'Configure build command in COMMANDS.yml'"
+  working_dir: "."
+  timeout: 300
+
+test:
+  command: "echo 'Configure test command in COMMANDS.yml'"
+  working_dir: "."
+  timeout: 600
+
+lint:
+  command: "echo 'Configure lint command in COMMANDS.yml'"
+  working_dir: "."
+  timeout: 300
+
+typecheck:
+  command: "echo 'Configure typecheck command in COMMANDS.yml'"
+  working_dir: "."
+  timeout: 300

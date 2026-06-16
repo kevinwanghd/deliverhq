@@ -1,0 +1,102 @@
+# Verification Manifest
+# 定义项目的验证命令，QualityGate 可选择性执行真实验证
+
+# 项目信息
+project:
+  name: "{{PROJECT_NAME}}"
+  type: "dotnet"  # dotnet / nodejs / python / java
+
+# 构建验证
+build:
+  enabled: true
+  command: "dotnet build"
+  working_dir: "."
+  timeout: 300  # 秒
+  success_pattern: "Build succeeded"
+
+# 单元测试
+test:
+  unit:
+    enabled: true
+    command: "dotnet test --no-build --filter Category=Unit"
+    working_dir: "."
+    timeout: 600
+    coverage_enabled: true
+    coverage_command: "dotnet test --collect:\"XPlat Code Coverage\""
+    coverage_threshold: 80  # 最低覆盖率要求
+
+  integration:
+    enabled: false  # 集成测试可选
+    command: "dotnet test --no-build --filter Category=Integration"
+    working_dir: "."
+    timeout: 900
+
+# 静态分析
+lint:
+  enabled: true
+  tools:
+    - name: "dotnet-format"
+      command: "dotnet format --verify-no-changes"
+      severity: "warning"  # error / warning / info
+
+    - name: "roslyn-analyzers"
+      command: "dotnet build /p:TreatWarningsAsErrors=true"
+      severity: "error"
+
+# 安全扫描
+security:
+  enabled: false  # 可选，需要额外工具
+  command: "dotnet list package --vulnerable"
+
+# 性能基准测试
+benchmark:
+  enabled: false  # 可选
+  command: "dotnet run --project Benchmarks --no-build"
+
+# 自定义验证
+custom:
+  - name: "check-migration-scripts"
+    command: "python scripts/check_migrations.py"
+    enabled: false
+
+  - name: "api-contract-validation"
+    command: "npm run validate-openapi"
+    enabled: false
+
+# QualityGate 行为配置
+qualitygate:
+  mode: "hybrid"  # parse_only / execute_only / hybrid
+  # parse_only: 仅用于 fast/demo/兼容；standard/high-risk 会强制执行真实命令
+  # execute_only: 仅执行真实命令（完全验证）
+  # hybrid: 解析 AI 报告 + 执行 verification-manifest.yml 中的真实命令
+
+  fail_fast: true  # 遇到第一个失败立即停止
+  auto_fix: false  # 自动运行修复命令（如 dotnet format）
+
+# 示例配置（不同项目类型）
+#
+# Node.js 项目:
+# build:
+#   command: "npm run build"
+# test:
+#   unit:
+#     command: "npm test -- --coverage"
+#     coverage_threshold: 80
+# lint:
+#   tools:
+#     - name: "eslint"
+#       command: "npm run lint"
+#
+# Python 项目:
+# build:
+#   command: "python -m py_compile src/**/*.py"
+# test:
+#   unit:
+#     command: "pytest --cov=src --cov-report=term"
+#     coverage_threshold: 80
+# lint:
+#   tools:
+#     - name: "flake8"
+#       command: "flake8 src/"
+#     - name: "mypy"
+#       command: "mypy src/"

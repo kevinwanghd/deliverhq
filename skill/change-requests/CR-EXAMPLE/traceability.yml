@@ -1,0 +1,81 @@
+schema: deliverhq-traceability
+version: 1
+
+CR-EXAMPLE:
+  requirement: "实现待办事项 CRUD 接口"
+  priority: "P1"
+
+  acceptance_criteria:
+    - "POST /api/todos 创建待办事项，返回 201"
+    - "GET /api/todos 分页查询，支持状态筛选"
+    - "PATCH /api/todos/{id} 更新，404 处理"
+    - "DELETE /api/todos/{id} 软删除，返回 204"
+    - "P95 < 100ms，并发 100 无错误"
+
+  implementation:
+    - file: "src/models/todo.py"
+      functions:
+        - "Todo"
+      lines: "1-35"
+      commit: "a1b2c3d"
+
+    - file: "src/api/todos.py"
+      endpoints:
+        - "POST /api/todos"
+        - "GET /api/todos"
+        - "PATCH /api/todos/{id}"
+        - "DELETE /api/todos/{id}"
+      lines: "1-80"
+      commit: "a1b2c3d"
+
+  tests:
+    - file: "tests/test_todos.py"
+      cases:
+        - name: "test_create_todo_success"
+          covers: "验收条件 #1"
+          type: "integration"
+        - name: "test_list_todos_pagination"
+          covers: "验收条件 #2"
+          type: "integration"
+        - name: "test_update_todo_not_found"
+          covers: "验收条件 #3"
+          type: "integration"
+        - name: "test_delete_todo_soft"
+          covers: "验收条件 #4"
+          type: "integration"
+      lines: "1-150"
+      commit: "a1b2c3d"
+
+  data_changes:
+    - type: "postgres"
+      table: "todos"
+      operation: "create"
+      migration: "alembic/versions/001_create_todos.py"
+
+  dependencies:
+    - type: "internal_service"
+      name: "PostgreSQL"
+      interface: "SQLAlchemy ORM"
+
+  verification:
+    - gate: "SpecGate"
+      status: "PASS"
+      report: "specgate-report.md"
+
+    - gate: "DesignGate"
+      status: "N/A"
+      report: "designgate-report.md"
+
+    - gate: "QualityGate"
+      status: "PASS"
+      report: "qualitygate-report.md"
+
+    - gate: "WritebackGate"
+      status: "PASS"
+      report: "writeback-gate-report.md"
+
+  delivery:
+    date: "2026-06-05"
+    commit: "a1b2c3d"
+    branch: "feature/cr-example-todos"
+    archived_to: "delivery/2026-06/CR-EXAMPLE/"

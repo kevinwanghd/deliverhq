@@ -1,0 +1,147 @@
+schema: deliverhq-dir-graph
+version: 1
+
+# 工作空间配置
+workspace:
+  name: "{{项目名称}}"           # 修改为实际项目名
+  mode: new-project              # new-project / legacy-scan
+  host_repo_root: ..             # DeliverHQ/ 目录位于项目根目录下
+
+# 入口文件
+entrypoints:
+  behavior: AGENTS.md            # Agent 行为规则
+  tool_entry: CLAUDE.md          # 工具入口（Claude Code 专用）
+  context: docs/CONTEXT.md       # 项目上下文
+  graph: dir-graph.yaml          # 本文件
+
+# DeliverHQ 治理目录（相对 DeliverHQ/ 目录）
+directories:
+  docs: {role: baseline-memory}                 # 组织记忆（规则、决策、错误案例）
+  docs/reports: {role: scan-report}             # 扫描报告
+  change-requests: {role: active-delivery}      # 活跃 CR
+  delivery: {role: delivery-record}             # 已交付归档
+  _archived: {role: archive, default_permission: read-only}
+
+# 受保护路径（相对仓库根 ../ ）
+# AI 不得随意修改这些文件，需明确批准
+protected_paths:
+  # 配置文件示例（根据实际项目调整）
+  - ../config/production.yml
+  - ../**/appsettings*.json      # .NET 项目
+  - ../config/database.yml
+  - ../.env.production
+
+  # 项目核心约定（根据实际项目调整）
+  - ../docs/architecture.md      # 架构设计文档
+  - ../package.json              # 依赖锁定
+  - ../requirements.txt          # Python 依赖
+
+  # DeliverHQ 核心文件
+  - docs/rules.md
+  - docs/decisions.md
+  - AGENTS.md
+  - dir-graph.yaml
+
+# Agent 权限定义
+agents:
+  # Spec Agent：需求分析 → 验收规格
+  spec-agent:
+    reads:
+      - ../docs/**               # 项目文档
+      - change-requests/*/request.md
+      - docs/rules.md
+    writes:
+      - change-requests/*/acceptance-spec.md
+      - change-requests/*/human-decisions.md
+    forbidden:
+      - protected_paths          # 继承全局保护路径
+
+  # Design Agent：设计方案
+  design-agent:
+    reads:
+      - change-requests/*/acceptance-spec.md
+      - ../docs/architecture.md
+    writes:
+      - change-requests/*/design/**
+      - change-requests/*/implementation-plan.md
+
+  # Context Agent：上下文摘要
+  context-agent:
+    reads:
+      - change-requests/**
+    writes:
+      - change-requests/*/context-summary.md
+
+  # Dev Agent：编写代码
+  dev-agent:
+    reads:
+      - ../**                    # 可读全部源码
+      - change-requests/*/acceptance-spec.md
+      - change-requests/*/implementation-plan.md
+    writes:
+      - ../src/**                # 根据实际项目调整源码目录
+      - ../lib/**
+      - ../components/**
+      - ../services/**
+      - change-requests/*/traceability.yml
+    forbidden:
+      - protected_paths
+
+  # Test Agent：编写测试
+  test-agent:
+    reads:
+      - ../src/**
+      - ../tests/**
+      - change-requests/*/acceptance-spec.md
+    writes:
+      - ../tests/**              # 根据实际项目调整测试目录
+      - change-requests/*/test-plan.md
+
+  # Quality Agent：质量检查
+  quality-agent:
+    reads:
+      - ../src/**
+      - ../tests/**
+      - change-requests/**
+      - docs/rules.md
+    writes:
+      - change-requests/*/quality-report.md
+      - docs/mistake-book.md     # 失败时自动记录
+
+  # Writeback Agent：知识沉淀
+  writeback-agent:
+    reads:
+      - change-requests/**
+      - docs/**
+    writes:
+      - docs/rules.md            # 更新规则成熟度
+      - docs/decisions.md        # 记录架构决策
+      - docs/interfaces.md       # 更新接口文档
+      - docs/data-model.md       # 更新数据模型
+
+  # Memory Agent：归档
+  memory-agent:
+    reads:
+      - change-requests/**
+    writes:
+      - delivery/**              # 移动到归档目录
+      - _archived/**
+
+  # Scan Agent：扫描老项目
+  scan-agent:
+    reads:
+      - ../**                    # 可读全部源码
+    writes:
+      - docs/reports/**          # 生成扫描报告
+
+# 配置指南
+#
+# 1. 修改 workspace.name 为实际项目名
+# 2. 根据项目结构调整 protected_paths（配置文件、核心文档）
+# 3. 根据项目结构调整 dev-agent.writes（源码目录）
+# 4. 根据项目结构调整 test-agent.writes（测试目录）
+# 5. 删除本配置指南注释
+
+---
+# 模板版本：v4.5
+# 更新日期：2026-06-12

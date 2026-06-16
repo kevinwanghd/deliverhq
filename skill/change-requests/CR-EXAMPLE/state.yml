@@ -1,0 +1,20 @@
+blocked_by: []
+blocking_reason: null
+completed_at: '2026-06-10T18:30:00'
+cr_id: CR-EXAMPLE
+created_at: '2026-06-10T09:00:00'
+current_owner: writeback-agent
+current_phase: writeback
+current_state: archived
+gate_status: {context: pass, deploy: pass, design: pass, dev: pass, permission: pass,
+  pre_dev: pass, quality: pass, review: pass, spec: pass, writeback: pass}
+lane: standard
+last_gate: writeback
+next_gate: null
+next_required_gate: null
+requires_human: false
+started_at: '2026-06-10T09:00:00'
+title: 示例功能
+transitions: []
+updated_at: '2026-06-16T15:29:35.155507'
+worktree_path: null

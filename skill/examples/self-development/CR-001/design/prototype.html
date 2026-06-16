@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototype: 升级项目使用 DeliverHQ v4.6 框架</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        h1 { color: #333; }
+        .screen { border: 1px solid #ddd; padding: 20px; margin: 20px 0; border-radius: 4px; background: #fafafa; }
+        .btn { display: inline-block; padding: 10px 20px; background: #1890ff; color: white; text-decoration: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #40a9ff; }
+        .note { color: #666; font-size: 14px; font-style: italic; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>可交互原型：升级项目使用 DeliverHQ v4.6 框架</h1>
+        <p>本原型用于快速验证交互流程，不代表最终视觉样式。</p>
+        <p class="note">💡 提示：如需引用设计稿图片，放在 <code>assets/</code> 目录，示例：<code>&lt;img src="./assets/screen-main.png"&gt;</code></p>
+
+        <div class="screen" id="screen-1">
+            <h2>界面 1：{{页面名称}}</h2>
+            <p>{{页面说明}}</p>
+            <!-- 示例：引用设计稿图片 -->
+            <!-- <img src="./assets/screen-main.png" alt="主界面" style="max-width:100%"> -->
+            <a href="#screen-2" class="btn">{{操作按钮}}</a>
+            <p class="note">点击按钮进入下一界面</p>
+        </div>
+
+        <div class="screen" id="screen-2" style="display: none;">
+            <h2>界面 2：{{页面名称}}</h2>
+            <p>{{页面说明}}</p>
+            <a href="#screen-3" class="btn">{{操作按钮}}</a>
+            <a href="#screen-1" class="btn" style="background: #999;">返回</a>
+        </div>
+
+        <div class="screen" id="screen-3" style="display: none;">
+            <h2>界面 3：完成</h2>
+            <p>✅ 流程完成</p>
+            <a href="#screen-1" class="btn">重新开始</a>
+        </div>
+    </div>
+
+    <script>
+        // 简单路由：根据 hash 显示对应界面
+        function navigate() {
+            const screens = document.querySelectorAll('.screen');
+            screens.forEach(s => s.style.display = 'none');
+            const target = location.hash || '#screen-1';
+            const screen = document.querySelector(target);
+            if (screen) screen.style.display = 'block';
+        }
+        window.addEventListener('hashchange', navigate);
+        navigate();
+    </script>
+</body>
+</html>

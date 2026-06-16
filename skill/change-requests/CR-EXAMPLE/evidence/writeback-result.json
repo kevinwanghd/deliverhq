@@ -1,0 +1,23 @@
+{
+  "gate_name": "writeback",
+  "result": "pass",
+  "timestamp": "2026-06-16T15:29:35.156552",
+  "blocking_items": [],
+  "warnings": [
+    "完成后需归档到 delivery/YYYY-MM/"
+  ],
+  "commands_run": [],
+  "artifacts": [
+    "writeback-report.md",
+    "docs/rules-candidates.md"
+  ],
+  "next_action": "进入归档流程",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "archived",
+    "current_phase": "writeback",
+    "current_owner": "writeback-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

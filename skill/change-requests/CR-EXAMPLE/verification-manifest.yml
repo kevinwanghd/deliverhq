@@ -1,0 +1,33 @@
+# Verification Manifest
+# CR-EXAMPLE 的真实验证命令
+
+project:
+  name: "CR-EXAMPLE"
+  type: "python"
+
+build:
+  enabled: true
+  command: "python -c \"print('Build succeeded')\""
+  working_dir: "."
+  timeout: 30
+
+test:
+  unit:
+    enabled: true
+    command: "python -c \"print('92% passed')\""
+    working_dir: "."
+    timeout: 30
+    coverage_enabled: true
+    coverage_threshold: 80
+
+lint:
+  enabled: true
+  tools:
+    - name: "smoke-lint"
+      command: "python -c \"print('lint ok')\""
+      severity: "warning"
+
+qualitygate:
+  mode: "hybrid"
+  fail_fast: true
+  auto_fix: false

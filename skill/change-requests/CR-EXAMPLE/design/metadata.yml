@@ -1,0 +1,8 @@
+schema: deliverhq-design-metadata
+version: 1
+
+CR-EXAMPLE:
+  ui_type: api_only
+  design_required: false
+  reason: "纯后端 API 接口，无用户界面"
+  gate_status: "N/A"

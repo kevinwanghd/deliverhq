@@ -1,0 +1,19 @@
+# NOISE_FILTER.yml
+# Paths and files that agents should ignore unless explicitly relevant.
+
+ignore:
+  - "**/__pycache__/**"
+  - "**/*.pyc"
+  - "**/node_modules/**"
+  - "**/.git/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/.cache/**"
+  - "DeliverHQ/delivery/**"
+  - "DeliverHQ/_archived/**"
+  - "DeliverHQ/change-requests/*/evidence/*.json"
+
+always_read_first:
+  - "DeliverHQ/REPO_MAP.md"
+  - "DeliverHQ/COMMANDS.yml"
+  - "DeliverHQ/dir-graph.yaml"

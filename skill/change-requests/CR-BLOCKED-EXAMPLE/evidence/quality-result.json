@@ -1,0 +1,66 @@
+{
+  "gate_name": "quality",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:35.011863",
+  "blocking_items": [
+    "quality-report.md 状态为 BLOCKED",
+    "P0 通过率 33%，未达标",
+    "测试覆盖率 65% ，目标 ≥ 80%",
+    "缺少 verification-manifest.yml，QualityGate 不能仅凭 AI 报告 PASS"
+  ],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [
+    "quality-report.md"
+  ],
+  "next_action": "修复质量问题并重新运行 QualityGate",
+  "failure_attribution": [
+    {
+      "gate": "quality",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "quality-report.md 状态为 BLOCKED"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "quality",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "P0 通过率 33%，未达标"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "quality",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "测试覆盖率 65% ，目标 ≥ 80%"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "quality",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "缺少 verification-manifest.yml，QualityGate 不能仅凭 AI 报告 PASS"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

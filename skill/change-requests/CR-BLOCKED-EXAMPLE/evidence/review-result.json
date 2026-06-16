@@ -1,0 +1,108 @@
+{
+  "gate_name": "review",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:34.818577",
+  "blocking_items": [
+    "review-report.md 状态为 BLOCKED",
+    "review-report.md 缺少逐场景审查，不能只给总体结论",
+    "traceability.yml 不存在",
+    "changed files 与 traceability 不一致",
+    "acceptance-spec.md 仍有占位符",
+    "缺少 test-plan.md",
+    "缺少 verification-manifest.yml"
+  ],
+  "warnings": [],
+  "commands_run": [
+    "review-report.md parse",
+    "traceability.yml check",
+    "git status --porcelain"
+  ],
+  "artifacts": [
+    "review-report.md",
+    "traceability.yml",
+    "test-plan.md",
+    "acceptance-spec.md",
+    "evidence/changed-files.json",
+    "verification-manifest.yml"
+  ],
+  "next_action": "修复 ReviewGate 阻断项并重新运行",
+  "failure_attribution": [
+    {
+      "gate": "review",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "review-report.md 状态为 BLOCKED"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "review-report.md 缺少逐场景审查，不能只给总体结论"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "traceability.yml 不存在"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "changed files 与 traceability 不一致"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "acceptance-spec.md 仍有占位符"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "test_plan_missing",
+      "repair_action": "fill_document",
+      "evidence": [
+        "缺少 test-plan.md"
+      ],
+      "next_step": "执行修复动作: fill_document",
+      "is_blocker": true
+    },
+    {
+      "gate": "review",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "缺少 verification-manifest.yml"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

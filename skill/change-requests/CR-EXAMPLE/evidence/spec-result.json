@@ -1,0 +1,18 @@
+{
+  "gate_name": "spec",
+  "result": "pass",
+  "timestamp": "2026-06-16T15:29:34.196930",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run design",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "spec_review",
+    "current_phase": "spec",
+    "current_owner": "spec-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

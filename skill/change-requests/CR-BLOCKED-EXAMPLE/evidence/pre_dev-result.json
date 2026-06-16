@@ -1,0 +1,71 @@
+{
+  "gate_name": "pre_dev",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:34.687460",
+  "blocking_items": [
+    "acceptance-spec.md 包含未解决的占位符",
+    "有 design/ 目录但无设计稿",
+    "标准/高风险 CR 必须维护 traceability.yml",
+    "verification-manifest.yml 不存在"
+  ],
+  "warnings": [
+    "存在模糊点但缺少 human-decisions.md"
+  ],
+  "commands_run": [
+    "permissiongate.py",
+    "pre_dev_gate.py"
+  ],
+  "artifacts": [
+    "evidence/baseline-before.json"
+  ],
+  "next_action": "补齐阻断项后重新运行 PreDevGate",
+  "failure_attribution": [
+    {
+      "gate": "pre_dev",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "acceptance-spec.md 包含未解决的占位符"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "pre_dev",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "有 design/ 目录但无设计稿"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "pre_dev",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "标准/高风险 CR 必须维护 traceability.yml"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    },
+    {
+      "gate": "pre_dev",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
+      "evidence": [
+        "verification-manifest.yml 不存在"
+      ],
+      "next_step": "执行修复动作: fix_code",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

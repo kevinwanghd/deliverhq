@@ -1,0 +1,64 @@
+{
+  "gate_name": "spec",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:34.245778",
+  "blocking_items": [
+    "包含模板变量: {{字段列表}}, {{CR_BLOCKED_EXAMPLE}}, {{Entity}}, {{未填充}}, {{说明}}",
+    "3 处 [待确认] 或 [TODO] 未解决",
+    "P0 Open Questions 未解决",
+    "P0 Assumptions 未验证"
+  ],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run spec",
+  "failure_attribution": [
+    {
+      "gate": "spec",
+      "failure_type": "template_var_unresolved",
+      "repair_action": "fill_document",
+      "evidence": [
+        "包含模板变量: {{字段列表}}, {{CR_BLOCKED_EXAMPLE}}, {{Entity}}, {{未填充}}, {{说明}}"
+      ],
+      "next_step": "替换所有 {{变量}} 为实际值",
+      "is_blocker": true
+    },
+    {
+      "gate": "spec",
+      "failure_type": "ambiguity_unresolved",
+      "repair_action": "resolve_ambiguity",
+      "evidence": [
+        "3 处 [待确认] 或 [TODO] 未解决"
+      ],
+      "next_step": "解决所有 [待确认] 占位符，将 P0 Open Questions 状态改为 resolved",
+      "is_blocker": true
+    },
+    {
+      "gate": "spec",
+      "failure_type": "ambiguity_unresolved",
+      "repair_action": "resolve_ambiguity",
+      "evidence": [
+        "P0 Open Questions 未解决"
+      ],
+      "next_step": "解决所有 [待确认] 占位符，将 P0 Open Questions 状态改为 resolved",
+      "is_blocker": true
+    },
+    {
+      "gate": "spec",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "P0 Assumptions 未验证"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

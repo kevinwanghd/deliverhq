@@ -1,0 +1,10 @@
+schema: deliverhq-exceptions
+version: 1
+
+CR-EXAMPLE:
+  exceptions:
+    - rule: "design-gate-required"
+      reason: "纯后端 API 接口，无用户界面，不需要设计产物"
+      approved_by: "技术负责人"
+      date: "2026-06-02"
+      scope: "本 CR 限定"

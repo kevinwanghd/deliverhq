@@ -1,0 +1,66 @@
+# Goal Contract —— 自动化 loop 的目标契约（机器可读）
+#
+# 设计要点（针对 Goodhart / Reward Hacking）：
+#   关键认识：机器指标是“完成的必要条件”，不是“目标本身”。
+#   只写 "test 全绿" 会被“删测试”达成。所以 success_criteria 分两轨：
+#     - metrics    ：可测指标（必要条件）—— test 绿 / lint 零新增 / selftest ok
+#     - invariants ：不变量（防钻空子）—— 测试数不减 / 阈值不降低 / gate 脚本未改
+#   两轨同时满足才算“完成”。invariants 由 anti_gaming_check.py 从 git diff 客观核验。
+#
+# 由 goal_contract.py 校验结构完整性；由各 Gate 在验收时读取并执行。
+
+schema: deliverhq-goal-contract
+version: 1
+
+cr_id: "{{CR-ID}}"
+
+# 1. 目标（人类可读的真实意图，不是指标）
+goal: "{{这个 loop 要达成的真实目标，例如：为 /todos 接口增加分页能力}}"
+
+# 2. 完成标准（双轨：指标 + 不变量）
+success_criteria:
+  # 2a. 指标 —— 机器可测的必要条件
+  metrics:
+    - id: "tests_pass"
+      command: "{{npm test 或 pytest 等}}"
+      expect: "exit_zero"          # exit_zero | contains:<文本> | not_contains:<文本>
+    - id: "selftest_ok"
+      command: "python scripts/selftest.py"
+      expect: "exit_zero"
+  # 2b. 不变量 —— 防 Goodhart 的客观约束（由 anti_gaming_check.py 核验 git diff）
+  invariants:
+    - "tests_not_reduced"          # 测试用例/文件数不得净减少
+    - "coverage_threshold_not_lowered"   # 不得调低 verification-manifest 的阈值
+    - "gate_scripts_unmodified"    # 不得修改 scripts/*gate*.py / selftest.py / *contract*.py
+    - "no_disabled_assertions"     # 不得注释/skip/xfail 失败断言
+
+# 3. 验收命令（必须真实执行，输出作为证据；缺失=fail）
+verification_commands:
+  - "python scripts/qualitygate.py change-requests/{{CR-ID}}"
+  - "python scripts/reviewgate.py change-requests/{{CR-ID}}"
+
+# 4. 边界（禁止项 —— 触碰即 BLOCK）
+boundaries:
+  allowed_paths:                   # 改动只允许落在这些路径（glob）
+    - "src/**"
+    - "tests/**"
+  forbidden_actions:               # 明确禁止的钻空子行为
+    - "删除测试以让测试通过"
+    - "注释/skip 失败断言"
+    - "降低 Gate 阈值"
+    - "修改 CI / selftest / gate 配置以绕过失败"
+    - "扩大改动范围到 allowed_paths 之外"
+    - "用『文档已更新』冒充功能完成"
+
+# 5. 失败降级（失败后怎么办）
+on_failure:
+  max_retries: 3                   # 同类失败最多重试次数（含本次）
+  retry_requires_new_hypothesis: true   # 每次重试必须说明新假设，禁止原地重复
+  on_exhausted: "needs_human"      # 重试耗尽后的去向
+
+# 6. 何时必须交还人类（硬性人工介入条件）
+escalate_to_human_when:
+  - "重试达到 max_retries 仍失败"
+  - "改动触及 protected_paths"
+  - "检测到 reward hacking（invariant 被破坏）"
+  - "high-risk lane 的部署/权限决策"

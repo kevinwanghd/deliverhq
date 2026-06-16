@@ -1,0 +1,31 @@
+{
+  "gate_name": "design",
+  "result": "blocked",
+  "timestamp": "2026-06-16T15:29:34.341001",
+  "blocking_items": [
+    "C 端必须有高保真设计稿"
+  ],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run design",
+  "failure_attribution": [
+    {
+      "gate": "design",
+      "failure_type": "human_decision_required",
+      "repair_action": "ask_human",
+      "evidence": [
+        "C 端必须有高保真设计稿"
+      ],
+      "next_step": "需要人工判断此问题如何修复",
+      "is_blocker": true
+    }
+  ],
+  "metadata": {
+    "current_state": "blocked",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

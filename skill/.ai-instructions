@@ -1,0 +1,56 @@
+# ⚠️ AI: READ THIS FIRST
+
+Before performing ANY task in this project, you MUST:
+
+## 1. Read Core Documents (in order)
+1. `DeliverHQ/AGENTS.md` — Behavior rules and fail-closed principles
+2. `DeliverHQ/dir-graph.yaml` — Permissions, protected paths, agent contracts
+3. `DeliverHQ/docs/CONTEXT.md` — Project context and tech stack
+
+## 2. Before Writing Code
+If starting development on a Change Request (CR), run:
+```bash
+python DeliverHQ/scripts/pre_dev_gate.py <CR-ID>
+```
+
+**IF the script returns BLOCKED:**
+- ⛔ STOP immediately
+- 🚨 Alert the human engineer: "Documentation incomplete. Cannot proceed with development."
+- 📋 Show the blocking items from the script output
+- ❌ DO NOT write any code until blockers are resolved
+
+## 3. Protected Paths — DO NOT MODIFY
+Without explicit approval, NEVER modify:
+- `configs/appsettings.json` (contains secrets, tracked by git — P0 security issue)
+- `**/appsettings*.json`
+- `openspec/specs/**` (source of truth)
+- `DeliverHQ/docs/rules.md`
+- `DeliverHQ/dir-graph.yaml`
+- `DeliverHQ/AGENTS.md`
+
+## 4. Core Principle
+**Documentation incomplete = Development blocked**
+
+This is NOT a suggestion. This is a hard gate enforced by `pre_dev_gate.py`.
+
+## 5. Quality Gates
+During delivery, you will encounter 5 gates. Each gate MUST pass:
+- SpecGate → DesignGate → ContextWindowGate → QualityGate → WritebackGate
+
+Run gate scripts explicitly:
+```bash
+python DeliverHQ/scripts/specgate.py <path>
+python DeliverHQ/scripts/designgate.py <CR-path>
+python DeliverHQ/scripts/context_window_check.py <CR-path>
+python DeliverHQ/scripts/qualitygate.py <CR-path>
+python DeliverHQ/scripts/writeback_gate.py <CR-path>
+```
+
+## Quick Reference
+- Full workflow: See `DeliverHQ/README.md`
+- CR template: Copy `DeliverHQ/change-requests/CR-TEMPLATE`
+- Migration guide: `DeliverHQ/MIGRATION.md`
+
+---
+
+**Reminder**: If you skip these steps, you violate the project's governance model. Always verify before acting.
