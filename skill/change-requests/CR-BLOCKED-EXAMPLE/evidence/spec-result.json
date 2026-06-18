@@ -1,9 +1,9 @@
 {
   "gate_name": "spec",
   "result": "blocked",
-  "timestamp": "2026-06-16T18:17:27.122723",
+  "timestamp": "2026-06-18T19:45:08.403384",
   "blocking_items": [
-    "包含模板变量: {{字段列表}}, {{CR_BLOCKED_EXAMPLE}}, {{Entity}}, {{说明}}, {{未填充}}",
+    "包含模板变量: {{Entity}}, {{说明}}, {{未填充}}, {{CR_BLOCKED_EXAMPLE}}, {{字段列表}}",
     "3 处 [待确认] 或 [TODO] 未解决",
     "P0 Open Questions 未解决",
     "P0 Assumptions 未验证"
@@ -18,7 +18,7 @@
       "failure_type": "template_var_unresolved",
       "repair_action": "fill_document",
       "evidence": [
-        "包含模板变量: {{字段列表}}, {{CR_BLOCKED_EXAMPLE}}, {{Entity}}, {{说明}}, {{未填充}}"
+        "包含模板变量: {{Entity}}, {{说明}}, {{未填充}}, {{CR_BLOCKED_EXAMPLE}}, {{字段列表}}"
       ],
       "next_step": "替换所有 {{变量}} 为实际值",
       "is_blocker": true

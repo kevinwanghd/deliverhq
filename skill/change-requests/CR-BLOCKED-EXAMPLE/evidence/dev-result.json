@@ -1,7 +1,7 @@
 {
   "gate_name": "dev",
   "result": "blocked",
-  "timestamp": "2026-06-16T18:17:27.559688",
+  "timestamp": "2026-06-18T19:45:08.843443",
   "blocking_items": [
     "PreDevGate 未通过，不能进入开发阶段"
   ],

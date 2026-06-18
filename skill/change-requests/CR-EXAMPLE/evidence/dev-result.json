@@ -1,7 +1,7 @@
 {
   "gate_name": "dev",
   "result": "pass",
-  "timestamp": "2026-06-16T18:17:27.423331",
+  "timestamp": "2026-06-18T19:45:08.706245",
   "blocking_items": [],
   "warnings": [
     "❌ Error: Worktree for CR-EXAMPLE already exists at /home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/chat-attachments/5/1781530970620/extracted/deliverhq-v5.0/DeliverHQ/.claude/worktrees/CR-EXAMPLE"

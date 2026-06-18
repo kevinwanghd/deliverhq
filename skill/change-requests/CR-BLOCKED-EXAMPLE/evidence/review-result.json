@@ -1,7 +1,7 @@
 {
   "gate_name": "review",
   "result": "blocked",
-  "timestamp": "2026-06-16T18:17:27.679645",
+  "timestamp": "2026-06-18T19:45:08.963511",
   "blocking_items": [
     "review-report.md 状态为 BLOCKED",
     "review-report.md 缺少逐场景审查，不能只给总体结论",

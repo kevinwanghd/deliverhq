@@ -53,6 +53,11 @@ license: 见仓库
 
 ## 四种核心模式
 
+> **PRD 层(产品意图唯一来源)**：`docs/PRD.md` 是产品**意图**的唯一来源——薄、叙事、给人看全貌,仅人工维护,Agent 只读。功能锚点 `[PRD-XXX]` 是 CR 的挂载点。
+> 每个 CR 的 `acceptance-spec.md` 是某个锚点的**可执行切片**,用 `derived_from{prd_section, prd_hash}` 回指。
+> PRD 锚点被改后哈希失配 → `drift_check.py` 提示对账(改CR/改PRD/记差异);confirmed 锚点强制对账,reverse-engineered 锚点(老项目逆向)仅警告。
+> 分工:PRD 给人看意图(不写 ID/schema/Do-Not-Touch),acceptance-spec 给机器验;拆分是 Spec Agent 职责,SpecGate 只检查。
+
 ### 模式 1：初始化新项目
 
 **场景**：为新项目启用 DeliverHQ 治理。
@@ -89,11 +94,12 @@ license: 见仓库
 **步骤**：
 1. 创建 CR：`python scripts/init_cr.py CR-001 "需求名称" "提出人"`
 2. 填写 `change-requests/CR-001/request.md`
-3. Spec Agent 生成 `acceptance-spec.md`
+3. Spec Agent 从 `docs/PRD.md` 的功能锚点派生 `acceptance-spec.md`，并在顶部填 `derived_from{prd_section, prd_hash}`（CR 是 PRD 的可执行切片）
 4. 运行 SpecGate：`python scripts/specgate.py change-requests/CR-001/acceptance-spec.md`
-5. 开发前运行：`python scripts/pre_dev_gate.py CR-001 --lane standard`
-6. 开发交接：`python scripts/dev_phase.py change-requests/CR-001`
-7. `dev_phase.py` 输出 worktree/上下文路径后停止；不会自动写代码或跳到 Review。
+5. 对账 PRD↔CR：`python scripts/drift_check.py change-requests/CR-001`（PRD 锚点被改后哈希失配会提示对账）
+6. 开发前运行：`python scripts/pre_dev_gate.py CR-001 --lane standard`
+7. 开发交接：`python scripts/dev_phase.py change-requests/CR-001`
+8. `dev_phase.py` 输出 worktree/上下文路径后停止；不会自动写代码或跳到 Review。
 
 **产出**：可测试的验收规格 + 实施计划 + 可回写状态。
 
@@ -279,6 +285,6 @@ python scripts/selftest.py
 
 ---
 
-**版本**：v5.0.0  
+**版本**：v5.4.0  
 **更新日期**：2026-06-14  
 **一句话**：文档门禁 + 动态多 Agent 工作流编排 + 对抗式验证。

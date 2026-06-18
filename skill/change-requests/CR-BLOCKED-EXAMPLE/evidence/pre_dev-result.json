@@ -1,7 +1,7 @@
 {
   "gate_name": "pre_dev",
   "result": "blocked",
-  "timestamp": "2026-06-16T18:17:27.550577",
+  "timestamp": "2026-06-18T19:45:08.834281",
   "blocking_items": [
     "acceptance-spec.md 包含未解决的占位符",
     "有 design/ 目录但无设计稿",

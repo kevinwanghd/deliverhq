@@ -29,6 +29,64 @@ FUZZY_WORDS = [
     '一定程度', '基本', '大概', '约', '左右'
 ]
 
+def _check_prd_linkage(spec_path, content, blockers, warnings, strict_mode):
+    """检查 9：PRD 链接与 PRD↔CR 对账（warning-first，不破坏现有链路）。
+
+    - 无 derived_from.prd_section：提示未链接 PRD（仅警告，便于老项目/示例渐进接入）
+    - prd_hash 与 docs/PRD.md 当前锚点不一致：
+        - confirmed 锚点          → 严格模式阻断，默认仅警告（NEED_HUMAN_DECISION）
+        - reverse-engineered 锚点 → 仅警告（老项目放宽）
+    复用 drift_check 的锚点哈希逻辑，保持单一来源。
+    """
+    try:
+        from drift_check import _anchor_section, _anchor_hash, DERIVED_RE, PRD_HASH_RE
+    except Exception as exc:
+        print(f"{Color.YELLOW}⚠ 无法加载 drift_check（跳过 PRD 对账）: {exc}{Color.END}")
+        return
+
+    dm = DERIVED_RE.search(content)
+    if not dm:
+        print(f"{Color.YELLOW}⚠ 未声明 derived_from.prd_section（CR 未链接 PRD）{Color.END}")
+        warnings.append("CR 未链接 PRD（建议补 derived_from.prd_section）")
+        return
+
+    anchor = dm.group(1)
+    # 从 acceptance-spec.md 向上定位 skill 根（含 docs/PRD.md）：CR目录/上级/skill根
+    root = Path(spec_path).resolve().parent.parent.parent
+    prd = root / "docs" / "PRD.md"
+    if not prd.exists():
+        print(f"{Color.YELLOW}⚠ docs/PRD.md 不存在，跳过对账{Color.END}")
+        warnings.append("docs/PRD.md 不存在，无法对账 PRD 链接")
+        return
+
+    prd_text = prd.read_text(encoding="utf-8")
+    cur = _anchor_hash(prd_text, anchor)
+    if cur is None:
+        print(f"{Color.YELLOW}⚠ PRD 中找不到锚点 {anchor}{Color.END}")
+        warnings.append(f"PRD 中找不到锚点 {anchor}")
+        return
+
+    hm = PRD_HASH_RE.search(content)
+    recorded = hm.group(1) if hm else ''
+    section = _anchor_section(prd_text, anchor) or ''
+    is_reverse = bool(re.search(r'(状态|status)[^\n]*reverse-engineered', section))
+
+    if recorded == cur:
+        print(f"{Color.GREEN}✓ PRD 链接一致（{anchor}）{Color.END}")
+        return
+
+    msg = f"PRD↔CR 不一致 {anchor}（cr_hash {recorded or '∅'} vs current {cur}）→ 需对账：改CR/改PRD/记差异"
+    if is_reverse:
+        print(f"{Color.YELLOW}⚠ {msg}（reverse-engineered，仅警告）{Color.END}")
+        warnings.append(msg + "（reverse-engineered，仅警告）")
+    elif strict_mode:
+        print(f"{Color.RED}✗ {msg}{Color.END}")
+        blockers.append(msg)
+    else:
+        print(f"{Color.YELLOW}⚠ {msg}（严格模式下会阻断）{Color.END}")
+        warnings.append(msg)
+
+
 def has_quantifiable_metric(content, fuzzy_word):
     """检查模糊词附近是否有量化指标"""
     # 在模糊词前后 100 字符内查找数字+单位
@@ -160,6 +218,10 @@ def check_specgate(spec_path):
     else:
         print(f"{Color.YELLOW}⚠ 未明确非功能需求{Color.END}")
         warnings.append("建议明确性能/安全/可用性指标")
+
+    # 检查 9: PRD 链接与对账（warning-first）
+    print(f"\n{Color.BLUE}[PRD 链接对账]{Color.END}")
+    _check_prd_linkage(spec_path, content, blockers, warnings, strict_mode)
 
     # 汇总结果
     print(f"\n{Color.BLUE}=== SpecGate 结果 ==={Color.END}")

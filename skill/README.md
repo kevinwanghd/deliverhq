@@ -118,10 +118,23 @@ DeliverHQ/
 
 ## 核心概念
 
+### PRD 层：产品意图唯一来源
+
+`docs/PRD.md` 是产品**意图**的唯一来源——薄、叙事、给人看全貌，仅人工维护，Agent 只读。功能锚点 `[PRD-XXX]` 是 CR 的挂载点。
+
+```
+docs/PRD.md（意图，给人看） → [Spec Agent 切片] → acceptance-spec.md（可执行，给机器验）
+```
+
+- 每个 CR 的 `acceptance-spec.md` 用 `derived_from{prd_section, prd_hash}` 回指它派生的 PRD 锚点。
+- PRD 锚点被改后哈希失配 → `drift_check.py` 提示对账（改 CR / 改 PRD / 记差异）。
+- `confirmed` 锚点强制对账；`reverse-engineered` 锚点（老项目逆向生成）仅警告。
+- 分工：PRD 给人看意图（不写 ID/schema/Do-Not-Touch），acceptance-spec 给机器验；拆分是 Spec Agent 职责，SpecGate 只检查、不生产。
+
 ### 文档驱动开发
 
 ```
-request.md → acceptance-spec.md → implementation-plan.md → 代码 → tests → quality-report.md
+PRD.md → request.md → acceptance-spec.md → implementation-plan.md → 代码 → tests → quality-report.md
 ```
 
 每个阶段产出必须通过 Gate 检查才能进入下一阶段。
@@ -422,6 +435,6 @@ DeliverHQ 是**技术栈无关**的治理框架，支持：
 
 ---
 
-**本治理体系基于 DeliverHQ v5.0.0**  
+**本治理体系基于 DeliverHQ v5.4.0**  
 **模板版本**: 2026-06-12  
 **适用**: 所有软件项目（技术栈无关）

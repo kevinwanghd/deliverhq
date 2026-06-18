@@ -5,6 +5,17 @@
 ## CR-ID
 {{CR_ID}}
 
+## 来源锚点（derived_from）
+
+> 本 CR 派生自 `docs/PRD.md` 的哪个功能锚点。PRD 是产品意图唯一来源,本 spec 是它的可执行切片。
+> 全新能力若无对应锚点,先在 PRD 新增锚点再回填。`prd_hash` 由 drift_check.py 用于 PRD↔CR 对账。
+
+```yaml
+derived_from:
+  prd_section: {{PRD-XXX}}   # 派生自的 PRD 锚点 ID
+  prd_hash: {{hash}}         # 派生时该锚点的内容哈希(不含「关联 CR」行)
+```
+
 ## 1. Data Spec（数据规格）
 
 ### Entities（实体）

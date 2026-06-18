@@ -44,6 +44,8 @@
 | Quality Ratchet | scripts/quality_ratchet.py | experimental | not_integrated | false | false | 仅报告观察，不硬阻断 |
 | Dynamic Workflows / Tournament / Fan-out | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 不得在入口文档承诺为可用能力 |
 | Scout / Repo Harness | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 规划项 |
+| PRD 层（产品意图唯一来源） | docs/PRD.md | experimental | integrated | true | false | 产品意图唯一来源，薄/给人看/仅人工维护；功能锚点 `[PRD-XXX]` 是 CR 挂载点；CR 用 derived_from 回指 |
+| PRD↔CR 对账（DriftCheck） | scripts/drift_check.py | experimental | integrated | true | true | 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate 检查9 复用同逻辑，warning-first |
 
 ## 设计约束
 
@@ -53,5 +55,5 @@
 4. Darwin Score / Quality Ratchet 先做观察报告，不进入阻断链路。
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 
-**版本**: v5.0.0  
+**版本**: v5.4.0  
 **最后更新**: 2026-06-15
