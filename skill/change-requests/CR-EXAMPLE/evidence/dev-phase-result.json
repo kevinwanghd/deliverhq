@@ -1,6 +1,6 @@
 {
   "cr_id": "CR-EXAMPLE",
-  "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package/skill/change-requests/CR-EXAMPLE",
+  "cr_path": "D:\\software\\Skills\\deliverhq-5.5.0-github-repo.tar\\deliverhq-5.5.0-github-repo\\skill\\change-requests\\CR-EXAMPLE",
   "lane": "standard",
   "worktree_path": null,
   "must_read_files": [

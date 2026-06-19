@@ -368,6 +368,34 @@ def update_gate_status(
     return state
 
 
+def _warn_if_cr_outside_home(cr_path: Path) -> None:
+    """warning-first：CR 目录不在任何 DeliverHQ/ 内时告警，提示归位（不阻断）。
+
+    DeliverHQ 产物应集中在 <项目根>/DeliverHQ/ 下。若 agent 手动把 CR 建在别处
+    （根目录 / skill 安装目录），这里提醒归位，但不阻断既有流程。
+    skill 自身自检（CR 在 skill 包的 change-requests/）属预期，不告警。
+    """
+    try:
+        p = Path(cr_path).resolve()
+        parts = p.parts
+        if "DeliverHQ" in parts:
+            return  # 已在 DeliverHQ/ 内，正常
+        # skill 包自身布局：scripts/ 与 change-requests/ 同级（自检场景），放行不告警
+        skill_root = Path(__file__).resolve().parent.parent
+        try:
+            p.relative_to(skill_root)
+            return
+        except ValueError:
+            pass
+        print(
+            "⚠ [DeliverHQ Home] CR 目录不在 DeliverHQ/ 内: %s\n"
+            "  建议归位到 <项目根>/DeliverHQ/change-requests/ ，"
+            "用 init_cr.py（自动定位 DeliverHQ home）创建 CR。" % p
+        )
+    except Exception:
+        pass  # 校验失败绝不影响主流程
+
+
 def update_gate_from_result(
     cr_path: Path,
     gate_name: str,
@@ -385,6 +413,8 @@ def update_gate_from_result(
     metadata: Optional[Dict] = None,
 ):
     """根据 Gate 结果写回状态。"""
+
+    _warn_if_cr_outside_home(cr_path)
 
     status = GateStatus.PASS if passed else GateStatus.BLOCKED
     return update_gate_status(

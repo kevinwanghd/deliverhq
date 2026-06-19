@@ -15,6 +15,13 @@
 - Do not develop when SpecGate, DesignGate, or ContextWindowGate blocks.
 - Do not modify protected paths unless explicitly approved.
 
+## DeliverHQ Home 目录规则（强制）
+- 凡经 DeliverHQ 分析/治理的项目，**必须在项目主目录创建并使用 `DeliverHQ/` 目录**作为唯一治理空间。
+- **所有 DeliverHQ 相关文件强制放入 `DeliverHQ/` 内**：`docs/`、`change-requests/`、`delivery/`、`_archived/`、`scripts/`、各类 Gate 报告、PRD、acceptance-spec 等。
+- 这些路径**一律相对 `DeliverHQ/` 解析**（如 `DeliverHQ/docs/PRD.md`、`DeliverHQ/change-requests/CR-*`），**严禁散落到项目根目录、根 `docs/` 或根 `change-requests/`**。
+- 项目自身的工程文件（源码、根 README、根 docs 等）不属于 DeliverHQ，保持原位；DeliverHQ 与其互补、不覆盖、不混放。
+- 违反即视为路径不清，按 fail-closed：停止并要求归位到 `DeliverHQ/`。
+
 ## 10 Agent phases
 Spec → Design (if UI) → SpecGate/DesignGate → Context → Dev → PermissionGate (high-risk) → Review → Test → Quality → Writeback → Memory → WritebackGate → Archive.
 

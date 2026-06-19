@@ -1,7 +1,7 @@
 {
   "gate_name": "design",
   "result": "blocked",
-  "timestamp": "2026-06-18T19:45:08.496330",
+  "timestamp": "2026-06-19T19:49:09.695110",
   "blocking_items": [
     "C 端必须有高保真设计稿"
   ],

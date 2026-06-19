@@ -1,12 +1,12 @@
 {
   "gate_name": "review",
   "result": "blocked",
-  "timestamp": "2026-06-18T19:45:08.963511",
+  "timestamp": "2026-06-19T19:49:12.013545",
   "blocking_items": [
     "review-report.md 状态为 BLOCKED",
     "review-report.md 缺少逐场景审查，不能只给总体结论",
     "traceability.yml 不存在",
-    "changed files 与 traceability 不一致",
+    "缺少 git diff / changed-files 证据，ReviewGate 不能只依赖 review-report.md",
     "acceptance-spec.md 仍有占位符",
     "缺少 test-plan.md",
     "缺少 verification-manifest.yml"
@@ -59,12 +59,12 @@
     },
     {
       "gate": "review",
-      "failure_type": "human_decision_required",
-      "repair_action": "ask_human",
+      "failure_type": "dependency_missing",
+      "repair_action": "fix_code",
       "evidence": [
-        "changed files 与 traceability 不一致"
+        "缺少 git diff / changed-files 证据，ReviewGate 不能只依赖 review-report.md"
       ],
-      "next_step": "需要人工判断此问题如何修复",
+      "next_step": "执行修复动作: fix_code",
       "is_blocker": true
     },
     {

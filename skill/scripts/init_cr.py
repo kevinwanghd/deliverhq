@@ -31,6 +31,7 @@ def _parse_args(args: List[str]):
     requester = ""
     lane = "standard"
     use_worktree = None
+    home = None
 
     index = 0
     while index < len(args):
@@ -44,6 +45,11 @@ def _parse_args(args: List[str]):
             index += 1
         elif arg.startswith("--lane="):
             lane = arg.split("=", 1)[1]
+        elif arg == "--home" and index + 1 < len(args):
+            home = args[index + 1]
+            index += 1
+        elif arg.startswith("--home="):
+            home = arg.split("=", 1)[1]
         elif cr_id is None:
             cr_id = arg
         elif cr_name is None:
@@ -61,7 +67,17 @@ def _parse_args(args: List[str]):
     if use_worktree is None:
         use_worktree = lane in {"standard", "high-risk"}
 
-    return cr_id, cr_name, requester, lane, use_worktree
+    return cr_id, cr_name, requester, lane, use_worktree, home
+
+
+def _resolve_home(home_arg):
+    """解析 DeliverHQ home（产物落点），agent 无关、确定性自动定位。
+
+    委托 deliverhq_home.resolve_home：--home > DELIVERHQ_HOME > 向上找已有
+    DeliverHQ/ > 项目根标志/DeliverHQ > 兜底 cwd/DeliverHQ。总能确定性落到 DeliverHQ/。
+    """
+    from deliverhq_home import resolve_home
+    return resolve_home(explicit=home_arg, start=Path.cwd())
 
 
 def _replace_template_vars(target_dir: Path, replacements: dict) -> int:
@@ -122,11 +138,16 @@ def _create_worktree(cr_id: str):
     return None
 
 
-def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False):
-    """初始化新 CR"""
+def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, home=None):
+    """初始化新 CR。
 
-    template_dir = CHANGE_REQUESTS_DIR / "CR-TEMPLATE"
-    target_dir = CHANGE_REQUESTS_DIR / cr_id
+    模板源恒为 skill 包内的 CR-TEMPLATE；产物落点为 <home>/change-requests/<cr_id>。
+    home 为 DeliverHQ 治理目录（如 <项目根>/DeliverHQ），不在 skill 安装目录里散落。
+    """
+
+    template_dir = CHANGE_REQUESTS_DIR / "CR-TEMPLATE"          # 模板源：恒在 skill 包内
+    home_dir = Path(home).resolve() if home else DELIVERHQ_ROOT  # 产物落点：DeliverHQ home
+    target_dir = home_dir / "change-requests" / cr_id
 
     if target_dir.exists():
         _print(f"❌ 错误: {target_dir} 已存在")
@@ -136,6 +157,7 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False):
         _print(f"❌ 错误: 模板目录不存在: {template_dir}")
         return False
 
+    (home_dir / "change-requests").mkdir(parents=True, exist_ok=True)
     _print(f"📁 复制模板 {template_dir} → {target_dir}")
     shutil.copytree(template_dir, target_dir)
 
@@ -172,15 +194,16 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False):
 
 def main():
     if len(sys.argv) < 3:
-        _print("用法: python init_cr.py <CR-ID> <CR-NAME> [REQUESTER] [--lane fast|standard|high-risk] [--worktree|--no-worktree]")
+        _print("用法: python init_cr.py <CR-ID> <CR-NAME> [REQUESTER] [--home <项目根>/DeliverHQ] [--lane fast|standard|high-risk] [--worktree|--no-worktree]")
         _print("\n示例:")
-        _print("  python init_cr.py CR-001 '实现用户登录日志功能' '产品经理'")
-        _print("  python init_cr.py CR-002 '修复分页查询Bug' --lane fast --no-worktree")
-        _print("  python init_cr.py CR-003 '高风险支付改造' '产品经理' --lane high-risk")
+        _print("  python DeliverHQ/scripts/init_cr.py CR-001 '实现用户登录日志功能' '产品经理'")
+        _print("  python init_cr.py CR-002 '修复分页查询Bug' --home /path/to/proj/DeliverHQ --lane fast")
+        _print("\n说明: --home 可省略。脚本会自动定位 DeliverHQ 目录(agent 无关):")
+        _print("  --home > 环境变量 DELIVERHQ_HOME > 向上找已有 DeliverHQ/ > 项目根/DeliverHQ > cwd/DeliverHQ")
         sys.exit(1)
 
     try:
-        cr_id, cr_name, requester, lane, use_worktree = _parse_args(sys.argv[1:])
+        cr_id, cr_name, requester, lane, use_worktree, home = _parse_args(sys.argv[1:])
     except ValueError as exc:
         _print(f"❌ 错误: {exc}")
         sys.exit(1)
@@ -189,7 +212,10 @@ def main():
         _print("❌ 错误: CR-ID 必须以 'CR-' 开头，如 CR-001")
         sys.exit(1)
 
-    success = init_cr(cr_id, cr_name, requester, lane, use_worktree)
+    home_dir = _resolve_home(home)
+    _print(f"📍 DeliverHQ home: {home_dir}")
+
+    success = init_cr(cr_id, cr_name, requester, lane, use_worktree, str(home_dir))
     sys.exit(0 if success else 1)
 
 

@@ -1,10 +1,10 @@
 {
   "gate_name": "dev",
   "result": "pass",
-  "timestamp": "2026-06-18T19:45:08.706245",
+  "timestamp": "2026-06-19T19:49:10.858057",
   "blocking_items": [],
   "warnings": [
-    "❌ Error: Worktree for CR-EXAMPLE already exists at /home/claudecli/SelfAutomaticAd-6v0ym3/.tmp/chat-attachments/5/1781530970620/extracted/deliverhq-v5.0/DeliverHQ/.claude/worktrees/CR-EXAMPLE"
+    "DeliverHQ 当前不在 git repo 内，无法自动创建 worktree；请在目标项目仓库中手动准备开发目录"
   ],
   "commands_run": [
     "dev_phase.py",
@@ -18,7 +18,7 @@
   "failure_attribution": [],
   "metadata": {
     "cr_id": "CR-EXAMPLE",
-    "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package/skill/change-requests/CR-EXAMPLE",
+    "cr_path": "D:\\software\\Skills\\deliverhq-5.5.0-github-repo.tar\\deliverhq-5.5.0-github-repo\\skill\\change-requests\\CR-EXAMPLE",
     "lane": "standard",
     "worktree_path": null,
     "must_read_files": [

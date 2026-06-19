@@ -8,6 +8,23 @@ license: 见仓库
 
 > **目标**：通过结构化规格（SDD）、可执行门禁（Gate）、职责边界（Agent）、执行隔离（Workspace）和组织记忆（Writeback），实现 AI 全流程交付质量可控。
 
+## ⛔ 最高优先级：DeliverHQ Home 目录规则（强制，适用所有 Agent）
+
+> 本规则对所有宿主 Agent（Claude / Hermes / Codex / Gemini / 任意）一律生效。
+> Hermes 等仅读本 SKILL.md 的 Agent，必须在此处获知本规则。
+
+1. **凡经 DeliverHQ 分析/治理的项目，必须在该项目主目录创建并使用 `DeliverHQ/` 目录**，作为唯一治理空间。
+2. **所有 DeliverHQ 产物强制写入 `<项目根>/DeliverHQ/` 内**：`docs/`、`change-requests/`、`delivery/`、`_archived/`、各类 Gate 报告、PRD、acceptance-spec、扫描报告等。
+3. **严禁散落**到项目根目录、项目根 `docs/`、项目根 `change-requests/`，或散落到 skill 自身的安装目录（如 `~/.hermes/skills/deliverhq/`）。
+4. **调用写产物的脚本时必须显式指定落点到 `DeliverHQ/`**：
+   - `init_cr.py` 必须传 `--home <项目根>/DeliverHQ`
+   - `scan_legacy.py` 的 `--out` / `--report` 必须指向 `<项目根>/DeliverHQ/...`
+   - 不显式指定落点的脚本会 **fail-closed 报错**，不会默默写到错误位置。
+5. 项目自身工程文件（源码、根 README、根 docs）不属于 DeliverHQ，保持原位；两者互补、不覆盖、不混放。
+6. 违反即视为路径不清，按 fail-closed：停止并要求归位到 `DeliverHQ/`。
+
+---
+
 ## 何时使用 DeliverHQ
 
 ✅ **应该使用**：
@@ -91,14 +108,14 @@ license: 见仓库
 
 **场景**：新功能开发、Bug 修复、重构。
 
-**步骤**：
-1. 创建 CR：`python scripts/init_cr.py CR-001 "需求名称" "提出人"`
-2. 填写 `change-requests/CR-001/request.md`
-3. Spec Agent 从 `docs/PRD.md` 的功能锚点派生 `acceptance-spec.md`，并在顶部填 `derived_from{prd_section, prd_hash}`（CR 是 PRD 的可执行切片）
-4. 运行 SpecGate：`python scripts/specgate.py change-requests/CR-001/acceptance-spec.md`
-5. 对账 PRD↔CR：`python scripts/drift_check.py change-requests/CR-001`（PRD 锚点被改后哈希失配会提示对账）
-6. 开发前运行：`python scripts/pre_dev_gate.py CR-001 --lane standard`
-7. 开发交接：`python scripts/dev_phase.py change-requests/CR-001`
+**步骤**（命令均在**项目根**执行，治理产物落在 `DeliverHQ/` 内）：
+1. 创建 CR：`python DeliverHQ/scripts/init_cr.py CR-001 "需求名称" "提出人" --home DeliverHQ`
+2. 填写 `DeliverHQ/change-requests/CR-001/request.md`
+3. Spec Agent 从 `DeliverHQ/docs/PRD.md` 的功能锚点派生 `acceptance-spec.md`，并在顶部填 `derived_from{prd_section, prd_hash}`（CR 是 PRD 的可执行切片）
+4. 运行 SpecGate：`python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md`
+5. 对账 PRD↔CR：`python DeliverHQ/scripts/drift_check.py DeliverHQ/change-requests/CR-001`（PRD 锚点被改后哈希失配会提示对账）
+6. 开发前运行：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --lane standard`
+7. 开发交接：`python DeliverHQ/scripts/dev_phase.py DeliverHQ/change-requests/CR-001`
 8. `dev_phase.py` 输出 worktree/上下文路径后停止；不会自动写代码或跳到 Review。
 
 **产出**：可测试的验收规格 + 实施计划 + 可回写状态。
@@ -109,31 +126,31 @@ license: 见仓库
 
 **场景**：阶段切换前验证文档完备性。
 
-**核心 Gates**：
+**核心 Gates**（在**项目根**执行）：
 ```bash
 # 验收规格完备性
-python scripts/specgate.py change-requests/CR-001/acceptance-spec.md
+python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md
 
 # 设计产物完备性（C 端强制高保真）
-python scripts/designgate.py change-requests/CR-001
+python DeliverHQ/scripts/designgate.py DeliverHQ/change-requests/CR-001
 
 # 开发前综合检查
-python scripts/pre_dev_gate.py CR-001
+python DeliverHQ/scripts/pre_dev_gate.py CR-001
 
 # 上下文窗口纪律
-python scripts/context_window_check.py change-requests/CR-001
+python DeliverHQ/scripts/context_window_check.py DeliverHQ/change-requests/CR-001
 
 # 代码审查门禁（对抗式验证）
-python scripts/reviewgate.py change-requests/CR-001
+python DeliverHQ/scripts/reviewgate.py DeliverHQ/change-requests/CR-001
 
 # 质量门禁（默认 hybrid，必须执行 verification-manifest.yml）
-python scripts/qualitygate.py change-requests/CR-001
+python DeliverHQ/scripts/qualitygate.py DeliverHQ/change-requests/CR-001
 
 # 部署就绪检查
-python scripts/deploygate.py change-requests/CR-001
+python DeliverHQ/scripts/deploygate.py DeliverHQ/change-requests/CR-001
 
 # 知识沉淀完整性
-python scripts/writeback_gate.py change-requests/CR-001
+python DeliverHQ/scripts/writeback_gate.py DeliverHQ/change-requests/CR-001
 ```
 
 **结果**：PASS（放行）/ BLOCKED（阻断，提示缺失项）
@@ -285,6 +302,6 @@ python scripts/selftest.py
 
 ---
 
-**版本**：v5.4.0  
+**版本**：v5.5.0  
 **更新日期**：2026-06-14  
 **一句话**：文档门禁 + 动态多 Agent 工作流编排 + 对抗式验证。

@@ -1,7 +1,7 @@
 {
   "gate_name": "dev",
   "result": "blocked",
-  "timestamp": "2026-06-18T19:45:08.843443",
+  "timestamp": "2026-06-19T19:49:11.436487",
   "blocking_items": [
     "PreDevGate 未通过，不能进入开发阶段"
   ],
@@ -28,7 +28,7 @@
   ],
   "metadata": {
     "cr_id": "CR-BLOCKED-EXAMPLE",
-    "cr_path": "/home/claudecli/SelfAutomaticAd-6v0ym3/deliverhq-npm-package/skill/change-requests/CR-BLOCKED-EXAMPLE",
+    "cr_path": "D:\\software\\Skills\\deliverhq-5.5.0-github-repo.tar\\deliverhq-5.5.0-github-repo\\skill\\change-requests\\CR-BLOCKED-EXAMPLE",
     "lane": "standard",
     "worktree_path": null,
     "must_read_files": [

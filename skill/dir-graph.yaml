@@ -7,6 +7,23 @@ workspace:
   mode: new-project              # new-project / legacy-scan
   host_repo_root: ..             # DeliverHQ/ 目录位于项目根目录下
 
+# DeliverHQ Home 目录规则（强制，对应 AGENTS.md「DeliverHQ Home 目录规则」）
+deliverhq_home:
+  dir: DeliverHQ                 # 项目主目录下唯一治理空间
+  enforced: true                 # 强制：所有 DeliverHQ 文件必须在此目录内
+  # 以下治理路径一律相对 DeliverHQ/ 解析，严禁散落到项目根 / 根 docs / 根 change-requests
+  contained_paths:
+    - docs/
+    - change-requests/
+    - delivery/
+    - _archived/
+    - scripts/
+  forbidden_outside:             # 这些内容出现在 DeliverHQ/ 之外即违规
+    - docs/PRD.md
+    - change-requests/**
+    - "*-report.md（各类 Gate 报告）"
+  note: 项目自身工程文件（源码/根 README/根 docs）不属于 DeliverHQ，保持原位、互补不覆盖。
+
 # 入口文件
 entrypoints:
   behavior: AGENTS.md            # Agent 行为规则

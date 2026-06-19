@@ -1,7 +1,7 @@
 {
   "gate_name": "quality",
   "result": "blocked",
-  "timestamp": "2026-06-18T19:45:09.153020",
+  "timestamp": "2026-06-19T19:49:13.701145",
   "blocking_items": [
     "quality-report.md 状态为 BLOCKED",
     "P0 通过率 33%，未达标",

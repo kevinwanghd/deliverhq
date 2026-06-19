@@ -1,7 +1,7 @@
 {
   "gate_name": "deploy",
   "result": "blocked",
-  "timestamp": "2026-06-18T19:45:09.246276",
+  "timestamp": "2026-06-19T19:49:14.221663",
   "blocking_items": [
     "缺少 deployment-checklist.md，Deploy Agent 未执行"
   ],

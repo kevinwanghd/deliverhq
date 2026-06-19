@@ -1,17 +1,22 @@
 {
   "gate_name": "permission",
   "result": "pass",
-  "timestamp": "2026-06-18T19:45:08.831120",
+  "timestamp": "2026-06-19T19:49:11.362439",
   "blocking_items": [],
-  "warnings": [],
+  "warnings": [
+    "非 git 仓库，PermissionGate 跳过 git diff 核对（建议在目标项目仓库内运行以启用权限边界检查）"
+  ],
   "commands_run": [
     "git status --porcelain"
   ],
   "artifacts": [],
-  "next_action": "继续执行 PreDevGate",
+  "next_action": "如需启用权限边界检查，请在目标项目的 git 仓库内运行",
   "failure_attribution": [],
   "metadata": {
-    "protected_hits": [],
-    "lane": "standard"
+    "current_state": "dev",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": false,
+    "worktree_path": null
   }
 }

@@ -310,8 +310,10 @@ def write_report(report_path, project_name, root, tech_stack, lang_counts, candi
 def main():
     parser = argparse.ArgumentParser(description="老项目逆向扫描（填客观层 + 推导 review_required）")
     parser.add_argument("scan_root", help="老项目源码目录")
-    parser.add_argument("--out", default="reverse-spec-candidates.yml", help="输出 YAML 路径")
-    parser.add_argument("--report", default=None, help="可选：Markdown 报告路径")
+    parser.add_argument("--out", default=None, help="输出 YAML 路径；省略则自动定位到 <DeliverHQ home>/change-requests/<cr>/reverse-spec-candidates.yml")
+    parser.add_argument("--report", default=None, help="可选：Markdown 报告路径；省略则与 --out 同目录生成 legacy-scan-report.md")
+    parser.add_argument("--home", default=None, help="可选：显式指定 DeliverHQ home 目录")
+    parser.add_argument("--cr", default="CR-LEGACY-SCAN", help="自动定位时使用的 CR 目录名（默认 CR-LEGACY-SCAN）")
     parser.add_argument("--max-files", type=int, default=200, help="最多扫描文件数（防超大仓库）")
     args = parser.parse_args()
 
@@ -319,6 +321,19 @@ def main():
     if not root.exists():
         print("扫描目录不存在：%s" % root)
         sys.exit(1)
+
+    # 输出落点：显式 --out 最高优先；否则 agent 无关地自动定位 DeliverHQ home（以被扫描项目为起点）
+    if args.out:
+        out_path_default = Path(args.out)
+    else:
+        from deliverhq_home import resolve_home, cr_dir
+        home = resolve_home(explicit=args.home, start=root)
+        out_path_default = cr_dir(home, args.cr) / "reverse-spec-candidates.yml"
+        print("📍 DeliverHQ home: %s" % home)
+        print("   产物落点: %s" % out_path_default)
+    args.out = str(out_path_default)
+    if not args.report:
+        args.report = str(out_path_default.parent / "legacy-scan-report.md")
 
     tech_stack, lang_counts = detect_tech_stack(root)
     if tech_stack == "unknown":
