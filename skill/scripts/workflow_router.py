@@ -14,9 +14,35 @@ import sys
 from typing import Dict
 
 
+def _is_plan_only_no_modification(lower: str) -> bool:
+    plan_only_signals = [
+        "先给方案", "只给建议", "只做分析", "只给优化建议", "不要实施",
+        "plan only", "recommendation only", "recommend only",
+    ]
+    no_modification_signals = [
+        "不要修改文件", "不要改文件", "不要修改代码", "不要改代码", "不要创建 cr", "不要实施",
+        "不要启动 deliverhq", "不走 cr", "只读", "do not modify", "don't modify",
+        "do not create a cr", "don't create a cr", "no file changes",
+    ]
+    return any(signal in lower for signal in plan_only_signals) and any(
+        signal in lower for signal in no_modification_signals
+    )
+
+
 def route_request(text: str) -> Dict:
     raw = text.strip()
     lower = raw.lower()
+
+    if _is_plan_only_no_modification(lower):
+        return {
+            "deliverhq_required": False,
+            "lane": "fast",
+            "workflow_type": "linear",
+            "adversarial_required": False,
+            "permissiongate_required": False,
+            "reason": "仅请求方案/建议且明确不修改文件或不创建 CR，避免过度治理",
+            "next_action": "handle_directly",
+        }
 
     reject_keywords = [
         "错别字", "拼写错误", "解释", "查看", "总结", "临时脚本", "commit message",
