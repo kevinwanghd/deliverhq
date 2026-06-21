@@ -9,13 +9,13 @@ Shared helpers for:
 """
 
 
-import json
 import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional
 
 from failure_attribution import classify_failure
+from gate_json_output import build_gate_result_payload, save_gate_result_json
 
 
 RUNTIME_DIRS = ("workspace", "outputs", "evidence", "artifacts")
@@ -73,21 +73,17 @@ def write_gate_evidence(
                 "is_blocker": attribution.is_blocker,
             })
 
-    payload = {
-        "gate_name": gate_name,
-        "result": result,
-        "timestamp": datetime.now().isoformat(),
-        "blocking_items": blockers,
-        "warnings": list(warnings or []),
-        "commands_run": list(commands_run or []),
-        "artifacts": list(artifacts or []),
-        "next_action": next_action or "",
-        "failure_attribution": attributions,
-        "metadata": metadata or {},
-    }
-
-    output_path.write_text(
-        json.dumps(payload, ensure_ascii=False, indent=2),
-        encoding="utf-8",
+    payload = build_gate_result_payload(
+        gate_name=gate_name,
+        result=result,
+        timestamp=datetime.now().isoformat(),
+        blocking_items=blockers,
+        warnings=warnings,
+        commands_run=commands_run,
+        artifacts=artifacts,
+        next_action=next_action,
+        failure_attribution=attributions,
+        metadata=metadata,
     )
+    save_gate_result_json(payload, output_path)
     return output_path

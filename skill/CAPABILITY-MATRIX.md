@@ -38,7 +38,7 @@
 | 重试守卫（Retry Guard） | scripts/retry_guard.py | experimental | integrated | false | false | 同类失败（复用 failure_attribution 归因）达 max_retries → needs_human；拒绝原地重复假设 |
 | PlanChecker（执行层） | scripts/plan_checker.py | experimental | integrated | false | true | 机检 plan.yml：task 粒度/verify/done/依赖/文件冲突/AC 覆盖；派生 wave；selftest 有契约。Worker=Dev Agent、Verifier=ReviewGate（不新增角色） |
 | 证据补全 Loop（执行层） | scripts/evidence_loop.py | experimental | integrated | false | true | 可恢复 loop：扫 CR 缺哪些 evidence(spec/traceability/changed-files/manifest/test-plan)→列 gaps+next_action→写回 needs_human。复用 cr_state/reviewgate口径/write_gate_evidence，不新增 Agent；selftest 有契约 |
-| Gate JSON Output | scripts/gate_json_output.py | experimental | not_integrated | false | false | 独立工具，尚未成为所有 Gate 的统一输出层 |
+| Gate JSON Output | scripts/gate_json_output.py + scripts/runtime_support.py | experimental | integrated | false | false | 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer |
 | Loop Mode | scripts/loop_mode.py | experimental | not_integrated | false | false | 不进默认流程，需人工监督 |
 | Darwin Score | scripts/darwin_score.py | experimental | not_integrated | false | false | 仅报告观察，不硬阻断 |
 | Quality Ratchet | scripts/quality_ratchet.py | experimental | not_integrated | false | false | 仅报告观察，不硬阻断 |

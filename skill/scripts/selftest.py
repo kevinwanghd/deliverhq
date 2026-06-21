@@ -570,6 +570,84 @@ def check_capability_status_consistency():
     return all_ok
 
 
+def check_gate_json_evidence_schema():
+    """Validate the canonical Gate JSON evidence schema through the real writer."""
+    import tempfile
+    import shutil
+
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from gate_json_output import GATE_SCHEMA_VERSION, load_gate_result_json, validate_gate_result_payload
+        from runtime_support import write_gate_evidence
+
+        pass_path = write_gate_evidence(
+            tmp,
+            "schema_pass",
+            "pass",
+            blocking_items=[],
+            warnings=["warn"],
+            commands_run=["true"],
+            artifacts=["artifact.txt"],
+            next_action="continue",
+            metadata={"sample": True},
+        )
+        blocked_path = write_gate_evidence(
+            tmp,
+            "schema_blocked",
+            "blocked",
+            blocking_items=["missing evidence"],
+            warnings=[],
+            commands_run=["false"],
+            artifacts=[],
+            next_action="fix blockers",
+            metadata={},
+        )
+
+        legacy_path = tmp / "legacy-gate-output.json"
+        from gate_json_output import BlockingItem, GateOutput, load_gate_output_json, save_gate_output_json
+        legacy_output = GateOutput(
+            gate_name="LegacyGate",
+            result="blocked",
+            cr_id="CR-LEGACY",
+            timestamp="2026-01-01T00:00:00",
+            blocking_items=[BlockingItem("legacy blocker", "p1", file="x.py", line=7, suggestion="fix it")],
+            warnings=["legacy warning"],
+            next_action="legacy next",
+            metadata={"kept": True},
+        )
+        save_gate_output_json(legacy_output, str(legacy_path))
+        loaded_legacy = load_gate_output_json(str(legacy_path))
+        if loaded_legacy.cr_id != "CR-LEGACY" or loaded_legacy.blocking_items[0].severity != "p1" \
+                or loaded_legacy.blocking_items[0].file != "x.py" or loaded_legacy.metadata != {"kept": True}:
+            print(f"  {FAIL} legacy GateOutput JSON round-trip failed")
+            return False
+
+        for path in (pass_path, blocked_path):
+            payload = load_gate_result_json(path)
+            errors = validate_gate_result_payload(payload)
+            if errors:
+                print(f"  {FAIL} {path.name} schema errors: {errors}")
+                return False
+            if payload.get("schema_version") != GATE_SCHEMA_VERSION:
+                print(f"  {FAIL} {path.name} schema_version 不一致")
+                return False
+            for field in ["blocking_items", "warnings", "commands_run", "artifacts", "failure_attribution"]:
+                if not isinstance(payload.get(field), list):
+                    print(f"  {FAIL} {path.name} {field} 不是 list")
+                    return False
+            if not isinstance(payload.get("metadata"), dict):
+                print(f"  {FAIL} {path.name} metadata 不是 dict")
+                return False
+        print(f"  {PASS} Gate JSON evidence schema PASS")
+        return True
+    except Exception as exc:
+        print(f"  {FAIL} Gate JSON evidence schema FAIL: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_gate_contract():
     """检查 Gate 契约：直接复用独立的 gate_contract_check.py"""
     section("15. Gate 契约检查")
@@ -589,15 +667,17 @@ def check_gate_contract():
         env=SUBPROCESS_ENV,
     )
 
-    if result.returncode == 0:
+    contract_ok = result.returncode == 0
+    if contract_ok:
         print(f"  {PASS} gate_contract_check PASS")
-        return True
+    else:
+        print(f"  {FAIL} gate_contract_check FAIL")
+        for line in result.stdout.splitlines():
+            if "❌" in line or "BLOCKED" in line:
+                print(f"    {line.strip()}")
 
-    print(f"  {FAIL} gate_contract_check FAIL")
-    for line in result.stdout.splitlines():
-        if "❌" in line or "BLOCKED" in line:
-            print(f"    {line.strip()}")
-    return False
+    schema_ok = check_gate_json_evidence_schema()
+    return contract_ok and schema_ok
 
 
 def check_reverse_spec_contract():
