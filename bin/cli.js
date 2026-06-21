@@ -6,6 +6,7 @@
  *
  * 子命令：
  *   init [--target <agent>] [--global] [--local] [--force] [--yes]
+ *   init-project [--profile fullstack-web] [--path <项目目录>] [--force]
  *   doctor [--path <skill目录>]
  *   --help
  *   --version
@@ -72,7 +73,7 @@ const TARGETS = {
 };
 
 function parseArgs(argv) {
-  const VALUE_FLAGS = new Set(['path', 'target']);
+  const VALUE_FLAGS = new Set(['path', 'target', 'profile']);
   const out = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -252,6 +253,39 @@ async function cmdInit(flags) {
   console.log(`  验证健康度:  npx deliverhq doctor --path "${installedDir}"`);
 }
 
+function cmdInitProject(flags) {
+  console.log(C.b('=== DeliverHQ init-project ==='));
+  const profile = flags.profile || 'fullstack-web';
+  const targetPath = flags.path ? path.resolve(flags.path) : process.cwd();
+  const py = detectPythonWithPyYAML();
+  if (!py || !py.hasYaml) {
+    const cmd = py ? py.cmd : 'python';
+    console.log(C.r(`✗ 需要带 PyYAML 的 Python：${cmd} -m pip install PyYAML`));
+    process.exit(1);
+  }
+  try {
+    const deliverhqDir = path.join(targetPath, 'DeliverHQ');
+    if (fs.existsSync(deliverhqDir) && flags.force) {
+      fs.rmSync(deliverhqDir, { recursive: true, force: true });
+    }
+    if (!fs.existsSync(deliverhqDir)) {
+      console.log(`复制 DeliverHQ 核心 → ${deliverhqDir}`);
+      copyDir(SKILL_SRC, deliverhqDir);
+    }
+    const args = [path.join(deliverhqDir, 'scripts', 'init_project_structure.py'), targetPath, '--profile', profile];
+    if (flags.force) args.push('--force');
+    const out = execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+    console.log(out.trim());
+    console.log(C.g('\n✅ 项目结构初始化完成'));
+    console.log(`  运行结构检查: ${py.cmd} ${path.join(targetPath, 'DeliverHQ', 'scripts', 'structuregate.py')} ${targetPath}`);
+  } catch (e) {
+    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
+    console.log(C.r('❌ init-project 失败'));
+    if (out.trim()) console.log(out.trim());
+    process.exit(1);
+  }
+}
+
 function cmdDoctor(flags) {
   console.log(C.b('=== DeliverHQ doctor ==='));
   let skillDir = flags.path;
@@ -314,6 +348,9 @@ function help() {
   --force              覆盖已存在的安装
   --yes                非交互
 
+  npx deliverhq init-project [--profile fullstack-web] [--path <项目目录>] [--force]
+      初始化 AI 友好、人类易复查的项目目录结构 + DeliverHQ 治理空间
+
   npx deliverhq doctor [--path <核心目录>]
       检测 Python/PyYAML + 运行 selftest
 
@@ -325,6 +362,7 @@ function help() {
   npx deliverhq init --target hermes --global
   npx deliverhq init --target codex       # 写 .deliverhq/ + AGENTS.md 指针
   npx deliverhq init --target generic     # 任意 agent
+  npx deliverhq init-project --profile fullstack-web
 
 说明:
   DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.6+ 与 PyYAML）。
@@ -337,6 +375,7 @@ async function main() {
   if (flags.help || flags.h || _[0] === 'help') return help();
   const cmd = _[0];
   if (cmd === 'init') return cmdInit(flags);
+  if (cmd === 'init-project') return cmdInitProject(flags);
   if (cmd === 'doctor') return cmdDoctor(flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));

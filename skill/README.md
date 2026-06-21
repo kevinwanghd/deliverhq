@@ -15,6 +15,8 @@
 
 **低噪路由建议**：不确定是否该启用 DeliverHQ 时，先运行 `python scripts/workflow_router.py "用户请求"`。它只输出建议 JSON，不自动创建 CR、不拦截操作。
 
+**项目结构治理（可选）**：新项目可用 `deliverhq init-project --profile fullstack-web` 初始化 AI 友好、人类易复查的目录契约；老项目先运行 `python scripts/scan_legacy_structure.py <项目根>` 生成结构评估报告，再用 progressive StructureGate 渐进约束。
+
 ---
 
 ## 核心价值
@@ -429,6 +431,7 @@ DeliverHQ 是**技术栈无关**的治理框架，支持：
 
 - **`AGENTS.md`** — 9 个 Agent 的详细行为规则
 - **`docs/FOUR-FUNCTION-MODE.md`** — 四职能最小模式，说明小团队如何不用机械启动 9 个 Agent
+- **`docs/PROJECT-STRUCTURE-GOVERNANCE.md`** — 新老项目结构治理、StructureGate 与渐进迁移策略
 - **`MIGRATION.md`** — 迁移到其他 AI 平台
 - **`ROLLBACK.md`** — 回滚已交付 CR 的操作指南
 - **`CAPABILITY-MATRIX.md`** — 单一能力状态源（stable/experimental/roadmap、是否默认启用）
@@ -436,6 +439,6 @@ DeliverHQ 是**技术栈无关**的治理框架，支持：
 
 ---
 
-**本治理体系基于 DeliverHQ v5.6.0**  
+**本治理体系基于 DeliverHQ v5.7.0**  
 **模板版本**: 2026-06-12  
 **适用**: 所有软件项目（技术栈无关）
