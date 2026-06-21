@@ -1,0 +1,151 @@
+schema: deliverhq-structure-profile
+version: 1
+
+project:
+  type: fullstack-web
+  architecture: modular-monorepo
+  package_manager: pnpm
+
+apps:
+  web:
+    path: apps/web
+    type: frontend
+    framework: nextjs
+    source_dir: src
+    feature_dir: src/features
+    config_dirs:
+      - src/config
+    test_dirs:
+      unit: tests/unit
+      component: tests/component
+      integration: tests/integration
+
+  api:
+    path: apps/api
+    type: backend
+    framework: generic-api
+    source_dir: src
+    module_dir: src/modules
+    config_dir: src/config
+    db_dir: src/db
+    test_dirs:
+      unit: tests/unit
+      integration: tests/integration
+      contract: tests/contract
+
+  worker:
+    path: apps/worker
+    type: worker
+    optional: true
+
+packages:
+  shared_types:
+    path: packages/shared-types
+    purpose: frontend/backend shared schemas and DTOs
+  sdk:
+    path: packages/sdk
+    purpose: typed API client
+  ui:
+    path: packages/ui
+    purpose: reusable UI components
+  config:
+    path: packages/config
+    purpose: shared lint/type/test/runtime config
+
+required_dirs:
+  - apps/web/src
+  - apps/web/src/features
+  - apps/web/tests
+  - apps/api/src/modules
+  - apps/api/src/config
+  - apps/api/src/db
+  - apps/api/tests/unit
+  - apps/api/tests/integration
+  - packages/shared-types
+  - packages/sdk
+  - packages/ui
+  - packages/config
+  - config
+  - docs/architecture
+  - tests/e2e
+  - infra
+  - scripts
+  - DeliverHQ
+
+allowed_top_level_dirs:
+  - apps
+  - packages
+  - config
+  - docs
+  - tests
+  - infra
+  - scripts
+  - DeliverHQ
+  - .github
+
+forbidden_top_level_dirs:
+  - backend
+  - frontend
+  - server
+  - client
+  - src2
+  - tmp
+  - temp
+
+forbidden_files:
+  - .env
+  - .env.production
+  - .env.local
+  - test.js
+  - temp.py
+  - new_file.js
+  - final_final.py
+
+placement_rules:
+  backend_source:
+    allowed:
+      - apps/api/src/modules/**
+      - apps/api/src/shared/**
+      - apps/api/src/config/**
+      - apps/api/src/db/**
+    forbidden:
+      - src/**
+      - backend/**
+      - server/**
+
+  frontend_source:
+    allowed:
+      - apps/web/src/**
+    forbidden:
+      - frontend/**
+      - client/**
+
+  tests:
+    allowed:
+      - apps/*/tests/**
+      - packages/*/tests/**
+      - tests/e2e/**
+      - tests/smoke/**
+      - tests/contract/**
+    forbidden:
+      - test.*
+      - '*_test.*'
+
+  config:
+    allowed:
+      - config/**
+      - apps/*/src/config/**
+      - packages/config/**
+      - .env.example
+    forbidden:
+      - .env
+      - .env.production
+      - .env.local
+
+legacy:
+  mode: strict
+  legacy_paths: []
+  new_code_must_go_to:
+    backend_modules: apps/api/src/modules
+    frontend_features: apps/web/src/features
+    shared_contracts: packages/shared-types

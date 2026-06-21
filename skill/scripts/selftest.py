@@ -226,7 +226,7 @@ def check_cr_template_gates():
         "specgate.py", "designgate.py", "context_window_check.py",
         "pre_dev_gate.py", "dev_phase.py", "reviewgate.py", "qualitygate.py",
         "deploygate.py", "writeback_gate.py", "permissiongate.py",
-        "workflow_router.py", "cr_state.py", "gate_json_output.py", "dir_graph_lint.py",
+        "workflow_router.py", "cr_state.py", "gate_json_output.py", "dir_graph_lint.py", "structuregate.py", "init_project_structure.py", "scan_legacy_structure.py",
     ]
     all_ok = True
     for gate in gates:
@@ -1077,9 +1077,133 @@ def check_evidence_loop_contract():
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+def check_structure_governance_contract():
+    """检查 Project Structure Governance 新/老项目最小契约。"""
+    section("23. Project Structure Governance 契约")
+    import tempfile
+    import shutil
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        project = tmp / "new-project"
+        project.mkdir()
+        init_script = ROOT / "scripts" / "init_project_structure.py"
+        gate_script = ROOT / "scripts" / "structuregate.py"
+        scan_script = ROOT / "scripts" / "scan_legacy_structure.py"
+        for script in (init_script, gate_script, scan_script):
+            if not script.exists():
+                print(f"  {FAIL} 缺少脚本: {script.name}")
+                return False
+
+        result = subprocess.run(
+            [sys.executable, str(init_script), str(project), "--profile", "fullstack-web"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} init_project_structure 失败: {result.stderr.splitlines()[:2]}")
+            return False
+        required = [
+            project / "DeliverHQ" / "STRUCTURE-PROFILE.yml",
+            project / "DeliverHQ" / "REPO_MAP.md",
+            project / "DeliverHQ" / "COMMANDS.yml",
+            project / "apps" / "web" / "src" / "features",
+            project / "apps" / "api" / "src" / "modules",
+            project / "packages" / "shared-types",
+        ]
+        missing = [str(path) for path in required if not path.exists()]
+        if missing:
+            print(f"  {FAIL} init-project 缺少产物: {missing[:3]}")
+            return False
+
+        result = subprocess.run(
+            [sys.executable, str(gate_script), str(project)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} structuregate 正例失败")
+            for line in result.stdout.splitlines()[:8]:
+                print(f"    {line}")
+            return False
+
+        (project / ".env").write_text("SECRET=1\n", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(gate_script), str(project)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode == 0:
+            print(f"  {FAIL} structuregate 应阻断 .env")
+            return False
+        (project / ".env").unlink()
+
+        legacy = tmp / "legacy-project"
+        (legacy / "src" / "controllers").mkdir(parents=True)
+        (legacy / "src" / "controllers" / "user.py").write_text("def get_user(): pass\n", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(scan_script), str(legacy)],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} scan_legacy_structure 失败")
+            return False
+        if not (legacy / "DeliverHQ" / "docs" / "reports" / "structure-assessment-report.md").exists():
+            print(f"  {FAIL} legacy scan 未生成结构报告")
+            return False
+        candidate = legacy / "DeliverHQ" / "STRUCTURE-PROFILE.candidate.yml"
+        if not candidate.exists():
+            print(f"  {FAIL} legacy scan 未生成候选 profile")
+            return False
+        (legacy / "DeliverHQ" / "STRUCTURE-PROFILE.yml").write_text(candidate.read_text(encoding="utf-8"), encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(gate_script), str(legacy), "--mode", "progressive"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} progressive StructureGate 应允许 legacy fenced 项目")
+            for line in result.stdout.splitlines()[:8]:
+                print(f"    {line}")
+            return False
+
+        print(f"  {PASS} Project Structure Governance contract PASS")
+        return True
+    except Exception as exc:
+        print(f"  {FAIL} Project Structure Governance contract 异常: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_packaging_hygiene():
     """检查发布包中不应包含运行时垃圾文件。"""
-    section("23. Packaging Hygiene")
+    section("24. Packaging Hygiene")
     pycache_dirs = [path for path in ROOT.rglob("__pycache__") if path.is_dir()]
     pyc_files = list(ROOT.rglob("*.pyc"))
 
@@ -1149,6 +1273,7 @@ def main():
         results["high_risk_approval_failclosed"] = check_high_risk_approval_failclosed()
         results["plan_checker_contract"] = check_plan_checker_contract()
         results["evidence_loop_contract"] = check_evidence_loop_contract()
+        results["structure_governance_contract"] = check_structure_governance_contract()
         results["packaging_hygiene"] = check_packaging_hygiene()
     finally:
         restore_example_crs(snapshot_dir)
