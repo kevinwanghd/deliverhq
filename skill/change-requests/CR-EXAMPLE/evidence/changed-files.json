@@ -1,5 +1,9 @@
 [
   "src/models/todo.py",
   "src/api/todos.py",
-  "tests/test_todos.py"
+  "src/schemas/todo.py",
+  "src/main.py",
+  "alembic/versions/001_create_todos.py",
+  "tests/test_todos.py",
+  "tests/test_openapi_todos.py"
 ]

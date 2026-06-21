@@ -198,7 +198,7 @@ adversarial_review:
 
 **期望路由**:
 - 启用 DeliverHQ: ✅ YES
-- Workflow 模式: `tournament`
+- Workflow 模式: `generate-and-filter`
 - 对抗式验证: ✅ YES (性能关键)
 - 权限隔离: ❌ NO
 - 原因: 多个实现竞争，需要性能测试选出最优

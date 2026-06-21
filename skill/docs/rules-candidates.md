@@ -6,6 +6,8 @@
 - Add one entry per proposed rule or rule change.
 - Keep the source CR and trigger problem explicit.
 - Do not edit `docs/rules.md` directly from Writeback Agent output.
+- Repeated failures in `docs/mistake-book.md` with `rules_candidate=true` should be reviewed here before promotion.
+- Human review must choose one path: promote with `promote_rule_candidate.py`, reject with `reject_rule_candidate.py`, or leave pending with rationale.
 
 ## Candidate Rule Template
 ## Candidate Rule: <short title>

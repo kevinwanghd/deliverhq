@@ -28,6 +28,21 @@ CR-EXAMPLE:
       lines: "1-80"
       commit: "a1b2c3d"
 
+    - file: "src/schemas/todo.py"
+      schemas:
+        - "TodoCreate"
+        - "TodoUpdate"
+        - "TodoResponse"
+      lines: "1-60"
+      commit: "a1b2c3d"
+
+    - file: "src/main.py"
+      routes:
+        - "include_router(todo_router)"
+        - "OpenAPI route registration"
+      lines: "1-40"
+      commit: "a1b2c3d"
+
   tests:
     - file: "tests/test_todos.py"
       cases:
@@ -43,7 +58,18 @@ CR-EXAMPLE:
         - name: "test_delete_todo_soft"
           covers: "验收条件 #4"
           type: "integration"
-      lines: "1-150"
+        - name: "test_todo_api_performance_budget"
+          covers: "验收条件 #5"
+          type: "performance"
+      lines: "1-180"
+      commit: "a1b2c3d"
+
+    - file: "tests/test_openapi_todos.py"
+      cases:
+        - name: "test_openapi_contains_todo_paths"
+          covers: "验收条件 #5"
+          type: "integration"
+      lines: "1-50"
       commit: "a1b2c3d"
 
   data_changes:
@@ -56,6 +82,25 @@ CR-EXAMPLE:
     - type: "internal_service"
       name: "PostgreSQL"
       interface: "SQLAlchemy ORM"
+
+  impact:
+    changed_files:
+      - "src/models/todo.py"
+      - "src/api/todos.py"
+      - "src/schemas/todo.py"
+      - "src/main.py"
+      - "alembic/versions/001_create_todos.py"
+      - "tests/test_todos.py"
+      - "tests/test_openapi_todos.py"
+    affected_modules:
+      - "todo-api"
+      - "todo-schema"
+      - "api-routing"
+      - "database-migration"
+    related_tests:
+      - "tests/test_todos.py"
+      - "tests/test_openapi_todos.py"
+    note: "可选影响面字段，当前由人工/CR 维护，不依赖外部图谱工具"
 
   verification:
     - gate: "SpecGate"

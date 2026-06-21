@@ -106,7 +106,41 @@ def _collect_traceability_files(traceability: Dict) -> List[str]:
         for entry in cr_data.get('tests', []) or []:
             if isinstance(entry, dict) and entry.get('file'):
                 files.append(entry['file'].replace('\\', '/'))
+        for entry in cr_data.get('data_changes', []) or []:
+            if isinstance(entry, dict) and entry.get('migration'):
+                files.append(entry['migration'].replace('\\', '/'))
     return files
+
+
+def _traceability_closure_blockers(traceability: Dict) -> List[str]:
+    blockers: List[str] = []
+    for cr_id, cr_data in traceability.items():
+        if cr_id in {'schema', 'version'} or not isinstance(cr_data, dict):
+            continue
+        acceptance_criteria = cr_data.get('acceptance_criteria') or []
+        implementation = cr_data.get('implementation') or []
+        tests = cr_data.get('tests') or []
+        if acceptance_criteria and not implementation:
+            blockers.append('%s: acceptance_criteria 有记录但 implementation 为空' % cr_id)
+        if acceptance_criteria and not tests:
+            blockers.append('%s: acceptance_criteria 有记录但 tests 为空' % cr_id)
+
+        covered_numbers = set()
+        for test_entry in tests:
+            if not isinstance(test_entry, dict):
+                continue
+            for case in test_entry.get('cases', []) or []:
+                covers = str(case.get('covers', '')) if isinstance(case, dict) else ''
+                for match in re.findall(r'#(\d+)', covers):
+                    covered_numbers.add(int(match))
+
+        if acceptance_criteria and not covered_numbers:
+            blockers.append('%s: tests 存在但未声明覆盖任何验收条件编号' % cr_id)
+        elif acceptance_criteria and covered_numbers:
+            missing = [idx for idx in range(1, len(acceptance_criteria) + 1) if idx not in covered_numbers]
+            if missing:
+                blockers.append('%s: tests 未覆盖验收条件编号 %s' % (cr_id, ', '.join(str(item) for item in missing)))
+    return blockers
 
 
 def _collect_changed_files_from_evidence(cr_path: Path) -> List[str]:
@@ -295,6 +329,13 @@ def check_reviewgate(cr_path):
             print(f"{Color.RED}  ✗ traceability.yml 未记录 implementation/tests 文件{Color.END}")
         else:
             print(f"{Color.GREEN}  ✓ traceability.yml 已记录 {len(trace_files)} 个实现/测试文件{Color.END}")
+        closure_blockers = _traceability_closure_blockers(traceability)
+        if closure_blockers:
+            for item in closure_blockers:
+                print(f"{Color.RED}  ✗ {item}{Color.END}")
+            blockers.extend(closure_blockers)
+        else:
+            print(f"{Color.GREEN}  ✓ AC → implementation/tests 闭环完整{Color.END}")
 
     changed_files = _collect_changed_files()
     evidence_changed_files = _collect_changed_files_from_evidence(cr_path)
@@ -321,6 +362,7 @@ def check_reviewgate(cr_path):
         '## 验收条件实现审查',
         '## 代码质量审查',
         '## Traceability 完整性',
+        '## Adversarial Checks',
         '## 发现的问题汇总',
         '## 审查结论',
     ]
