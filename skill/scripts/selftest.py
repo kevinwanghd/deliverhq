@@ -400,6 +400,15 @@ def check_version_consistency():
     if skill.exists():
         checks["SKILL.md"] = expected_version in skill.read_text(encoding="utf-8")
 
+    package_json = ROOT.parent / "package.json"
+    if package_json.exists():
+        import json
+        try:
+            package_version = json.loads(package_json.read_text(encoding="utf-8")).get("version")
+            checks["../package.json"] = package_version == expected_version.lstrip("v")
+        except Exception:
+            checks["../package.json"] = False
+
     all_ok = True
     for file, ok in checks.items():
         if ok:

@@ -8,6 +8,7 @@
  *   init [--target <agent>] [--global] [--local] [--force] [--yes]
  *   doctor [--path <skill目录>]
  *   --help
+ *   --version
  *
  * 支持的 --target：
  *   claude   文件夹 skill → .claude/skills/deliverhq/        （默认）
@@ -28,6 +29,7 @@ const readline = require('readline');
 
 const PKG_ROOT = path.resolve(__dirname, '..');
 const SKILL_SRC = path.join(PKG_ROOT, 'skill');
+const PACKAGE_JSON = require(path.join(PKG_ROOT, 'package.json'));
 const C = {
   g: (s) => `\x1b[92m${s}\x1b[0m`,
   y: (s) => `\x1b[93m${s}\x1b[0m`,
@@ -130,9 +132,21 @@ function checkPyYAML(pyCmd) {
   catch (_) { return false; }
 }
 
+function detectPythonWithPyYAML() {
+  const candidates = [];
+  for (const cmd of ['python3', 'python', 'py']) {
+    try {
+      const out = execFileSync(cmd, ['--version'], { stdio: ['ignore', 'pipe', 'pipe'] })
+        .toString().trim();
+      candidates.push({ cmd, version: out, hasYaml: checkPyYAML(cmd) });
+    } catch (_) { /* next */ }
+  }
+  return candidates.find((item) => item.hasYaml) || candidates[0] || null;
+}
+
 function reportEnv() {
   console.log(C.b('\n[环境检测]'));
-  const py = detectPython();
+  const py = detectPythonWithPyYAML();
   if (!py) {
     console.log(C.r('  ✗ 未找到 Python (python3/python/py)'));
     console.log('    DeliverHQ 门禁是 Python 脚本，需 Python 3.6+：https://python.org');
@@ -260,10 +274,10 @@ function cmdDoctor(flags) {
   }
   console.log(`核心目录: ${skillDir}`);
 
-  const py = detectPython();
+  const py = detectPythonWithPyYAML();
   if (!py) { console.log(C.r('✗ 未找到 Python，无法运行 selftest')); process.exit(1); }
-  console.log(C.g(`✓ ${py.version}`));
-  if (!checkPyYAML(py.cmd)) {
+  console.log(C.g(`✓ ${py.version} (${py.cmd})`));
+  if (!py.hasYaml) {
     console.log(C.r(`✗ 缺少 PyYAML：${py.cmd} -m pip install PyYAML`)); process.exit(1);
   }
   console.log(C.g('✓ PyYAML 已安装'));
@@ -303,6 +317,9 @@ function help() {
   npx deliverhq doctor [--path <核心目录>]
       检测 Python/PyYAML + 运行 selftest
 
+  npx deliverhq --version
+      输出 npm 包版本
+
 示例:
   npx deliverhq init                      # Claude Code，问位置
   npx deliverhq init --target hermes --global
@@ -316,6 +333,7 @@ function help() {
 
 async function main() {
   const { _, flags } = parseArgs(process.argv.slice(2));
+  if (flags.version || flags.v || _[0] === 'version') { console.log(PACKAGE_JSON.version); return; }
   if (flags.help || flags.h || _[0] === 'help') return help();
   const cmd = _[0];
   if (cmd === 'init') return cmdInit(flags);
