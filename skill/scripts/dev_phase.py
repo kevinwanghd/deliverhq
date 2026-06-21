@@ -11,6 +11,7 @@ pipeline at a clear development handoff point.
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,6 +42,8 @@ def _is_git_repo(path: Path) -> bool:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
     )
     return result.returncode == 0
 
@@ -58,6 +61,8 @@ def _try_create_worktree(cr_id: str) -> Tuple[Optional[str], str]:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
     )
     if result.returncode != 0:
         return None, result.stderr.strip() or result.stdout.strip() or "worktree 创建失败"
@@ -93,6 +98,8 @@ def prepare_dev_phase(cr_path: str, lane: Optional[str] = None) -> bool:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
     )
     commands_run.append("pre_dev_gate.py")
     if result.stdout:
@@ -113,8 +120,14 @@ def prepare_dev_phase(cr_path: str, lane: Optional[str] = None) -> bool:
             worktree_path = None
 
     if not worktree_path and lane in {"standard", "high-risk"} and not blockers:
-        created_path, message = _try_create_worktree(cr_dir.name)
-        commands_run.append("worktree_manager.py create")
+        if os.environ.get("DELIVERHQ_SELFTEST", "0") == "1":
+            message = "selftest 模式跳过自动 worktree 创建"
+            warnings.append(message)
+            print(f"{Color.BLUE}ℹ {message}{Color.END}")
+            created_path = None
+        else:
+            created_path, message = _try_create_worktree(cr_dir.name)
+            commands_run.append("worktree_manager.py create")
         if created_path:
             worktree_path = created_path
             set_worktree_path(cr_dir, worktree_path)

@@ -13,7 +13,9 @@ Gate Contract Check — 验证所有 Gate 脚本的参数契约
 import sys
 sys.dont_write_bytecode = True
 import os
+import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 from runtime_support import configure_console
@@ -105,6 +107,25 @@ def run_gate(script, args):
 
     return result.returncode, result.stdout, result.stderr
 
+def _snapshot_example_crs():
+    temp_dir = Path(tempfile.mkdtemp(prefix="deliverhq-gate-contract-"))
+    cr_names = ["CR-EXAMPLE", "CR-BLOCKED-EXAMPLE"]
+    for cr_name in cr_names:
+        source = ROOT / "change-requests" / cr_name
+        if source.exists():
+            shutil.copytree(source, temp_dir / cr_name)
+    return temp_dir
+
+
+def _restore_example_crs(snapshot_dir):
+    for source in snapshot_dir.iterdir():
+        target = ROOT / "change-requests" / source.name
+        if target.exists():
+            shutil.rmtree(str(target))
+        shutil.copytree(source, target)
+    shutil.rmtree(str(snapshot_dir), ignore_errors=True)
+
+
 def check_gate_pass_blocked():
     """检查 gate 对正反例的响应"""
     print("\n" + "=" * 60)
@@ -112,40 +133,44 @@ def check_gate_pass_blocked():
     print("=" * 60)
 
     all_correct = True
+    snapshot_dir = _snapshot_example_crs()
 
-    for gate_name, config in GATES.items():
-        script_path = ROOT / config["script"]
-        if not script_path.exists():
-            print(f"  ⚠️  {gate_name:20s} SKIP (script not found)")
-            continue
+    try:
+        for gate_name, config in GATES.items():
+            script_path = ROOT / config["script"]
+            if not script_path.exists():
+                print(f"  ⚠️  {gate_name:20s} SKIP (script not found)")
+                continue
 
-        evidence_missing = [item for item in config.get("required_evidence_pass", []) if not (ROOT / item).exists()]
-        if evidence_missing:
-            print(f"  ❌ {gate_name:20s} 缺少 PASS 证据: {evidence_missing}")
-            all_correct = False
-            continue
+            evidence_missing = [item for item in config.get("required_evidence_pass", []) if not (ROOT / item).exists()]
+            if evidence_missing:
+                print(f"  ❌ {gate_name:20s} 缺少 PASS 证据: {evidence_missing}")
+                all_correct = False
+                continue
 
-        # Test PASS case
-        rc_pass, _, _ = run_gate(config["script"], config["args_pass"])
+            # Test PASS case
+            rc_pass, _, _ = run_gate(config["script"], config["args_pass"])
 
-        # Test BLOCKED case
-        rc_blocked, _, _ = run_gate(config["script"], config["args_blocked"])
+            # Test BLOCKED case
+            rc_blocked, _, _ = run_gate(config["script"], config["args_blocked"])
 
-        expect_blocked = config.get("expect_blocked", True)
-        if rc_pass == 0 and ((rc_blocked != 0) if expect_blocked else (rc_blocked == 0)):
-            blocked_label = "✓" if expect_blocked else "SKIP"
-            print(f"  ✅ {gate_name:20s} PASS=✓ BLOCKED={blocked_label}")
-        else:
-            print(f"  ❌ {gate_name:20s} PASS={rc_pass} BLOCKED={rc_blocked}")
-            if rc_pass != 0:
-                _, stdout_pass, stderr_pass = run_gate(config["script"], config["args_pass"])
-                print(f"     PASS stdout: {stdout_pass.splitlines()[:2]}")
-                print(f"     PASS stderr: {stderr_pass.splitlines()[:2]}")
-            if expect_blocked and rc_blocked == 0:
-                _, stdout_blocked, stderr_blocked = run_gate(config["script"], config["args_blocked"])
-                print(f"     BLOCKED stdout: {stdout_blocked.splitlines()[:2]}")
-                print(f"     BLOCKED stderr: {stderr_blocked.splitlines()[:2]}")
-            all_correct = False
+            expect_blocked = config.get("expect_blocked", True)
+            if rc_pass == 0 and ((rc_blocked != 0) if expect_blocked else (rc_blocked == 0)):
+                blocked_label = "✓" if expect_blocked else "SKIP"
+                print(f"  ✅ {gate_name:20s} PASS=✓ BLOCKED={blocked_label}")
+            else:
+                print(f"  ❌ {gate_name:20s} PASS={rc_pass} BLOCKED={rc_blocked}")
+                if rc_pass != 0:
+                    _, stdout_pass, stderr_pass = run_gate(config["script"], config["args_pass"])
+                    print(f"     PASS stdout: {stdout_pass.splitlines()[:2]}")
+                    print(f"     PASS stderr: {stderr_pass.splitlines()[:2]}")
+                if expect_blocked and rc_blocked == 0:
+                    _, stdout_blocked, stderr_blocked = run_gate(config["script"], config["args_blocked"])
+                    print(f"     BLOCKED stdout: {stdout_blocked.splitlines()[:2]}")
+                    print(f"     BLOCKED stderr: {stderr_blocked.splitlines()[:2]}")
+                all_correct = False
+    finally:
+        _restore_example_crs(snapshot_dir)
 
     return all_correct
 

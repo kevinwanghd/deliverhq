@@ -131,7 +131,9 @@ class WorktreeManager:
             cwd=cwd or self.project_root,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
         )
 
     def create(self, cr_id: str, base_branch: str = "master") -> WorktreeInfo:
