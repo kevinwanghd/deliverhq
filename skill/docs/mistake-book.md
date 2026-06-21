@@ -5,9 +5,11 @@
 ---
 
 **使用说明**：
-- QualityGate 失败时自动记录（通过 update_mistake_book.py）
-- 也可人工添加值得记录的错误案例
-- 定期回顾，转化为 rules.md 中的规则
+- QualityGate 失败时可记录（通过 update_mistake_book.py；默认 selftest 不写入）
+- 同一 CR + Gate + failure_hash 不重复追加，重复出现时更新 count / last_seen
+- count ≥ 3 时标记 `rules_candidate=true`，表示应进入 `docs/rules-candidates.md` 人工审核
+- 所有新规则必须先进入 `docs/rules-candidates.md`，不得由 AI 直接改 `docs/rules.md`
+- 人工审核后用 promote/reject 脚本晋升或拒绝候选规则
 
 ## 错误案例模板
 

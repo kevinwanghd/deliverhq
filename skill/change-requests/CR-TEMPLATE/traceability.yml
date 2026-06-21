@@ -59,6 +59,15 @@ CR-TEMPLATE:
       name: "{{内部服务名}}"
       interface: "{{interface_name}}"
 
+  impact:
+    changed_files:
+      - "{{相对路径/changed_file.ext}}"
+    affected_modules:
+      - "{{模块名}}"
+    related_tests:
+      - "{{测试文件或测试用例}}"
+    note: "可选字段；预留给代码图谱/影响面工具，不要求接入 GitNexus/Graphify"
+
   verification:
     - gate: "SpecGate"
       status: "PASS"

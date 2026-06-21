@@ -226,7 +226,7 @@ def check_cr_template_gates():
         "specgate.py", "designgate.py", "context_window_check.py",
         "pre_dev_gate.py", "dev_phase.py", "reviewgate.py", "qualitygate.py",
         "deploygate.py", "writeback_gate.py", "permissiongate.py",
-        "workflow_router.py", "cr_state.py", "gate_json_output.py",
+        "workflow_router.py", "cr_state.py", "gate_json_output.py", "dir_graph_lint.py",
     ]
     all_ok = True
     for gate in gates:
@@ -570,6 +570,32 @@ def check_capability_status_consistency():
     return all_ok
 
 
+def check_dir_graph_lint():
+    """Run dir-graph contract lint."""
+    script = ROOT / "scripts" / "dir_graph_lint.py"
+    if not script.exists():
+        print(f"  {FAIL} dir_graph_lint.py 不存在")
+        return False
+    result = subprocess.run(
+        [sys.executable, str(script), str(ROOT / "dir-graph.yaml")],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(ROOT),
+        env=SUBPROCESS_ENV,
+    )
+    if result.returncode == 0:
+        print(f"  {PASS} dir-graph lint PASS")
+        return True
+    print(f"  {FAIL} dir-graph lint FAIL")
+    for line in result.stdout.splitlines():
+        if "BLOCKED" in line or line.strip().startswith("-"):
+            print(f"    {line.strip()}")
+    return False
+
+
 def check_gate_json_evidence_schema():
     """Validate the canonical Gate JSON evidence schema through the real writer."""
     import tempfile
@@ -676,8 +702,9 @@ def check_gate_contract():
             if "❌" in line or "BLOCKED" in line:
                 print(f"    {line.strip()}")
 
+    dir_graph_ok = check_dir_graph_lint()
     schema_ok = check_gate_json_evidence_schema()
-    return contract_ok and schema_ok
+    return contract_ok and dir_graph_ok and schema_ok
 
 
 def check_reverse_spec_contract():

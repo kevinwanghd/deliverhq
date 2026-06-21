@@ -9,13 +9,16 @@ Routing Eval 自动化 - 评估 DeliverHQ 的触发准确率。
 
 import re
 import sys
+sys.dont_write_bytecode = True
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from workflow_router import route_request
+from routing_rules import route_request
+from runtime_support import configure_console
 
 ROOT = Path(__file__).resolve().parent.parent
+configure_console()
 
 
 @dataclass
@@ -147,65 +150,9 @@ def parse_workflow_routing_cases() -> List[RoutingCase]:
     return cases
 
 
-def _is_plan_only_no_modification(prompt_lower: str) -> bool:
-    plan_only_signals = [
-        "先给方案", "只给建议", "只做分析", "只给优化建议", "不要实施",
-        "plan only", "recommendation only", "recommend only",
-    ]
-    no_modification_signals = [
-        "不要修改文件", "不要改文件", "不要修改代码", "不要改代码", "不要创建 cr", "不要实施",
-        "不要启动 deliverhq", "不走 cr", "只读", "do not modify", "don't modify",
-        "do not create a cr", "don't create a cr", "no file changes",
-    ]
-    return any(signal in prompt_lower for signal in plan_only_signals) and any(
-        signal in prompt_lower for signal in no_modification_signals
-    )
-
-
 def simulate_routing_decision(prompt: str) -> Tuple[bool, Optional[str]]:
-    prompt_lower = prompt.lower()
-
-    if _is_plan_only_no_modification(prompt_lower):
-        return False, None
-
-    ask_only_patterns = ["是什么", "介绍一下", "检查什么"]
-    if any(pattern in prompt_lower for pattern in ask_only_patterns):
-        return False, None
-
-    reject_keywords = [
-        "错别字", "拼写错误", "解释", "查看", "总结", "临时脚本", "commit message",
-        "不要启动", "不用deliverhq", "不走 cr", "快速修一下",
-    ]
-    if any(keyword in prompt_lower for keyword in reject_keywords):
-        return False, None
-
-    boundary_keywords = ["修一个 bug", "重构这个模块", "优化性能"]
-    if any(keyword in prompt_lower for keyword in boundary_keywords):
-        return False, None
-
-    trigger_keywords = [
-        "deliverhq", "deliver-hq", "文档门禁", "扫描", "技术债", "代码健康", "代码质量报告", "创建", "新建需求", "推进 cr",
-        "验收规格写好了", "qualitygate", "specgate", "能不能开发", "不要没文档", "开发", "修改", "bug 修完",
-        "迁移", "重构", "支付", "数据迁移", "架构", "方案", "测试", "issue", "批量",
-        "多文件", "所有 api", "性能", "线上", "转化率", "用户提交", "文档注释",
-    ]
-    should_trigger = any(keyword in prompt_lower for keyword in trigger_keywords)
-    if not should_trigger:
-        return False, None
-
-    if any(kw in prompt_lower for kw in ["issue", "分类", "去重", "优先级", "200 个 bug"]):
-        return True, "classify-and-act"
-    if any(kw in prompt_lower for kw in ["循环", "直到", "一直失败", "测试一直失败", "文档注释"]):
-        return True, "loop-until-done"
-    if any(kw in prompt_lower for kw in ["3 种", "3 个", "多个候选", "优缺点", "推荐一个", "方案"]):
-        if any(kw in prompt_lower for kw in ["实际测试", "性能", "太慢"]):
-            return True, "tournament"
-        return True, "generate-and-filter"
-    if any(kw in prompt_lower for kw in ["80 个文件", "多文件", "所有 api", "转化率", "多个假设", "大模块"]):
-        return True, "fan-out-and-synthesize"
-    if any(kw in prompt_lower for kw in ["支付", "数据迁移", "第三方 sdk", "配置文件", "用户提交"]):
-        return True, "linear"
-    return True, "linear"
+    decision = route_request(prompt)
+    return bool(decision.get("deliverhq_required")), decision.get("workflow_type")
 
 
 def evaluate_skill_routing(cases: List[RoutingCase]) -> Dict:

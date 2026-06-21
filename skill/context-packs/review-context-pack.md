@@ -17,6 +17,7 @@
 - Do tests cover each P0 acceptance criterion?
 - Does `verification-manifest.yml` contain real build/test/lint commands?
 - Are protected paths involved? If yes, require PermissionGate / human approval.
+- Adversarial checks: did the change delete/disable tests, lower quality thresholds, bypass gates, cover only happy paths, or miss boundary conditions?
 
 ## Output
 

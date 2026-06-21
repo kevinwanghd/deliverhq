@@ -40,6 +40,12 @@
 - **测试证据**: `tests/test_todos.py::test_delete_todo_soft`
 - **审查结果**: ✅ PASS
 
+### 场景 5: 非功能验收
+- **验收条件**: P95 < 100ms，并发 100 无错误，OpenAPI 文档自动生成且可访问
+- **映射实现**: `src/api/todos.py` GET /api/todos；`src/schemas/todo.py` OpenAPI schema；`src/main.py` 路由注册；`alembic/versions/001_create_todos.py` 持久化表
+- **测试证据**: `tests/test_todos.py::test_todo_api_performance_budget`；`tests/test_openapi_todos.py::test_openapi_contains_todo_paths`
+- **审查结果**: ✅ PASS
+
 ---
 
 ## 代码质量审查
@@ -61,6 +67,16 @@
 - ✅ implementation 与 tests 都已映射
 - ✅ 变更可追溯到具体文件
 - ✅ `evidence/changed-files.json` 与 `traceability.yml` 对齐
+
+---
+
+## Adversarial Checks
+
+- **删测试/弱化测试**：✅ 未发现
+- **降低质量阈值**：✅ 未发现
+- **绕过 Gate 或验证命令**：✅ 未发现
+- **只覆盖 happy path**：✅ 未发现，异常和边界场景均已审查
+- **遗漏边界条件**：✅ 未发现
 
 ---
 

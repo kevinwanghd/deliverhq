@@ -79,7 +79,7 @@ DeliverHQ/
 │       ├── quality-report.md  # 质量报告（Quality Agent）
 │       ├── writeback-report.md # 归档报告（Writeback Agent）
 │       ├── human-decisions.md # 人工决策记录
-│       ├── traceability.yml   # 需求到代码映射
+│       ├── traceability.yml   # 需求到代码/测试/影响面的映射
 │       ├── exceptions.yml     # 例外审批
 │       ├── specgate-report.md
 │       ├── designgate-report.md
@@ -428,6 +428,7 @@ DeliverHQ 是**技术栈无关**的治理框架，支持：
 ## 扩展阅读
 
 - **`AGENTS.md`** — 9 个 Agent 的详细行为规则
+- **`docs/FOUR-FUNCTION-MODE.md`** — 四职能最小模式，说明小团队如何不用机械启动 9 个 Agent
 - **`MIGRATION.md`** — 迁移到其他 AI 平台
 - **`ROLLBACK.md`** — 回滚已交付 CR 的操作指南
 - **`CAPABILITY-MATRIX.md`** — 单一能力状态源（stable/experimental/roadmap、是否默认启用）
