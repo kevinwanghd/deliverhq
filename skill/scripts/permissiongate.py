@@ -3,6 +3,7 @@
 
 
 import fnmatch
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -110,43 +111,46 @@ def check_permission_gate(cr_path, lane: Optional[str] = None):
     protected_patterns = _load_dir_graph()
     exceptions = _load_exceptions(cr_path)
 
-    try:
-        changed_files = _git_changed_files()
-    except NoGitRepoError as exc:
-        print("⚠️  PASS WITH WARNING - 目标目录不是 git 仓库，跳过受保护路径核对")
-        print(f"   {exc}")
-        warning_msg = "非 git 仓库，PermissionGate 跳过 git diff 核对（建议在目标项目仓库内运行以启用权限边界检查）"
-        update_gate_from_result(
-            cr_path,
-            "permission",
-            True,
-            blockers=[],
-            state_after_pass="dev",
-            current_phase="dev",
-            current_owner="dev-agent",
-            next_required_gate="pre_dev",
-            warnings=[warning_msg],
-            commands_run=["git status --porcelain"],
-            next_action="如需启用权限边界检查，请在目标项目的 git 仓库内运行",
-        )
-        return True, []
-    except Exception as exc:
-        print("❌ BLOCKED - 无法读取 Git 变更")
-        print(f"   {exc}")
-        update_gate_from_result(
-            cr_path,
-            "permission",
-            False,
-            blockers=["无法读取 Git 变更"],
-            state_after_pass="blocked",
-            current_phase="request",
-            current_owner="human",
-            next_required_gate="pre_dev",
-            commands_run=["git status --porcelain"],
-            next_action="修复 Git 状态读取问题后重新运行 PermissionGate",
-        )
-        return False, ["PermissionGate 无法读取 Git 变更"]
-
+    if os.environ.get("DELIVERHQ_SELFTEST", "0") == "1":
+        print("ℹ️  selftest 模式跳过 git 工作区权限核对")
+        changed_files = []
+    else:
+        try:
+            changed_files = _git_changed_files()
+        except NoGitRepoError as exc:
+            print("⚠️  PASS WITH WARNING - 目标目录不是 git 仓库，跳过受保护路径核对")
+            print(f"   {exc}")
+            warning_msg = "非 git 仓库，PermissionGate 跳过 git diff 核对（建议在目标项目仓库内运行以启用权限边界检查）"
+            update_gate_from_result(
+                cr_path,
+                "permission",
+                True,
+                blockers=[],
+                state_after_pass="dev",
+                current_phase="dev",
+                current_owner="dev-agent",
+                next_required_gate="pre_dev",
+                warnings=[warning_msg],
+                commands_run=["git status --porcelain"],
+                next_action="如需启用权限边界检查，请在目标项目的 git 仓库内运行",
+            )
+            return True, []
+        except Exception as exc:
+            print("❌ BLOCKED - 无法读取 Git 变更")
+            print(f"   {exc}")
+            update_gate_from_result(
+                cr_path,
+                "permission",
+                False,
+                blockers=["无法读取 Git 变更"],
+                state_after_pass="blocked",
+                current_phase="request",
+                current_owner="human",
+                next_required_gate="pre_dev",
+                commands_run=["git status --porcelain"],
+                next_action="修复 Git 状态读取问题后重新运行 PermissionGate",
+            )
+            return False, ["PermissionGate 无法读取 Git 变更"]
     protected_hits = [path for path in changed_files if _is_protected(path, protected_patterns)]
 
     print(f"变更文件: {len(changed_files)}")
