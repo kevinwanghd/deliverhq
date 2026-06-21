@@ -13,6 +13,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+from workflow_router import route_request
+
 ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -145,8 +147,26 @@ def parse_workflow_routing_cases() -> List[RoutingCase]:
     return cases
 
 
+def _is_plan_only_no_modification(prompt_lower: str) -> bool:
+    plan_only_signals = [
+        "先给方案", "只给建议", "只做分析", "只给优化建议", "不要实施",
+        "plan only", "recommendation only", "recommend only",
+    ]
+    no_modification_signals = [
+        "不要修改文件", "不要改文件", "不要修改代码", "不要改代码", "不要创建 cr", "不要实施",
+        "不要启动 deliverhq", "不走 cr", "只读", "do not modify", "don't modify",
+        "do not create a cr", "don't create a cr", "no file changes",
+    ]
+    return any(signal in prompt_lower for signal in plan_only_signals) and any(
+        signal in prompt_lower for signal in no_modification_signals
+    )
+
+
 def simulate_routing_decision(prompt: str) -> Tuple[bool, Optional[str]]:
     prompt_lower = prompt.lower()
+
+    if _is_plan_only_no_modification(prompt_lower):
+        return False, None
 
     ask_only_patterns = ["是什么", "介绍一下", "检查什么"]
     if any(pattern in prompt_lower for pattern in ask_only_patterns):
@@ -210,6 +230,36 @@ def evaluate_skill_routing(cases: List[RoutingCase]) -> Dict:
     }
 
 
+def evaluate_real_router_regressions() -> Dict:
+    cases = [
+        ("优化 DeliverHQ skill 的路由规则，先给方案不要修改文件", False, "linear"),
+        ("只给优化建议，不要创建 CR，也不要修改代码", False, "linear"),
+        ("Plan only: recommend routing changes, do not modify files or create a CR", False, "linear"),
+        ("优化 DeliverHQ skill 的路由规则，先给方案，不要实施", False, "linear"),
+        ("给我 3 个缓存架构方案（Redis / Memcached / 内存），分析优缺点并推荐一个", True, "generate-and-filter"),
+    ]
+    failures = []
+    for prompt, expected_required, expected_workflow in cases:
+        decision = route_request(prompt)
+        actual_required = bool(decision.get("deliverhq_required"))
+        actual_workflow = decision.get("workflow_type")
+        if actual_required != expected_required or actual_workflow != expected_workflow:
+            failures.append({
+                "prompt": prompt,
+                "expected_required": expected_required,
+                "actual_required": actual_required,
+                "expected_workflow": expected_workflow,
+                "actual_workflow": actual_workflow,
+            })
+    total = len(cases)
+    return {
+        "total": total,
+        "correct": total - len(failures),
+        "accuracy": (total - len(failures)) / total * 100 if total else 0.0,
+        "failures": failures,
+    }
+
+
 def evaluate_workflow_routing(cases: List[RoutingCase]) -> Dict:
     correct = 0
     misrouted = []
@@ -244,6 +294,7 @@ def main():
     wf_cases = parse_workflow_routing_cases()
     skill_result = evaluate_skill_routing(skill_cases)
     wf_result = evaluate_workflow_routing(wf_cases)
+    real_router_result = evaluate_real_router_regressions()
 
     print("1. Skill Routing 评估")
     print("-" * 60)
@@ -271,10 +322,31 @@ def main():
         for item in wf_result['misrouted'][:8]:
             print(f"     {item['case_id']}: expected={item['expected']}, predicted={item['predicted']}")
     print("  ✅ Workflow Routing PASS" if wf_result['total'] > 0 and wf_result['accuracy'] >= 80 else "  ❌ Workflow Routing FAIL")
+    print()
+
+    print("3. Real Router Regression 评估")
+    print("-" * 60)
+    print(f"  总用例: {real_router_result['total']}")
+    print(f"  正确数: {real_router_result['correct']}")
+    print(f"  准确率: {real_router_result['accuracy']:.1f}%")
+    if real_router_result.get('failures'):
+        print(f"  ❌ Real Router Failures: {len(real_router_result['failures'])} 个")
+        for item in real_router_result['failures']:
+            print(f"     prompt={item['prompt']}")
+            print(f"       expected_required={item['expected_required']}, actual_required={item['actual_required']}")
+            print(f"       expected_workflow={item['expected_workflow']}, actual_workflow={item['actual_workflow']}")
+    print("  ✅ Real Router Regression PASS" if real_router_result['total'] > 0 and real_router_result['accuracy'] == 100 else "  ❌ Real Router Regression FAIL")
 
     print()
     print("=" * 60)
-    ok = skill_result['total'] > 0 and wf_result['total'] > 0 and skill_result['accuracy'] >= 95 and wf_result['accuracy'] >= 80
+    ok = (
+        skill_result['total'] > 0
+        and wf_result['total'] > 0
+        and real_router_result['total'] > 0
+        and skill_result['accuracy'] >= 95
+        and wf_result['accuracy'] >= 80
+        and real_router_result['accuracy'] == 100
+    )
     if ok:
         print("  ✅ 所有 Routing Eval 通过")
         sys.exit(0)

@@ -8,7 +8,9 @@ import sys
 sys.dont_write_bytecode = True
 import os
 import re
+import shutil
 import subprocess
+import tempfile
 import yaml
 from pathlib import Path
 
@@ -50,6 +52,24 @@ def section(title):
     print(f"\n{'='*50}")
     print(f"  {title}")
     print(f"{'='*50}")
+
+
+def snapshot_example_crs():
+    temp_dir = Path(tempfile.mkdtemp(prefix="deliverhq-selftest-"))
+    for cr_name in ("CR-EXAMPLE", "CR-BLOCKED-EXAMPLE"):
+        source = ROOT / "change-requests" / cr_name
+        if source.exists():
+            shutil.copytree(source, temp_dir / cr_name)
+    return temp_dir
+
+
+def restore_example_crs(snapshot_dir):
+    for source in snapshot_dir.iterdir():
+        target = ROOT / "change-requests" / source.name
+        if target.exists():
+            shutil.rmtree(str(target))
+        shutil.copytree(source, target)
+    shutil.rmtree(str(snapshot_dir), ignore_errors=True)
 
 
 def check_skeleton():
@@ -990,28 +1010,32 @@ def main():
     print(f"  根目录: {ROOT}")
 
     results = {}
-    results["skeleton"] = check_skeleton()
-    results["contamination"] = check_contamination()
-    results["template_residue"] = check_template_residue()
-    results["entry_files"] = check_entry_files()
-    results["scripts_syntax"] = check_scripts_runnable()
-    results["gate_availability"] = check_cr_template_gates()
-    results["cr_state"] = check_cr_state_files()
-    results["routing_eval"] = check_routing_eval()
-    results["cr_example_pass"] = check_cr_example_pass()
-    results["cr_blocked_blocked"] = check_cr_blocked_example()
-    results["version_consistency"] = check_version_consistency()
-    results["orchestrator_refs"] = check_orchestrator_references()
-    results["orchestrator_contracts"] = check_orchestrator_contracts()
-    results["default_pipeline_contract"] = check_default_pipeline_contract()
-    results["capability_status_consistency"] = check_capability_status_consistency()
-    results["gate_contract"] = check_gate_contract()
-    results["reverse_spec_contract"] = check_reverse_spec_contract()
-    results["loop_control_contract"] = check_loop_control_contract()
-    results["high_risk_approval_failclosed"] = check_high_risk_approval_failclosed()
-    results["plan_checker_contract"] = check_plan_checker_contract()
-    results["evidence_loop_contract"] = check_evidence_loop_contract()
-    results["packaging_hygiene"] = check_packaging_hygiene()
+    snapshot_dir = snapshot_example_crs()
+    try:
+        results["skeleton"] = check_skeleton()
+        results["contamination"] = check_contamination()
+        results["template_residue"] = check_template_residue()
+        results["entry_files"] = check_entry_files()
+        results["scripts_syntax"] = check_scripts_runnable()
+        results["gate_availability"] = check_cr_template_gates()
+        results["cr_state"] = check_cr_state_files()
+        results["routing_eval"] = check_routing_eval()
+        results["cr_example_pass"] = check_cr_example_pass()
+        results["cr_blocked_blocked"] = check_cr_blocked_example()
+        results["version_consistency"] = check_version_consistency()
+        results["orchestrator_refs"] = check_orchestrator_references()
+        results["orchestrator_contracts"] = check_orchestrator_contracts()
+        results["default_pipeline_contract"] = check_default_pipeline_contract()
+        results["capability_status_consistency"] = check_capability_status_consistency()
+        results["gate_contract"] = check_gate_contract()
+        results["reverse_spec_contract"] = check_reverse_spec_contract()
+        results["loop_control_contract"] = check_loop_control_contract()
+        results["high_risk_approval_failclosed"] = check_high_risk_approval_failclosed()
+        results["plan_checker_contract"] = check_plan_checker_contract()
+        results["evidence_loop_contract"] = check_evidence_loop_contract()
+        results["packaging_hygiene"] = check_packaging_hygiene()
+    finally:
+        restore_example_crs(snapshot_dir)
 
     section("总结")
     passed = sum(1 for v in results.values() if v)

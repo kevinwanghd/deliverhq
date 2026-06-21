@@ -81,6 +81,10 @@
 | 13 | "不要启动 DeliverHQ 流程" | 跳过 |
 | 14 | "这个不走 CR" | 跳过 |
 | 15 | "快速修一下，不用走流程" | 跳过 |
+| 16 | "优化 DeliverHQ skill 的路由规则，先给方案不要修改文件" | 先给方案，不直接启动流程 |
+| 17 | "只给优化建议，不要创建 CR，也不要修改代码" | 只给建议，不启动流程 |
+| 18 | "Plan only: recommend routing changes, do not modify files or create a CR" | plan only，不启动流程 |
+| 19 | "优化 DeliverHQ skill 的路由规则，先给方案，不要实施" | 只给方案，不启动流程 |
 
 ---
 
