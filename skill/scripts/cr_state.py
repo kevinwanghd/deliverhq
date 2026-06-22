@@ -22,6 +22,7 @@ DEFAULT_LANE = "standard"
 GATE_TO_STATE = {
     "spec": "spec_review",
     "design": "design",
+    "architecture": "design",
     "context": "design",
     "dev": "dev",
     "review": "code_review",
@@ -30,7 +31,7 @@ GATE_TO_STATE = {
     "writeback": "archived",
     "permission": "blocked",
 }
-GATE_SEQUENCE = ["spec", "design", "context", "pre_dev", "dev", "review", "quality", "deploy", "writeback"]
+GATE_SEQUENCE = ["spec", "design", "architecture", "context", "pre_dev", "dev", "review", "quality", "deploy", "writeback"]
 
 
 class CRState(Enum):

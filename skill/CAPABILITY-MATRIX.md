@@ -49,6 +49,14 @@
 | Project Structure Governance | scripts/init_project_structure.py + scripts/structuregate.py + structure-profiles/fullstack-web.yml | experimental | integrated | false | false | opt-in 初始化 AI 友好/人类易复查目录契约；默认不生成业务代码，不进入默认阻断链路 |
 | Legacy Structure Scan | scripts/scan_legacy_structure.py | experimental | integrated | false | false | 只读扫描老项目目录结构，生成 structure-assessment-report.md 与 STRUCTURE-PROFILE.candidate.yml；不搬目录不改源码 |
 
+| ArchitectureGate（架构确认门禁） | scripts/architecturegate.py | experimental | integrated | true | true | 第二道人工门禁；编码前必须有 architecture-design.md 并人工确认；缺章节或残留 {{}} → BLOCKED |
+| 证据驱动编码 + 架构对齐报告 | change-requests/CR-TEMPLATE/architecture-alignment-report.md | experimental | integrated | true | false | Dev Agent 按架构实施 + 产对齐报告；缺证据 block 而非硬写；missing 最多回流 5 轮 |
+| 直读审计 direct-read-audit | change-requests/CR-TEMPLATE/design/direct-read-audit.md | experimental | integrated | false | false | UI 编码前四元组追溯（node_id→属性→原始值→代码映射）；designgate C 端 warning-first |
+| 视觉还原审计 visual-auditor | change-requests/CR-TEMPLATE/design/visual-audit-report.md | experimental | integrated | false | false | 对照设计源查还原度，偏差清单回流 code-generator 修复（遵守 direct-read-audit）|
+| 移动端高保真门禁强化 | scripts/designgate.py + dir-graph design_gate | experimental | integrated | true | true | 识别 Android/iOS/Flutter/RN/鸿蒙/小程序 → 强制 C 端高保真；专项校验平台规范/多机型/深色模式/交互状态 |
+| 编译验证多平台 bundle | verification-manifest.yml (platform_bundles) | experimental | integrated | false | true | 复用 QualityGate + 可选 iOS/Android/Harmony/RN bundle；编译失败自动定位修复 |
+| RN/Figma 可选适配指南 | RN-FIGMA-ADAPTER-GUIDE.md | experimental | integrated | false | false | 可选适配层；核心门禁工具无关，可整体替换为其他技术栈 |
+
 ## 设计约束
 
 1. 默认 pipeline 只跑到 `dev_phase.py`，输出开发上下文后停止；代码实现、Review、Quality、Deploy、Writeback 必须在实现完成后显式推进。
@@ -57,5 +65,5 @@
 4. Darwin Score / Quality Ratchet 先做观察报告，不进入阻断链路。
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 
-**版本**: v5.7.0  
+**版本**: v5.8.0  
 **最后更新**: 2026-06-15

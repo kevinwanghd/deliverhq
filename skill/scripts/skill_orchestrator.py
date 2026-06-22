@@ -60,6 +60,15 @@ class SkillOrchestrator:
                 outputs=["design/hi-fi-spec.md", "design/lo-fi-spec.md"],
                 args_template="{cr_path}"  # designgate expects CR dir
             ),
+            "architecture": SkillConfig(
+                name="Architecture Gate",
+                type="architecture",
+                script_path="scripts/architecturegate.py",
+                description="Validate architecture design before context/dev handoff",
+                inputs=["architecture-design.md"],
+                outputs=["evidence/architecture-result.json"],
+                args_template="{cr_path}"
+            ),
             "context": SkillConfig(
                 name="Context Agent",
                 type="context",
@@ -298,6 +307,7 @@ class SkillOrchestrator:
         return [
             "spec",
             "design",
+            "architecture",
             "context",
             "pre_dev",
             "dev",
