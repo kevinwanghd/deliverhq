@@ -1,0 +1,21 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "architecture",
+  "result": "pass",
+  "timestamp": "2026-06-22T19:08:21.896763",
+  "blocking_items": [],
+  "warnings": [
+    "架构设计尚未人工确认（建议人工确认后再进入开发）"
+  ],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run context",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "design",
+    "current_phase": "architecture",
+    "current_owner": "design-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

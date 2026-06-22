@@ -1,12 +1,12 @@
 # DeliverHQ 版本权威来源（Single Source of Truth）
 # 所有文档/脚本的版本号必须与此文件一致，由 selftest 的 version_consistency 检查强制对齐。
 name: DeliverHQ
-version: 5.7.0
+version: 5.8.0
 release_date: 2026-06-21
 schema_version: 1
 
 # 版本号出现的位置（用于一致性校验）
-version_string: "v5.7.0"
+version_string: "v5.8.0"
 
 source_of_truth:
   skill: SKILL.md

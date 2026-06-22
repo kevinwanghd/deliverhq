@@ -35,6 +35,11 @@ GATES = {
         "args_pass": "change-requests/CR-EXAMPLE",
         "args_blocked": "change-requests/CR-BLOCKED-EXAMPLE"
     },
+    "architecturegate": {
+        "script": "scripts/architecturegate.py",
+        "args_pass": "change-requests/CR-EXAMPLE",
+        "args_blocked": "change-requests/CR-BLOCKED-EXAMPLE"
+    },
     "dev_phase": {
         "script": "scripts/dev_phase.py",
         "args_pass": "change-requests/CR-EXAMPLE",
@@ -148,7 +153,9 @@ def check_gate_pass_blocked():
                 all_correct = False
                 continue
 
-            # Test PASS case
+            # Test PASS case. Gate order is intentional: architecturegate runs
+            # before dev_phase so CR-EXAMPLE has ArchitectureGate evidence for
+            # PreDevGate/DevPhase contract verification.
             rc_pass, _, _ = run_gate(config["script"], config["args_pass"])
 
             # Test BLOCKED case

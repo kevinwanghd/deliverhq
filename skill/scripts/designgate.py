@@ -5,6 +5,7 @@ DesignGate - 设计产物完备性检查
 """
 
 import sys
+import re
 from pathlib import Path
 
 from cr_state import update_gate_from_result
@@ -19,18 +20,53 @@ class Color:
     BLUE = '\033[94m'
     END = '\033[0m'
 
+ASCII_TOKEN_RE = re.compile(r'(?<![A-Za-z0-9])(?:App|APP|Android|iOS|iPhone|iPad|Flutter|React Native|RN|ReactNative|Harmony|HarmonyOS|Mini Program)(?![A-Za-z0-9])')
+
+
+def _contains_mobile_keyword(content, mobile_keywords):
+    for keyword in mobile_keywords:
+        if keyword.isascii():
+            continue
+        if keyword in content:
+            return True
+    return bool(ASCII_TOKEN_RE.search(content))
+
+
 def detect_ui_type(cr_path):
-    """从 design/metadata.yml、acceptance-spec 或 request 推断 UI 类型"""
+    """从 design/metadata.yml、acceptance-spec 或 request 推断 UI 类型。
+
+    返回 (ui_type, is_mobile)：
+      ui_type ∈ {C端, B端, 无UI}；is_mobile 标记是否移动端/客户端原生场景。
+    判定优先级：移动端/客户端 > C 端 > B 端。
+    理由：移动端 App（安卓/iOS/Flutter/RN/鸿蒙/小程序）即使含"后台"字样，
+    也必须走 C 端高保真，不能因为出现"后台"被降级成 B 端低保真。
+    """
+    # 移动端/客户端关键词（命中即视为 C 端 + is_mobile，最高优先级）
+    mobile_keywords = [
+        '移动端', '客户端', 'App', 'APP', '原生',
+        '安卓', 'Android', 'iOS', 'iPhone', 'iPad',
+        'Flutter', 'React Native', 'RN', 'ReactNative',
+        '鸿蒙', 'Harmony', 'HarmonyOS', '小程序', 'Mini Program',
+    ]
+    c_end_keywords = ['用户界面', '前端', 'UI', '页面', 'H5', 'Web 端', 'C 端', 'C端']
+    b_end_keywords = ['管理后台', '后台', '管理系统', '内部工具', '运营平台', 'B 端', 'B端']
+
     # 优先读取结构化 metadata.yml
     metadata_path = Path(cr_path) / "design" / "metadata.yml"
     if metadata_path.exists():
         try:
             import yaml
-            metadata = yaml.safe_load(metadata_path.read_text(encoding='utf-8'))
-            ui_type = metadata.get('ui_type', '').strip()
+            metadata = yaml.safe_load(metadata_path.read_text(encoding='utf-8')) or {}
+            ui_type = str(metadata.get('ui_type', '')).strip()
+            platform = str(metadata.get('platform', '')).strip().lower()
+            is_mobile = platform in ('android', 'ios', 'flutter', 'rn', 'react-native', 'harmony', 'miniprogram', 'mobile') \
+                or any(kw.lower() in platform for kw in ['android', 'ios', 'flutter', 'harmony'])
             if ui_type in ['C端', 'B端', '无UI']:
-                return ui_type
-        except:
+                # 移动端平台显式声明时，强制 C 端
+                if is_mobile and ui_type != '无UI':
+                    return 'C端', True
+                return ui_type, is_mobile
+        except Exception:
             pass  # YAML 解析失败，回退到关键词检测
 
     # 回退：从文档内容推断
@@ -43,19 +79,19 @@ def detect_ui_type(cr_path):
     elif request_path.exists():
         content = request_path.read_text(encoding='utf-8')
 
-    # 关键词判断
-    c_end_keywords = ['用户界面', '前端', 'UI', '页面', '移动端', 'App', '客户端']
-    b_end_keywords = ['管理后台', '后台', '管理系统', '内部工具']
-
+    has_mobile = _contains_mobile_keyword(content, mobile_keywords)
     has_c = any(kw in content for kw in c_end_keywords)
     has_b = any(kw in content for kw in b_end_keywords)
 
-    if has_b:
-        return 'B端'
+    # 优先级：移动端 > C 端 > B 端 > 无UI
+    if has_mobile:
+        return 'C端', True       # 移动端 App 一律 C 端高保真，即使同时含"后台"
     elif has_c:
-        return 'C端'
+        return 'C端', False
+    elif has_b:
+        return 'B端', False
     else:
-        return '无UI'
+        return '无UI', False
 
 def check_designgate(cr_path):
     """检查设计产物完备性"""
@@ -72,16 +108,17 @@ def check_designgate(cr_path):
             state_after_pass='design',
             current_phase='design',
             current_owner='design-agent',
-            next_required_gate='context',
-            next_action='进入 ContextWindowGate',
+            next_required_gate='architecture',
+            next_action='进入 ArchitectureGate',
             metadata={"ui_type": "N/A"},
         )
         return True, [], "N/A"
 
-    ui_type = detect_ui_type(cr_path)
+    ui_type, is_mobile = detect_ui_type(cr_path)
     metadata_path = Path(cr_path) / "design" / "metadata.yml"
     source = "metadata.yml" if metadata_path.exists() else "关键词推断"
-    print(f"{Color.BLUE}UI 类型: {ui_type} (来源: {source}){Color.END}\n")
+    platform_label = "（移动端/客户端）" if is_mobile else ""
+    print(f"{Color.BLUE}UI 类型: {ui_type}{platform_label} (来源: {source}){Color.END}\n")
 
     blockers = []
     warnings = []
@@ -107,6 +144,22 @@ def check_designgate(cr_path):
             if not any(kw in hifi_content for kw in ['色彩', '颜色', '字体', '间距', 'color', 'font', 'spacing']):
                 warnings.append("hi-fi-spec.md 建议补充视觉规范（色彩/字体/间距）")
 
+            # 移动端专项：高保真必须覆盖平台规范/多机型/状态/深色模式/安全区
+            if is_mobile:
+                mobile_checks = {
+                    "平台设计规范（iOS HIG / Material Design / 鸿蒙）":
+                        ['HIG', 'Material', 'Human Interface', '鸿蒙', 'Harmony', '平台规范', '设计规范'],
+                    "多机型/尺寸适配（不同分辨率、安全区/刘海）":
+                        ['多机型', '尺寸适配', '分辨率', '安全区', '刘海', 'safe area', 'SafeArea', '响应式'],
+                    "深色模式（Dark Mode）":
+                        ['深色', '暗色', 'Dark Mode', 'dark mode', '夜间'],
+                    "交互状态（默认/按下/禁用/加载/空/错误）":
+                        ['交互状态', '按下', '禁用', '加载态', '空态', '错误态', 'pressed', 'disabled', 'loading', 'empty'],
+                }
+                for label, kws in mobile_checks.items():
+                    if not any(kw in hifi_content for kw in kws):
+                        warnings.append(f"移动端高保真建议覆盖：{label}")
+
         if not prototype:
             print(f"{Color.YELLOW}⚠ 缺少 prototype.html{Color.END}")
             warnings.append("建议提供可交互原型")
@@ -116,6 +169,18 @@ def check_designgate(cr_path):
         if not assets_dir or not list(Path(design_dir / "assets").glob("*")):
             print(f"{Color.YELLOW}⚠ 缺少设计资源 (assets/){Color.END}")
             warnings.append("建议提供切图/设计稿图片")
+
+        # 直读审计（UI 编码前产物）：四元组追溯，杜绝凭截图臆测样式
+        dra = design_dir / "direct-read-audit.md"
+        if not dra.exists():
+            print(f"{Color.YELLOW}⚠ 缺少 direct-read-audit.md{Color.END}")
+            warnings.append("UI 编码前建议产出 direct-read-audit.md（视觉常量四元组：节点→属性→原始值→代码映射）")
+        else:
+            dra_content = dra.read_text(encoding='utf-8')
+            if '{{' in dra_content and '}}' in dra_content:
+                warnings.append("direct-read-audit.md 仍含未替换模板变量 {{}}（需填入真实设计源原始值）")
+            else:
+                print(f"{Color.GREEN}✓ direct-read-audit.md 存在{Color.END}")
 
     elif ui_type == 'B端':
         # B 端可低保真
@@ -163,7 +228,7 @@ def check_designgate(cr_path):
         state_after_pass='design',
         current_phase='design',
         current_owner='design-agent',
-        next_required_gate='context',
+        next_required_gate='architecture',
     )
     return True, [], ui_type
 

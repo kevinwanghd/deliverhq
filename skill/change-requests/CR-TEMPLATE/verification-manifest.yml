@@ -43,6 +43,32 @@ lint:
       command: "dotnet build /p:TreatWarningsAsErrors=true"
       severity: "error"
 
+# 多平台打包验证（移动端/客户端：iOS / Android / Harmony / RN bundle）
+# 默认 disabled；做安卓/iOS/Flutter/RN/鸿蒙 时按需开启对应平台
+platform_bundles:
+  enabled: false
+  targets:
+    - name: "android"
+      enabled: false
+      command: "./gradlew assembleRelease"   # 或 flutter build apk
+      working_dir: "."
+      timeout: 900
+    - name: "ios"
+      enabled: false
+      command: "xcodebuild -scheme App -sdk iphoneos build"  # 或 flutter build ios
+      working_dir: "."
+      timeout: 900
+    - name: "harmony"
+      enabled: false
+      command: "hvigorw assembleHap"
+      working_dir: "."
+      timeout: 900
+    - name: "rn-bundle"
+      enabled: false
+      command: "npx react-native bundle --platform android --dev false --entry-file index.js --bundle-output /tmp/index.bundle"
+      working_dir: "."
+      timeout: 600
+
 # 安全扫描
 security:
   enabled: false  # 可选，需要额外工具

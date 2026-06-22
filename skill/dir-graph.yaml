@@ -159,6 +159,24 @@ agents:
 # 4. 根据项目结构调整 test-agent.writes（测试目录）
 # 5. 删除本配置指南注释
 
+# 设计稿门禁强制契约（DesignGate 机器契约层；对应 scripts/designgate.py）
+design_gate:
+  enforced: true
+  c_end:
+    # C 端 / 移动端 / 客户端原生：开发前必须高保真设计稿
+    required: [design/hi-fi-spec.md]
+    recommended: [design/prototype.html, design/assets/]
+    blocking: true
+  b_end:
+    # B 端：至少低保真
+    required_any: [design/lo-fi-spec.md, design/hi-fi-spec.md]
+    blocking: true
+  mobile_platforms:
+    # 命中即视为 C 端高保真强制（即使含"后台"字样也不降级为 B 端）
+    keywords: [移动端, 客户端, App, 原生, 安卓, Android, iOS, Flutter, React Native, RN, 鸿蒙, Harmony, 小程序]
+    force_c_end: true
+    hifi_must_cover: [平台规范, 多机型/安全区, 深色模式, 交互状态]
+
 ---
 # 模板版本：v4.5
 # 更新日期：2026-06-12

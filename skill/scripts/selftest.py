@@ -8,6 +8,7 @@ import sys
 sys.dont_write_bytecode = True
 import os
 import re
+import json
 import shutil
 import subprocess
 import tempfile
@@ -73,8 +74,8 @@ def restore_example_crs(snapshot_dir):
 
 
 def check_skeleton():
-    """运行 check_skeleton.py 验证 47 文件完整性"""
-    section("1. 骨架完整性 (47 files)")
+    """运行 check_skeleton.py 验证骨架完整性"""
+    section("1. 骨架完整性")
     script = ROOT / "scripts" / "check_skeleton.py"
     if not script.exists():
         print(f"  {FAIL} check_skeleton.py 不存在")
@@ -223,7 +224,7 @@ def check_cr_template_gates():
     """验证 Gate 脚本存在"""
     section("6. Gate 脚本可用性")
     gates = [
-        "specgate.py", "designgate.py", "context_window_check.py",
+        "specgate.py", "designgate.py", "architecturegate.py", "context_window_check.py",
         "pre_dev_gate.py", "dev_phase.py", "reviewgate.py", "qualitygate.py",
         "deploygate.py", "writeback_gate.py", "permissiongate.py",
         "workflow_router.py", "cr_state.py", "gate_json_output.py", "dir_graph_lint.py", "structuregate.py", "init_project_structure.py", "scan_legacy_structure.py",
@@ -533,7 +534,7 @@ print(','.join(SkillOrchestrator().get_default_pipeline()))
         return False
 
     pipeline = result.stdout.strip().split(',') if result.stdout.strip() else []
-    expected = ["spec", "design", "context", "pre_dev", "dev"]
+    expected = ["spec", "design", "architecture", "context", "pre_dev", "dev"]
     if pipeline != expected:
         print(f"  {FAIL} 默认 pipeline 应为 {expected}，实际为 {pipeline}")
         return False
@@ -1077,9 +1078,174 @@ def check_evidence_loop_contract():
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+def make_architecture_design_content(confirmation_line):
+    return (
+        "# 架构设计\n\n"
+        "> 第二道人工门禁。编码前必须有架构设计并经人工确认。\n\n"
+        "## 1. 模块拆分与目录结构\n模块 A 落在 a.py。\n\n"
+        "## 2. 数据流与状态管理\n数据从 API 到页面状态。\n\n"
+        "## 3. 接口封装与依赖\n通过 repository 封装。\n\n"
+        "## 4. 异常处理与验证策略\n失败时返回清晰错误并跑 selftest。\n\n"
+        "## 5. 设计分块到实现映射\nblock A -> a.py。\n\n"
+        + confirmation_line + "\n"
+    )
+
+
+def check_architecturegate_confirmation_contract():
+    """检查 ArchitectureGate 未确认模板不得被误判为已人工确认。"""
+    section("23. ArchitectureGate 人工确认契约")
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from architecturegate import check_architecturegate
+        from cr_state import load_state
+
+        def make_cr(name, confirmation_line):
+            cr = tmp / name
+            cr.mkdir()
+            (cr / "architecture-design.md").write_text(
+                make_architecture_design_content(confirmation_line),
+                encoding="utf-8",
+            )
+            return cr
+
+        unconfirmed = make_cr("unconfirmed", "**人工确认**：未确认 / 已确认（确认人 / 日期）")
+        passed, _ = check_architecturegate(unconfirmed)
+        evidence = json.loads((unconfirmed / "evidence" / "architecture-result.json").read_text(encoding="utf-8"))
+        if not passed or not any("尚未人工确认" in warning for warning in evidence.get("warnings", [])):
+            print(f"  {FAIL} 未确认模板未产生人工确认 warning")
+            return False
+        print(f"  {PASS} 未确认模板 → warning")
+
+        confirmed = make_cr("confirmed", "**人工确认**：已确认（张三 / 2026-06-20）")
+        passed, _ = check_architecturegate(confirmed)
+        evidence = json.loads((confirmed / "evidence" / "architecture-result.json").read_text(encoding="utf-8"))
+        state = load_state(confirmed)
+        if not passed or any("尚未人工确认" in warning for warning in evidence.get("warnings", [])):
+            print(f"  {FAIL} 真实人工确认仍产生 warning")
+            return False
+        if not state or state.current_state.value != "design":
+            actual = state.current_state.value if state else "missing"
+            print(f"  {FAIL} ArchitectureGate PASS 后状态应保持 design，实际为 {actual}")
+            return False
+        print(f"  {PASS} 真实人工确认 → PASS 无 warning，状态保持 design")
+        return True
+    except Exception as exc:
+        print(f"  {FAIL} ArchitectureGate 人工确认契约异常: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_designgate_mobile_keyword_contract():
+    """检查移动端关键词回退检测不误伤英文子串。"""
+    section("24. DesignGate 移动端关键词契约")
+    tmp = Path(tempfile.mkdtemp())
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from designgate import detect_ui_type
+
+        def make_cr(name, content):
+            cr = tmp / name
+            (cr / "design").mkdir(parents=True)
+            (cr / "request.md").write_text(content, encoding="utf-8")
+            return cr
+
+        negative = make_cr(
+            "negative",
+            "# Approval workflow\nWARNING: pending Application review. Apply for access.\n管理后台审批流程。\n",
+        )
+        ui_type, is_mobile = detect_ui_type(negative)
+        if is_mobile or ui_type != "B端":
+            print(f"  {FAIL} Approval/WARNING/Application 被误判为移动端: {ui_type}, {is_mobile}")
+            return False
+        print(f"  {PASS} 英文子串不触发移动端")
+
+        ios = make_cr("ios", "# iOS App\n原生客户端登录页面。\n")
+        ui_type, is_mobile = detect_ui_type(ios)
+        if ui_type != "C端" or not is_mobile:
+            print(f"  {FAIL} iOS App 未识别为移动端: {ui_type}, {is_mobile}")
+            return False
+
+        rn = make_cr("rn", "# React Native\n客户端首页。\n")
+        ui_type, is_mobile = detect_ui_type(rn)
+        if ui_type != "C端" or not is_mobile:
+            print(f"  {FAIL} React Native 未识别为移动端: {ui_type}, {is_mobile}")
+            return False
+        print(f"  {PASS} 真实移动端关键词仍识别")
+        return True
+    except Exception as exc:
+        print(f"  {FAIL} DesignGate 移动端关键词契约异常: {exc}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_predev_requires_architecture_contract():
+    """检查 PreDevGate 不得绕过 ArchitectureGate。"""
+    section("25. PreDevGate 架构门禁契约")
+    tmp = Path(tempfile.mkdtemp())
+    old_selftest = os.environ.get("DELIVERHQ_SELFTEST")
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        from architecturegate import check_architecturegate
+        from cr_state import create_state
+        from pre_dev_gate import check_cr_readiness
+
+        os.environ["DELIVERHQ_SELFTEST"] = "1"
+
+        def make_cr(name):
+            cr = tmp / name
+            cr.mkdir()
+            create_state(cr, name, "测试 CR", lane="fast")
+            (cr / "acceptance-spec.md").write_text("## 验收条件\n### AC-1: ok\n", encoding="utf-8")
+            (cr / "traceability.yml").write_text("schema: deliverhq-traceability\n", encoding="utf-8")
+            return cr
+
+        missing = make_cr("missing-arch")
+        if check_cr_readiness(missing, lane="fast"):
+            print(f"  {FAIL} 缺 architecture-design.md 时 PreDevGate 被放行")
+            return False
+        print(f"  {PASS} 缺架构设计 → BLOCKED")
+
+        no_evidence = make_cr("missing-evidence")
+        (no_evidence / "architecture-design.md").write_text(
+            make_architecture_design_content("**人工确认**：已确认（张三 / 2026/06/20）"),
+            encoding="utf-8",
+        )
+        if check_cr_readiness(no_evidence, lane="fast"):
+            print(f"  {FAIL} 缺 ArchitectureGate 证据时 PreDevGate 被放行")
+            return False
+        print(f"  {PASS} 缺 ArchitectureGate 证据 → BLOCKED")
+
+        good = make_cr("with-evidence")
+        (good / "architecture-design.md").write_text(
+            make_architecture_design_content("**人工确认**：已确认（张三 / 2026/06/20）"),
+            encoding="utf-8",
+        )
+        arch_passed, _ = check_architecturegate(good)
+        if not arch_passed:
+            print(f"  {FAIL} ArchitectureGate 正例未通过")
+            return False
+        if not check_cr_readiness(good, lane="fast"):
+            print(f"  {FAIL} ArchitectureGate 通过后 PreDevGate 仍阻断")
+            return False
+        print(f"  {PASS} ArchitectureGate 证据齐全 → PASS")
+        return True
+    except Exception as exc:
+        print(f"  {FAIL} PreDevGate 架构门禁契约异常: {exc}")
+        return False
+    finally:
+        if old_selftest is None:
+            os.environ.pop("DELIVERHQ_SELFTEST", None)
+        else:
+            os.environ["DELIVERHQ_SELFTEST"] = old_selftest
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_structure_governance_contract():
     """检查 Project Structure Governance 新/老项目最小契约。"""
-    section("23. Project Structure Governance 契约")
+    section("26. Project Structure Governance 契约")
     import tempfile
     import shutil
     tmp = Path(tempfile.mkdtemp())
@@ -1203,7 +1369,7 @@ def check_structure_governance_contract():
 
 def check_packaging_hygiene():
     """检查发布包中不应包含运行时垃圾文件。"""
-    section("24. Packaging Hygiene")
+    section("27. Packaging Hygiene")
     pycache_dirs = [path for path in ROOT.rglob("__pycache__") if path.is_dir()]
     pyc_files = list(ROOT.rglob("*.pyc"))
 
@@ -1273,6 +1439,9 @@ def main():
         results["high_risk_approval_failclosed"] = check_high_risk_approval_failclosed()
         results["plan_checker_contract"] = check_plan_checker_contract()
         results["evidence_loop_contract"] = check_evidence_loop_contract()
+        results["architecturegate_confirmation_contract"] = check_architecturegate_confirmation_contract()
+        results["designgate_mobile_keyword_contract"] = check_designgate_mobile_keyword_contract()
+        results["predev_requires_architecture_contract"] = check_predev_requires_architecture_contract()
         results["structure_governance_contract"] = check_structure_governance_contract()
         results["packaging_hygiene"] = check_packaging_hygiene()
     finally:

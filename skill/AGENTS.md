@@ -12,7 +12,7 @@
 
 ## Fail-closed rules
 - If CR-ID, current phase, source of truth, path, or permission is unclear, stop and ask.
-- Do not develop when SpecGate, DesignGate, or ContextWindowGate blocks.
+- Do not develop when SpecGate, DesignGate, ArchitectureGate, or ContextWindowGate blocks.
 - Do not modify protected paths unless explicitly approved.
 
 ## DeliverHQ Home 目录规则（强制）
@@ -23,7 +23,10 @@
 - 违反即视为路径不清，按 fail-closed：停止并要求归位到 `DeliverHQ/`。
 
 ## 10 Agent phases
-Spec → Design (if UI) → SpecGate/DesignGate → Context → Dev → PermissionGate (high-risk) → Review → Test → Quality → Writeback → Memory → WritebackGate → Archive.
+Spec → Design (if UI) → SpecGate/DesignGate → Architecture → ArchitectureGate → Context → Dev → PermissionGate (high-risk) → Review → Test → Quality → Writeback → Memory → WritebackGate → Archive.
+
+> ArchitectureGate（第二道人工门禁）：编码前必须有 `architecture-design.md` 并经人工确认。
+> 缺架构设计或未替换模板变量 → BLOCKED；未人工确认 → 警告。对应 `python scripts/architecturegate.py`。
 
 流程说明：
 - Review Agent 在 Test 之前审查代码逻辑（对照需求）
@@ -71,26 +74,36 @@ Spec → Design (if UI) → SpecGate/DesignGate → Context → Dev → Permissi
 **握手协议**：必须通过 ContextWindowGate 检查（`python scripts/context_window_check.py`）才能交接给 Dev Agent
 
 ### Dev Agent
-**职责**：编写生产代码，实现业务逻辑
-**可读**：`acceptance-spec.md`, `context-summary.md`, `design/*`, `docs/architecture.md`, `docs/interfaces.md`, `docs/data-model.md`, `docs/rules.md`, 项目源码
-**可写**：`implementation-plan.md`, 项目源码（根据 `dir-graph.yaml` 定义的路径），`traceability.yml`（需求到代码映射）
+**职责**：按 `architecture-design.md` 实施代码（证据驱动），实现业务逻辑
+**可读**：`acceptance-spec.md`, `architecture-design.md`, `context-summary.md`, `design/*`, `docs/architecture.md`, `docs/interfaces.md`, `docs/data-model.md`, `docs/rules.md`, 项目源码
+**可写**：`implementation-plan.md`, `architecture-alignment-report.md`, 项目源码（根据 `dir-graph.yaml` 定义的路径），`traceability.yml`（需求到代码映射）
 **禁止写入**：`protected_paths`（见 `dir-graph.yaml`），包括配置文件、敏感路径
+**证据驱动原则**：
+  - 实现前先按架构设计的「设计分块到实现映射」生成执行计划；每个 block 必须有目标文件/组件/字段/交互/证据
+  - 缺落点或缺证据的 block **不得硬写代码**，必须在对齐报告中标 blocked
+  - 涉及 UI 时先产 `direct-read-audit.md`，视觉常量追溯到设计源原始值，不靠截图臆测
 **产出标准**：
   - 代码通过编译
+  - 输出 `architecture-alignment-report.md`（文件/分块/接口字段/路由/UI/埋点/偏差/待验证项）
   - 创建 **Draft PR**（不直接合并）
   - 关键路径有单元测试
   - 遵循 `docs/rules.md` 约定
+**回流约束**：对齐报告存在 missing 时最多回流补全 5 轮，仍不齐则 blocked，禁止硬写绕过
 **握手协议**：开发前必须运行 `python scripts/pre_dev_gate.py` 确保文档齐全
 
 ### Review Agent
 **职责**：对照需求审查实现，确保代码符合验收规格（对抗式验证 - 独立于 Dev Agent）
 **可读**：`acceptance-spec.md`, `implementation-plan.md`, `context-summary.md`, `traceability.yml`, 项目源码
-**可写**：`review-report.md`
+**可写**：`review-report.md`, `design/visual-audit-report.md`（涉及 UI 时）
 **产出标准**：
   - 每个验收条件对应的代码实现已审查
   - 识别逻辑缺陷、边界遗漏、安全风险
   - 明确标注 PASS / NEED_FIX / BLOCKED
   - P0 阻断问题必须真实列出（不能为空或占位符）
+**视觉还原审计（涉及 UI 时）**：
+  - 编译通过 ≠ 还原正确；对照设计源产出 `design/visual-audit-report.md`
+  - 检查布局/间距/字号/颜色/组件状态/资源/响应式/多端，输出偏差清单
+  - 偏差不靠人手动改，回流 code-generator 精准修复；修复遵守 direct-read-audit（追溯设计源原始值）
 **握手协议**：必须通过 ReviewGate（`python scripts/reviewgate.py`）才能交接给 Test Agent
 **关键原则**：Review Agent 独立挑刺，不能由 Dev Agent 自己验证自己的代码 - 这是对抗式验证的核心
 
@@ -105,6 +118,11 @@ Spec → Design (if UI) → SpecGate/DesignGate → Context → Dev → Permissi
 **职责**：质量检查，生成质量报告
 **可读**：`acceptance-spec.md`, `implementation-plan.md`, `test-plan.md`, 项目源码、测试报告、代码覆盖率报告
 **可写**：`quality-report.md`, `qualitygate-report.md`
+**编译验证（build-verifier 职责，把"写完"变成"可运行"）**：
+  - 执行 `verification-manifest.yml` 的 build / lint / typecheck / test 真实命令（由 QualityGate 驱动）
+  - 移动端/客户端按需开启 `platform_bundles`（iOS / Android / Harmony / RN bundle）验证
+  - **编译失败不只贴错误，必须自动定位并修复**：常见 import 路径错误、类型不匹配、接口字段变更、平台后缀缺失、依赖误用、lint 规则不满足
+  - 仅当错误确属外部环境或缺人工决策时，才允许 partial
 **产出标准**：P0 测试通过率 100%，代码覆盖率 ≥ 80%，无 Critical 级别静态分析告警
 **握手协议**：必须通过 QualityGate 检查（`python scripts/qualitygate.py`）才能交接给 Writeback Agent
 **失败处理**：QualityGate 失败时，自动调用 `python scripts/update_mistake_book.py` 将失败原因追加到 `docs/mistake-book.md`

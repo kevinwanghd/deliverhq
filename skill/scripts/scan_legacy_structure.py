@@ -107,7 +107,11 @@ def write_candidate_profile(project_root: Path, deliverhq_dir: Path, top_dirs: L
     data["legacy"]["legacy_paths"] = [name for name in top_dirs if name in LEGACY_DIR_NAMES]
     out = deliverhq_dir / "STRUCTURE-PROFILE.candidate.yml"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding="utf-8")
+    try:
+        text = yaml.safe_dump(data, allow_unicode=True, sort_keys=False)
+    except TypeError:
+        text = yaml.safe_dump(data, allow_unicode=True)
+    out.write_text(text, encoding="utf-8")
     return out
 
 

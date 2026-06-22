@@ -33,6 +33,8 @@ REQUIRED_FILES = [
     # CR 模板
     "change-requests/CR-TEMPLATE/request.md",
     "change-requests/CR-TEMPLATE/acceptance-spec.md",
+    "change-requests/CR-TEMPLATE/architecture-design.md",
+    "change-requests/CR-TEMPLATE/architecture-alignment-report.md",
     "change-requests/CR-TEMPLATE/context-summary.md",
     "change-requests/CR-TEMPLATE/implementation-plan.md",
     "change-requests/CR-TEMPLATE/test-plan.md",
@@ -47,6 +49,8 @@ REQUIRED_FILES = [
     "change-requests/CR-TEMPLATE/design/hi-fi-spec.md",
     "change-requests/CR-TEMPLATE/design/prototype.html",
     "change-requests/CR-TEMPLATE/design/design-decisions.md",
+    "change-requests/CR-TEMPLATE/design/direct-read-audit.md",
+    "change-requests/CR-TEMPLATE/design/visual-audit-report.md",
     "change-requests/CR-TEMPLATE/design/assets/README.md",
 
     # Gate 报告模板
@@ -62,6 +66,7 @@ REQUIRED_FILES = [
     "scripts/init_cr.py",
     "scripts/specgate.py",
     "scripts/designgate.py",
+    "scripts/architecturegate.py",
     "scripts/context_window_check.py",
     "scripts/qualitygate.py",
     "scripts/writeback_gate.py",

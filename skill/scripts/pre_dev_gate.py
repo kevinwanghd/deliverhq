@@ -136,13 +136,34 @@ def check_cr_readiness(cr_path, lane='standard'):
             print(f"  {Color.RED}✗{Color.END} 设计稿: 缺失")
             blockers.append("有 design/ 目录但无设计稿")
 
-    # 3. context-summary.md 存在（如果已过 Spec 阶段）
+    # 3. architecture-design.md 存在并已运行 ArchitectureGate
+    architecture_path = cr_path / "architecture-design.md"
+    if not check_file_exists(architecture_path, "架构设计"):
+        blockers.append("缺少 architecture-design.md")
+    elif not check_no_placeholders(architecture_path, "架构设计完整性"):
+        blockers.append("architecture-design.md 包含未解决的占位符")
+
+    architecture_evidence = cr_path / "evidence" / "architecture-result.json"
+    if not check_file_exists(architecture_evidence, "ArchitectureGate 证据"):
+        blockers.append("缺少 ArchitectureGate 证据，请先运行 architecturegate.py")
+    else:
+        try:
+            import json
+            evidence = json.loads(architecture_evidence.read_text(encoding='utf-8'))
+            if evidence.get('result') not in ('pass', 'pass_with_warnings'):
+                blockers.append("ArchitectureGate 未通过")
+            elif evidence.get('warnings'):
+                warnings.extend(evidence.get('warnings') or [])
+        except Exception as exc:
+            blockers.append(f"ArchitectureGate 证据无法解析: {exc}")
+
+    # 4. context-summary.md 存在（如果已过 Spec 阶段）
     if (cr_path / "implementation-plan.md").exists():
         context_path = cr_path / "context-summary.md"
         if not check_file_exists(context_path, "上下文摘要"):
             blockers.append("已进入 Dev 阶段但缺少 context-summary.md")
 
-    # 4. PermissionGate + high-risk 人工审批
+    # 5. PermissionGate + high-risk 人工审批
     if state.lane in {'fast', 'standard', 'high-risk'}:
         print(f"\n{Color.BLUE}[PermissionGate]{Color.END}")
         permission_passed, permission_blockers = check_permission_gate(str(cr_path), lane=state.lane)
