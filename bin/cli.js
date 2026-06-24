@@ -40,6 +40,7 @@ const C = {
 
 const POINTER_BEGIN = '<!-- BEGIN DELIVERHQ -->';
 const POINTER_END = '<!-- END DELIVERHQ -->';
+const SELFTEST_MAX_BUFFER = 32 * 1024 * 1024;
 
 // Agent 注册表。kind: 'folder'（带 skills 目录的 agent）| 'flat'（扁平指令文件的 agent）
 const TARGETS = {
@@ -286,8 +287,7 @@ function cmdInitProject(flags) {
   }
 }
 
-function cmdDoctor(flags) {
-  console.log(C.b('=== DeliverHQ doctor ==='));
+function resolveSkillDir(flags) {
   let skillDir = flags.path;
   if (!skillDir) {
     const cwd = process.cwd();
@@ -302,12 +302,11 @@ function cmdDoctor(flags) {
     ];
     skillDir = candidates.find((p) => fs.existsSync(path.join(p, 'scripts', 'selftest.py')));
   }
-  if (!skillDir || !fs.existsSync(path.join(skillDir, 'scripts', 'selftest.py'))) {
-    console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
-    process.exit(1);
-  }
-  console.log(`核心目录: ${skillDir}`);
+  if (!skillDir || !fs.existsSync(path.join(skillDir, 'scripts', 'selftest.py'))) return null;
+  return { skillDir, isFallback: path.resolve(skillDir) === path.resolve(SKILL_SRC) && !flags.path };
+}
 
+function requirePythonWithPyYAML() {
   const py = detectPythonWithPyYAML();
   if (!py) { console.log(C.r('✗ 未找到 Python，无法运行 selftest')); process.exit(1); }
   console.log(C.g(`✓ ${py.version} (${py.cmd})`));
@@ -315,20 +314,98 @@ function cmdDoctor(flags) {
     console.log(C.r(`✗ 缺少 PyYAML：${py.cmd} -m pip install PyYAML`)); process.exit(1);
   }
   console.log(C.g('✓ PyYAML 已安装'));
+  return py;
+}
 
-  console.log(C.b('\n[运行 selftest]'));
+function runSelftest(py, skillDir, extraArgs) {
+  const args = [path.join(skillDir, 'scripts', 'selftest.py'), skillDir].concat(extraArgs || []);
   try {
-    const out = execFileSync(py.cmd, [path.join(skillDir, 'scripts', 'selftest.py'), skillDir],
-      { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
-    const line = out.split('\n').find((l) => l.includes('通过:')) || '';
-    console.log(C.g('✅ selftest 通过 ' + line.trim()));
+    return {
+      ok: true,
+      out: execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: SELFTEST_MAX_BUFFER }).toString(),
+    };
   } catch (e) {
-    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
-    const fails = out.split('\n').filter((l) => l.includes('❌')).slice(0, 8);
-    console.log(C.r('❌ selftest 未通过：'));
-    fails.forEach((l) => console.log('  ' + l.trim()));
+    return {
+      ok: false,
+      out: (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : ''),
+    };
+  }
+}
+
+function printSkillDir(resolved) {
+  console.log(`核心目录: ${resolved.skillDir}`);
+  if (resolved.isFallback) {
+    console.log(C.y('⚠ 未找到已安装目录，使用 npm 包内核心进行自检'));
+  }
+}
+
+function printSelftestSummary(out) {
+  const lines = out.split('\n');
+  const line = lines.find((l) => /通过[:：]/.test(l)) || '';
+  const match = line.match(/通过[:：]\s*(\d+)\s*\/\s*(\d+)/);
+  if (match) {
+    console.log(C.g(`✅ selftest 通过: ${match[1]}/${match[2]}`));
+    return;
+  }
+  const routingLine = lines.find((l) => l.includes('routing_eval PASS')) || '';
+  if (routingLine) {
+    console.log(C.g('✅ routing_eval PASS'));
+    return;
+  }
+  console.log(C.g('✅ selftest 通过'));
+}
+
+function printSelftestFailures(out) {
+  const fails = out.split('\n').filter((l) => l.includes('❌'));
+  const visible = fails.slice(0, 12);
+  console.log(C.r('❌ selftest 未通过：'));
+  if (!visible.length) {
+    console.log('  未捕获到 ❌ 明细，用 --verbose 查看完整输出。');
+    return;
+  }
+  visible.forEach((l) => console.log('  ' + l.trim()));
+  if (fails.length > visible.length) {
+    console.log(C.y(`  ... 还有 ${fails.length - visible.length} 项，用 --verbose 查看全部`));
+  }
+}
+
+function cmdDoctor(flags) {
+  console.log(C.b('=== DeliverHQ doctor ==='));
+  const resolved = resolveSkillDir(flags);
+  if (!resolved) {
+    console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
     process.exit(1);
   }
+  printSkillDir(resolved);
+
+  const py = requirePythonWithPyYAML();
+
+  console.log(C.b('\n[运行 selftest]'));
+  const extraArgs = flags['routing-eval'] ? ['--routing-eval'] : [];
+  const result = runSelftest(py, resolved.skillDir, extraArgs);
+  if (flags.verbose && result.out.trim()) console.log(result.out.trim());
+  if (result.ok) {
+    if (!flags.verbose) printSelftestSummary(result.out);
+    return;
+  }
+  if (!flags.verbose) printSelftestFailures(result.out);
+  process.exit(1);
+}
+
+function cmdSelftest(flags) {
+  console.log(C.b('=== DeliverHQ selftest ==='));
+  const resolved = resolveSkillDir(flags);
+  if (!resolved) {
+    console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
+    process.exit(1);
+  }
+  printSkillDir(resolved);
+
+  const py = requirePythonWithPyYAML();
+  const extraArgs = flags['routing-eval'] ? ['--routing-eval'] : [];
+  const result = runSelftest(py, resolved.skillDir, extraArgs);
+  if (result.out.trim()) console.log(result.out.trim());
+  if (!result.ok) process.exit(1);
 }
 
 function help() {
@@ -351,8 +428,11 @@ function help() {
   npx deliverhq init-project [--profile fullstack-web] [--path <项目目录>] [--force]
       初始化 AI 友好、人类易复查的项目目录结构 + DeliverHQ 治理空间
 
-  npx deliverhq doctor [--path <核心目录>]
-      检测 Python/PyYAML + 运行 selftest
+  npx deliverhq doctor [--path <核心目录>] [--verbose] [--routing-eval]
+      检测 Python/PyYAML + 运行 selftest（默认摘要输出，--verbose 显示完整输出）
+
+  npx deliverhq selftest [--path <核心目录>] [--routing-eval]
+      直接运行 selftest 并完整透传输出
 
   npx deliverhq --version
       输出 npm 包版本
@@ -363,6 +443,7 @@ function help() {
   npx deliverhq init --target codex       # 写 .deliverhq/ + AGENTS.md 指针
   npx deliverhq init --target generic     # 任意 agent
   npx deliverhq init-project --profile fullstack-web
+  npx deliverhq selftest --path .claude/skills/deliverhq
 
 说明:
   DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.10+ 与 PyYAML）。
@@ -377,6 +458,7 @@ async function main() {
   if (cmd === 'init') return cmdInit(flags);
   if (cmd === 'init-project') return cmdInitProject(flags);
   if (cmd === 'doctor') return cmdDoctor(flags);
+  if (cmd === 'selftest') return cmdSelftest(flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));
   help();
