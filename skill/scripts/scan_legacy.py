@@ -15,7 +15,7 @@ scan_legacy.py —— 老项目逆向扫描（目标2 的客观层引擎）
 本脚本只填客观层与 review_required；推断层（inferred_behavior 等）留给 AI 后续填写。
 
 跨平台：纯 pathlib + 标准库；git 不可用时优雅降级（change_frequency=unknown）。
-Python 3.6 兼容。
+Python 3.10+。
 
 用法：
   python scan_legacy.py <项目源码目录> [--out <输出yml>] [--report <报告md>]
@@ -371,10 +371,7 @@ def main():
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w", encoding="utf-8") as f:
-        try:
-            yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False)
-        except TypeError:
-            yaml.safe_dump(doc, f, allow_unicode=True)
+        yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False)
 
     need_review = sum(1 for c in candidates if c["review_required"])
     print("已生成 %d 个候选，其中 %d 个需人工确认 -> %s" % (len(candidates), need_review, out_path))

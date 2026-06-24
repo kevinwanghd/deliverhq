@@ -148,12 +148,18 @@ def check_specgate(spec_path):
     else:
         print(f"{Color.GREEN}✓ 无模板变量{Color.END}")
 
-    # 检查 3: [待确认] 占位符
+    # 检查 3: [待确认] / [NEEDS CLARIFICATION] 占位符
     print(f"\n{Color.BLUE}[待确认占位符]{Color.END}")
-    pending_count = content.count('[待确认]') + content.count('[TODO]')
+    # [NEEDS CLARIFICATION]：借 Spec-Kit 约定，spec 起草期可标，SpecGate 放行前必须为零。
+    # 大小写不敏感，容忍 [NEEDS CLARIFICATION: ...] 带补充说明的形式。
+    needs_clar_count = len(re.findall(r'\[\s*NEEDS[ _]CLARIFICATION', content, re.IGNORECASE))
+    pending_count = content.count('[待确认]') + content.count('[TODO]') + needs_clar_count
     if pending_count > 0:
         print(f"{Color.RED}✗ 包含 {pending_count} 处待确认占位符{Color.END}")
-        blockers.append(f"{pending_count} 处 [待确认] 或 [TODO] 未解决")
+        detail = "[待确认]/[TODO]"
+        if needs_clar_count:
+            detail += f"/[NEEDS CLARIFICATION]×{needs_clar_count}"
+        blockers.append(f"{pending_count} 处待确认占位符未解决（{detail}）")
     else:
         print(f"{Color.GREEN}✓ 无待确认占位符{Color.END}")
 

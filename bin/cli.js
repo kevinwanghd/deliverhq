@@ -150,7 +150,7 @@ function reportEnv() {
   const py = detectPythonWithPyYAML();
   if (!py) {
     console.log(C.r('  ✗ 未找到 Python (python3/python/py)'));
-    console.log('    DeliverHQ 门禁是 Python 脚本，需 Python 3.6+：https://python.org');
+    console.log('    DeliverHQ 门禁是 Python 脚本，需 Python 3.10+：https://python.org');
     return;
   }
   console.log(C.g(`  ✓ ${py.version} (${py.cmd})`));
@@ -175,7 +175,7 @@ function injectPointer(instructionPath, coreRelDir) {
     `- \`${coreRelDir}/SKILL.md\` — 入口与"何时使用"`,
     `- \`${coreRelDir}/AGENTS.md\` — Agent 行为规则与门禁链`,
     '',
-    '门禁是 Python 脚本（需 Python 3.6+ 与 PyYAML），用 shell 调用，例如：',
+    '门禁是 Python 脚本（需 Python 3.10+ 与 PyYAML），用 shell 调用，例如：',
     '',
     '```bash',
     `python ${coreRelDir}/scripts/selftest.py ${coreRelDir}   # 自检`,
@@ -365,7 +365,7 @@ function help() {
   npx deliverhq init-project --profile fullstack-web
 
 说明:
-  DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.6+ 与 PyYAML）。
+  DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.10+ 与 PyYAML）。
   本工具只负责按目标 agent 放置文件 + 注入入口，不运行流程本身。`);
 }
 

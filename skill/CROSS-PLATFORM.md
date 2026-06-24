@@ -19,7 +19,7 @@
 
 | 工具 | 用途 | Windows 安装 | macOS/Linux 安装 |
 |------|------|-------------|----------------|
-| **Python 3.6+** | 运行框架 | [python.org](https://python.org) 或 Microsoft Store | 通常预装 |
+| **Python 3.10+** | 运行框架 | [python.org](https://python.org) 或 Microsoft Store | 通常预装 |
 | **Git** | PermissionGate / 变更追踪 | [git-scm.com](https://git-scm.com) | `brew install git` / `apt install git` |
 
 安装后验证：

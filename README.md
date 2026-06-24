@@ -47,7 +47,7 @@ npx deliverhq doctor
 
 DeliverHQ 的门禁是 **Python 脚本**（不是 Node）。npx 只负责安装 + 环境检测，真正执行由 agent 在对话里按需调用。需要：
 
-- **Python 3.6+**
+- **Python 3.10+**
 - **PyYAML**（`pip install PyYAML`）
 
 `npx deliverhq doctor` 会检测这两项并运行 selftest（健康时输出"通过: N/N"）。

@@ -1,12 +1,14 @@
 ---
 name: deliverhq
-description: AI 交付防翻车治理框架。文档驱动开发 + 可执行门禁(SpecGate/QualityGate/ReviewGate 等，信证据不信声明) + 老项目逆向(代码→需求文档) + loop 可控性(目标契约/反钻空子/重试上限)。当需要正式多阶段交付、强制"文档不完备不开发"、把老项目转成需求驱动、或防止 AI 钻空子/无限重试时使用。需要 Python 3.6+ 与 PyYAML。
+description: AI 交付防翻车治理框架。文档驱动开发 + 可执行门禁(SpecGate/QualityGate/ReviewGate 等，信证据不信声明) + 老项目逆向(代码→需求文档) + loop 可控性(目标契约/反钻空子/重试上限)。当需要正式多阶段交付、强制"文档不完备不开发"、把老项目转成需求驱动、或防止 AI 钻空子/无限重试时使用。需要 Python 3.10+ 与 PyYAML。
 license: 见仓库
 ---
 
 # SKILL.md — DeliverHQ 入口
 
 > **目标**：通过结构化规格（SDD）、可执行门禁（Gate）、职责边界（Agent）、执行隔离（Workspace）和组织记忆（Writeback），实现 AI 全流程交付质量可控。
+>
+> **统一不变式**：**done = 建出来的 = 计划的 = 决定的**。所有 Gate 都是这条总判据在某一环的可执行投影；声明完成但证据不闭合即 fail-closed。详见 `AGENTS.md`。
 
 ## ⛔ 最高优先级：DeliverHQ Home 目录规则（强制，适用所有 Agent）
 
@@ -197,6 +199,7 @@ DELIVERHQ_ROOT = Path(__file__).parent.parent
 ### 3. SpecGate 误判
 ❌ **错误**：把说明文字里的"待确认"误判为未解决项。
 ✅ **正确**：只检查表格状态列 `| 待确认 |`，用正则 `r'\|\s*待确认\s*\|'`。
+✅ **补充**：起草期可用 `[NEEDS CLARIFICATION: ...]`（借 Spec-Kit）或 `[待确认]`/`[TODO]` 显式占位标记，SpecGate 放行前必须清零；正文叙述里的"待确认"三字不阻断。
 
 ### 4. 模板变量误判
 ❌ **错误**：把合法代码示例里的 `{{}}` 误判为模板变量。

@@ -13,7 +13,7 @@ goal_contract.py —— Goal Contract 校验器
   - boundaries 有 forbidden_actions（防钻空子边界）
   - on_failure 有 max_retries（防无限重试）
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   python goal_contract.py <CR目录 或 goal-contract.yml 路径>

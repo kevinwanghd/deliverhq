@@ -15,7 +15,7 @@ derived_from{prd_section, prd_hash} 派生自某个 PRD 功能锚点。
 排除「关联 CR」行（由 writeback-agent 回填，计入会自触发对账死循环）。
 修改 PRD 第一部分叙事不改变任何锚点哈希，不触发对账。
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法:
   python drift_check.py <CR目录>

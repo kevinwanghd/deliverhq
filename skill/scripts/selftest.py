@@ -1008,6 +1008,18 @@ def check_plan_checker_contract():
         if run([str(make_cr(GOOD)), "--emit-waves"]) != 0:
             print(f"  {FAIL} --emit-waves 应成功"); return False
         print(f"  {PASS} wave 派生可运行")
+
+        # GSD 写作约束：no-op verify → BLOCK
+        noop = GOOD.replace("    verify: v\n    done: d\n", "    verify: 'echo done'\n    done: d\n", 1)
+        if run([str(make_cr(noop))]) == 0:
+            print(f"  {FAIL} no-op verify(echo) 应 BLOCK"); return False
+        print(f"  {PASS} no-op verify(echo done) → BLOCKED")
+
+        # GSD 写作约束：done 含主观语言 → BLOCK
+        subj = GOOD.replace("    verify: v\n    done: d\n", "    verify: v\n    done: 'looks correct'\n", 1)
+        if run([str(make_cr(subj))]) == 0:
+            print(f"  {FAIL} done 含主观语言应 BLOCK"); return False
+        print(f"  {PASS} done='looks correct' → BLOCKED")
         return True
     except Exception as e:
         print(f"  {FAIL} PlanChecker 契约异常: {e}")
@@ -1393,6 +1405,105 @@ def check_packaging_hygiene():
     return True
 
 
+def check_gate_composition_contract():
+    """Gate 冻结 + 组合规则契约：防止治理债无声扩张。
+
+    正例：当前仓库应 PASS。
+    反例：临时引入一个未登记的 *gate*.py → 检查应 BLOCK。
+    """
+    section("29. Gate 冻结 + 组合规则契约")
+    gc = ROOT / "scripts" / "gate_composition_check.py"
+    if not gc.exists():
+        print(f"  {FAIL} gate_composition_check.py 不存在")
+        return False
+
+    rc = subprocess.run(
+        [sys.executable, str(gc)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+        env=SUBPROCESS_ENV,
+    ).returncode
+    if rc != 0:
+        print(f"  {FAIL} 当前仓库应 PASS 但被 BLOCK")
+        return False
+    print(f"  {PASS} 当前 Gate 集合与组合规则 PASS")
+
+    intruder = ROOT / "scripts" / "_tmp_intruder_gate.py"
+    try:
+        intruder.write_text("# temp unregistered gate for contract test\n", encoding="utf-8")
+        rc2 = subprocess.run(
+            [sys.executable, str(gc)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+            env=SUBPROCESS_ENV,
+        ).returncode
+        if rc2 == 0:
+            print(f"  {FAIL} 未登记的新 Gate 脚本应被 BLOCK 但通过了")
+            return False
+        print(f"  {PASS} 未登记的新 Gate 脚本 → BLOCKED")
+        return True
+    finally:
+        if intruder.exists():
+            intruder.unlink()
+
+
+def check_needs_clarification_contract():
+    """SpecGate 必须阻断含 [NEEDS CLARIFICATION] 的 spec（借 Spec-Kit 约定）。
+
+    正反例：
+      - 注入 [NEEDS CLARIFICATION] 的临时 spec → BLOCKED
+      - 同一 spec 去掉标记 → 不因该标记阻断
+    用临时目录，不污染示例 CR。
+    """
+    section("28. NEEDS CLARIFICATION 契约 (SpecGate)")
+    specgate = ROOT / "scripts" / "specgate.py"
+    if not specgate.exists():
+        print(f"  {FAIL} specgate.py 不存在")
+        return False
+
+    base = (
+        "# Acceptance Spec\n\n"
+        "## 1. Data Spec\n字段 A：字符串\n\n"
+        "## 2. Interface Spec\n`do()`：执行\n\n"
+        "## 3. Behavior Spec\n## 验收条件\n"
+        "### 场景 1: 正常\n- 响应时间 < 200ms\n"
+        "### 场景 2: 异常\n- 报错\n"
+        "### 场景 3: 边界\n- 上限\n"
+    )
+    marker = "\n### 场景 4: 并发\n- 并发上限 [NEEDS CLARIFICATION: 未定]\n"
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-needs-clar-"))
+    try:
+        neg = tmp / "neg.md"
+        neg.write_text(base + marker, encoding="utf-8")
+        pos = tmp / "pos.md"
+        pos.write_text(base, encoding="utf-8")
+
+        neg_rc = subprocess.run(
+            [sys.executable, str(specgate), str(neg)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            env=SUBPROCESS_ENV,
+        ).returncode
+        pos_rc = subprocess.run(
+            [sys.executable, str(specgate), str(pos)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            env=SUBPROCESS_ENV,
+        ).returncode
+
+        ok = True
+        if neg_rc != 0:
+            print(f"  {PASS} 含 [NEEDS CLARIFICATION] 的 spec 被 BLOCKED")
+        else:
+            print(f"  {FAIL} 含 [NEEDS CLARIFICATION] 的 spec 未被阻断")
+            ok = False
+        if pos_rc == 0:
+            print(f"  {PASS} 去掉标记后不因该标记阻断")
+        else:
+            print(f"  {FAIL} 去掉标记后仍被阻断（标记检查过宽）")
+            ok = False
+        return ok
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def main():
     routing_only = "--routing-eval" in sys.argv
 
@@ -1444,6 +1555,8 @@ def main():
         results["predev_requires_architecture_contract"] = check_predev_requires_architecture_contract()
         results["structure_governance_contract"] = check_structure_governance_contract()
         results["packaging_hygiene"] = check_packaging_hygiene()
+        results["needs_clarification_contract"] = check_needs_clarification_contract()
+        results["gate_composition_contract"] = check_gate_composition_contract()
     finally:
         restore_example_crs(snapshot_dir)
 

@@ -23,7 +23,7 @@ Loop Engineering 原则的具体落地：不是"让 Agent 干到完成"，而是
   needs_human = 存在缺口（需人补 traceability/changed-files/manifest/test-plan）
   fail-closed = 无 state.yml（要求先 init_cr）
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   python evidence_loop.py <CR目录>

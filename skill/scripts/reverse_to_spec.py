@@ -12,7 +12,7 @@ reverse_to_spec.py —— 逆向需求转化（目标2 的出口，对接目标1
 
 逆向 traceability 的特点：与正向相反——需求映射到**已存在**的代码与测试。
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   python reverse_to_spec.py <CR目录>
@@ -197,10 +197,7 @@ def main():
     trace = build_traceability(cr_dir.name, project_name, confirmed)
     trace_path = cr_dir / "traceability.yml"
     with open(trace_path, "w", encoding="utf-8") as f:
-        try:
-            yaml.safe_dump(trace, f, allow_unicode=True, sort_keys=False)
-        except TypeError:
-            yaml.safe_dump(trace, f, allow_unicode=True)
+        yaml.safe_dump(trace, f, allow_unicode=True, sort_keys=False)
 
     # 3. known-deviations.md
     dev_text = build_known_deviations(project_name, rejected)

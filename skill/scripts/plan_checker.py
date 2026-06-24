@@ -4,6 +4,8 @@ plan_checker.py —— Plan 机检 + Wave 派生（执行层，借鉴 GSD）
 
 校验 plan.yml（fail-closed），通过后才允许进入执行。检查项：
   1. 结构：每个 task 有 task_id / goal / verify / done（缺则 BLOCK）
+  1b. 写作约束（借 GSD）：verify 必须能区分 pass/fail（拒 echo/print 等 no-op）；
+      done/verify 禁主观语言（looks correct/看起来…）；goal/action 不内嵌大段实现代码（BLOCK）
   2. 验收覆盖：acceptance-spec.md 的每个 AC-N 必须被某 task 的 covers 覆盖（漏则 BLOCK）
   3. 文件冲突：多个 task 改同一文件但彼此无 depends_on 链 → BLOCK
   4. 依赖完整 + 无环：depends_on 指向存在的 task 且无循环（环则 BLOCK）
@@ -13,7 +15,7 @@ plan_checker.py —— Plan 机检 + Wave 派生（执行层，借鉴 GSD）
 
 --emit-waves：通过检查后，按依赖拓扑派生 waves（无依赖同 wave，有依赖等上游），打印 YAML。
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   python plan_checker.py <CR目录 或 plan.yml 路径>
@@ -40,6 +42,59 @@ class Color:
 
 
 GRANULARITY_FILE_LIMIT = 8
+
+# ── GSD 写作约束（借 GSD plan 写作规约）──────────────────────────
+# verify 必须能区分 pass/fail：纯 echo/print/true 这类无判定的 no-op 不算验证。
+NOOP_VERIFY_RE = re.compile(
+    r"^\s*(echo\b|print\b|true\b|:\s*$|#)|^\s*(echo|print)\s+['\"]?(done|ok|pass|完成|成功)",
+    re.IGNORECASE,
+)
+# 主观/不可判定语言：done/verify 里出现即视为非客观判据。
+SUBJECTIVE_TERMS = [
+    "looks correct", "looks good", "looks right", "seems to work", "should work",
+    "works as expected", "看起来", "应该没问题", "差不多", "大概率", "感觉",
+]
+
+
+def _is_noop_verify(verify):
+    """verify 是否为无法区分 pass/fail 的 no-op。"""
+    if not isinstance(verify, str):
+        return False
+    v = verify.strip()
+    if not v:
+        return True
+    # 多行取每一行判断：只要存在一条实际断言（含退出码/比较/测试命令）即算有效
+    lines = [ln.strip() for ln in v.splitlines() if ln.strip()]
+    meaningful = False
+    for ln in lines:
+        if NOOP_VERIFY_RE.match(ln):
+            continue
+        meaningful = True
+        break
+    return not meaningful
+
+
+def _has_subjective(text):
+    if not isinstance(text, str):
+        return None
+    low = text.lower()
+    for term in SUBJECTIVE_TERMS:
+        if term in low:
+            return term
+    return None
+
+
+def _looks_like_code_block(text):
+    """goal/action 内嵌大段实现代码（fenced block 或多行带分号/缩进的代码）。"""
+    if not isinstance(text, str):
+        return False
+    if "```" in text:
+        return True
+    code_lines = [
+        ln for ln in text.splitlines()
+        if re.search(r"[;{}]\s*$", ln) or re.match(r"\s{4,}\S", ln)
+    ]
+    return len(code_lines) >= 3
 
 
 def _resolve(arg):
@@ -155,6 +210,28 @@ def check_plan(arg):
             print("%s  ✗ %s%s" % (Color.RED, b, Color.END))
 
     tasks_by_id = {t.get("task_id"): t for t in tasks if t.get("task_id")}
+
+    # 1b. GSD 写作约束：verify 可判定 / done 无主观语言 / goal·action 不内嵌大段代码
+    print("\n%s[1b. 写作约束 (GSD)]%s" % (Color.BLUE, Color.END))
+    writing_issues = []
+    for t in tasks:
+        tid = t.get("task_id") or "(无ID)"
+        verify = t.get("verify")
+        if verify is not None and _is_noop_verify(verify):
+            writing_issues.append("%s 的 verify 无法区分 pass/fail（疑似 echo/print 等 no-op）" % tid)
+        for field in ("done", "verify"):
+            term = _has_subjective(t.get(field))
+            if term:
+                writing_issues.append("%s 的 %s 含主观/不可判定语言：'%s'" % (tid, field, term))
+        for field in ("goal", "action"):
+            if _looks_like_code_block(t.get(field)):
+                writing_issues.append("%s 的 %s 内嵌大段实现代码（plan 应描述意图，非实现）" % (tid, field))
+    if writing_issues:
+        for w in writing_issues:
+            print("%s  ✗ %s%s" % (Color.RED, w, Color.END))
+        blockers.extend(writing_issues)
+    else:
+        print("%s  ✓ verify 可判定、无主观语言、无内嵌代码%s" % (Color.GREEN, Color.END))
 
     # 2. 验收覆盖
     print("\n%s[2. 验收条件覆盖]%s" % (Color.BLUE, Color.END))

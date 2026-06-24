@@ -10,6 +10,24 @@
 7. Current CR artifacts under `change-requests/CR-*`
 8. `CAPABILITY-MATRIX.md`（能力状态唯一真相源；本文不重复维护完整能力状态）
 
+## 统一交付不变式（贯穿全链）
+
+> **done = 建出来的 = 计划的 = 决定的**
+> （done = what was *built* equals what was *planned*, and what was *planned* equals what was *decided*。借 GSD。）
+
+这是串起 PRD → acceptance-spec → Architecture → Dev → Review → Quality 全链的总判据，
+每道 Gate 都是它在某一环的可执行投影：
+
+- **决定的**：`docs/PRD.md` 的功能锚点（产品意图，人工维护）。
+- **计划的**：CR 的 `acceptance-spec.md`（用 `derived_from` 回指 PRD 锚点）+ `architecture-design.md`。
+- **建出来的**：实际 diff / `traceability.yml` / verification-manifest 真实执行结果。
+
+任一环断裂即视为"未 done"：
+- 建出来的 ≠ 计划的 → ReviewGate（对照 spec/diff）、anti_gaming_check（从 diff 取证）拦截。
+- 计划的 ≠ 决定的 → drift_check（PRD↔CR 哈希对账）、SpecGate 检查 9 拦截。
+
+声明"完成"而无证据闭合此不变式的，按 fail-closed 处理，不予放行。
+
 ## Fail-closed rules
 - If CR-ID, current phase, source of truth, path, or permission is unclear, stop and ask.
 - Do not develop when SpecGate, DesignGate, ArchitectureGate, or ContextWindowGate blocks.
@@ -32,6 +50,14 @@ Spec → Design (if UI) → SpecGate/DesignGate → Architecture → Architectur
 - Review Agent 在 Test 之前审查代码逻辑（对照需求）
 - Test Agent 执行测试用例
 - Quality Agent 验证测试结果和质量指标
+
+## Gate 冻结 + 组合规则（治理债红线）
+- **Gate 集合已冻结**：当前 11 道 Gate（见 `scripts/gate_composition_check.py` 的 `FROZEN_GATES`）是基线。
+  新增一道 Gate 前，必须在 CR 里论证"现有 Gate 无法覆盖"，并显式更新 `FROZEN_GATES`；否则 `gate_composition_check.py` BLOCK。
+- **禁 Gate 套 Gate**（借 Pocock 组合纪律）：Gate 脚本之间默认不得相互 import/调用，避免隐藏耦合链。
+  唯一例外是 `ALLOWED_GATE_EDGES` 显式登记的边（当前仅 `pre_dev_gate → permissiongate`）。
+  Gate 的串联只能由编排器（`skill_orchestrator.py`）显式完成，不是 Gate 内部偷偷调另一个 Gate。
+- 运行：`python scripts/gate_composition_check.py`（selftest 的 `gate_composition_contract` 已锁死正反例）。
 
 ## Human-in-the-loop contract
 - Dev Agent 产出为 **Draft PR**，不直接合并到主分支

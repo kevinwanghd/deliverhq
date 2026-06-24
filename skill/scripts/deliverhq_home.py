@@ -14,7 +14,7 @@ deliverhq_home.py —— DeliverHQ home 目录确定性定位（agent 无关）
   5. 兜底：<start>/DeliverHQ
 
 返回的 home 目录可能尚不存在；调用方负责按需 mkdir。
-纯标准库，Python 3.6 兼容。
+纯标准库，Python 3.10+。
 """
 
 import os

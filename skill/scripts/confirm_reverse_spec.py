@@ -17,7 +17,7 @@ confirm_reverse_spec.py —— 逆向需求人工裁决辅助
   python confirm_reverse_spec.py <candidates.yml> --id RC-001 --action reject --note "历史 bug，应修复而非固化" --by "李四"
   python confirm_reverse_spec.py <candidates.yml> --list   # 仅列出待裁决条目
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 """
 
 import argparse
@@ -38,10 +38,7 @@ def load(path):
 
 def save(path, data):
     with open(path, "w", encoding="utf-8") as f:
-        try:
-            yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
-        except TypeError:
-            yaml.safe_dump(data, f, allow_unicode=True)
+        yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 
 
 def list_pending(data):

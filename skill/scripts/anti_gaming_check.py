@@ -14,7 +14,7 @@ anti_gaming_check.py —— 反钻空子客观检查（防 Reward Hacking / Good
 
 任一命中 → BLOCKED（fail-closed）。需要 git 环境；非 git 时降级为 WARNING（无法取证）。
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   python anti_gaming_check.py <CR目录>           # 读 CR 下 goal-contract.yml 的 allowed_paths
