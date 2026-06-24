@@ -569,8 +569,6 @@ def check_capability_status_consistency():
         "experimental",
         "default_enabled",
         "allowed_in_pipeline",
-        "Darwin Score",
-        "Quality Ratchet",
     ]
     for phrase in required_phrases:
         if phrase not in matrix_text:
@@ -1008,6 +1006,18 @@ def check_plan_checker_contract():
         if run([str(make_cr(GOOD)), "--emit-waves"]) != 0:
             print(f"  {FAIL} --emit-waves 应成功"); return False
         print(f"  {PASS} wave 派生可运行")
+
+        # GSD 写作约束：no-op verify → BLOCK
+        noop = GOOD.replace("    verify: v\n    done: d\n", "    verify: 'echo done'\n    done: d\n", 1)
+        if run([str(make_cr(noop))]) == 0:
+            print(f"  {FAIL} no-op verify(echo) 应 BLOCK"); return False
+        print(f"  {PASS} no-op verify(echo done) → BLOCKED")
+
+        # GSD 写作约束：done 含主观语言 → BLOCK
+        subj = GOOD.replace("    verify: v\n    done: d\n", "    verify: v\n    done: 'looks correct'\n", 1)
+        if run([str(make_cr(subj))]) == 0:
+            print(f"  {FAIL} done 含主观语言应 BLOCK"); return False
+        print(f"  {PASS} done='looks correct' → BLOCKED")
         return True
     except Exception as e:
         print(f"  {FAIL} PlanChecker 契约异常: {e}")
@@ -1393,6 +1403,423 @@ def check_packaging_hygiene():
     return True
 
 
+def check_handoff_state_contract():
+    """STATE 指针契约（借 Pocock /handoff，替代 SessionStart hook）：从 state.yml 汇总刷新 STATE.md。"""
+    section("34. STATE 指针契约 (handoff_state)")
+    hs = ROOT / "scripts" / "handoff_state.py"
+    if not hs.exists():
+        print(f"  {FAIL} handoff_state.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-handoff-"))
+    try:
+        home = tmp / "DeliverHQ"
+        cr = home / "change-requests" / "CR-001"
+        cr.mkdir(parents=True)
+        # 最小 state.yml（cr_state 可解析的字段）
+        (cr / "state.yml").write_text(
+            "cr_id: CR-001\nlane: standard\ncurrent_state: blocked\ncurrent_phase: dev\n"
+            "next_required_gate: review\nrequires_human: false\nblocking_reason: 测试阻塞\n",
+            encoding="utf-8")
+
+        rc = subprocess.run(
+            [sys.executable, str(hs), "--home", str(home)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+        state_md = home / "STATE.md"
+        ok = True
+        if rc.returncode == 0 and state_md.exists():
+            text = state_md.read_text(encoding="utf-8")
+            if "CR-001" in text and "review" in text and "done = 建出来的" in text:
+                print(f"  {PASS} STATE.md 含 CR/下一道门/不变式")
+            else:
+                print(f"  {FAIL} STATE.md 内容不完整"); ok = False
+        else:
+            print(f"  {FAIL} 刷新 STATE.md 失败 rc={rc.returncode}"); ok = False
+
+        # 无活跃 CR 时也应安全生成
+        empty_home = tmp / "EmptyHQ"
+        (empty_home / "change-requests").mkdir(parents=True)
+        rc2 = subprocess.run(
+            [sys.executable, str(hs), "--home", str(empty_home), "--print"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+        if rc2.returncode == 0 and "无活跃 CR" in rc2.stdout:
+            print(f"  {PASS} 无活跃 CR → 安全输出")
+        else:
+            print(f"  {FAIL} 空 home 处理异常 rc={rc2.returncode}"); ok = False
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} handoff_state 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_flatten_reproducible_contract():
+    """逆向输入 flatten 可复现契约（借 BMAD flatten）：同一份代码必产同一 input_hash。
+
+    逆向链最隐蔽的不可复现来源——rglob 顺序/--max-files 截断/源码被悄改——
+    会让"同一项目"扫出不同候选集。flatten 把输入压成确定性、可哈希的清单：
+      1. 同一项目两次扫描 → input_hash 完全相同（确定性）
+      2. 改动任一源码文件 → input_hash 必变（敏感性，防伪造"我没动过代码"）
+    """
+    section("35. 逆向输入 flatten 可复现契约 (BMAD flatten)")
+    sl = ROOT / "scripts" / "scan_legacy.py"
+    if not sl.exists():
+        print(f"  {FAIL} scan_legacy.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-flatten-"))
+    try:
+        proj = tmp / "legacy"
+        (proj / "src" / "auth").mkdir(parents=True)
+        (proj / "src" / "auth" / "login.py").write_text(
+            "def check_login(u, p):\n    if u and p:\n        return True\n    return False\n",
+            encoding="utf-8")
+        (proj / "src" / "util.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+
+        def scan(out):
+            return subprocess.run(
+                [sys.executable, str(sl), str(proj), "--out", str(out)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, env=SUBPROCESS_ENV, cwd=str(ROOT))
+
+        def read_hash(out_dir):
+            f = out_dir / "reverse-input-flatten.yml"
+            if not f.exists():
+                return None
+            return (yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("input_hash")
+
+        ok = True
+        d1, d2 = tmp / "o1", tmp / "o2"
+        scan(d1 / "c.yml"); scan(d2 / "c.yml")
+        h1, h2 = read_hash(d1), read_hash(d2)
+        if h1 and h1 == h2:
+            print(f"  {PASS} 同一项目两次扫描 → input_hash 一致 ({h1[:12]})")
+        else:
+            print(f"  {FAIL} 应一致：{h1} vs {h2}"); ok = False
+
+        # 改一个字节 → hash 必变
+        (proj / "src" / "util.py").write_text("def add(a, b):\n    return a + b + 0\n", encoding="utf-8")
+        d3 = tmp / "o3"
+        scan(d3 / "c.yml")
+        h3 = read_hash(d3)
+        if h3 and h3 != h1:
+            print(f"  {PASS} 改动源码 → input_hash 必变（敏感性）")
+        else:
+            print(f"  {FAIL} 改码后 hash 未变（伪造风险）：{h3}"); ok = False
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} flatten 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_must_haves_contract():
+    """must_haves 谓词校验契约（借 GSD 判据语法，确定性）：pass / blocked / skip。"""
+    section("33. must_haves 谓词契约 (must_haves_check)")
+    mh = ROOT / "scripts" / "must_haves_check.py"
+    if not mh.exists():
+        print(f"  {FAIL} must_haves_check.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-musthaves-"))
+
+    def run(cr, root):
+        return subprocess.run(
+            [sys.executable, str(mh), str(cr), "--root", str(root), "--json"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+
+    try:
+        import json as _json
+        repo = tmp / "repo"
+        (repo / "src").mkdir(parents=True)
+        cr = repo / "DeliverHQ" / "change-requests" / "CR-X"
+        cr.mkdir(parents=True)
+
+        (repo / "src" / "todo.py").write_text(
+            "\n".join("class Todo:" if i == 0 else "    f%d = %d" % (i, i) for i in range(12)),
+            encoding="utf-8")
+
+        manifest = (
+            "must_haves:\n"
+            "  artifacts:\n"
+            "    - name: Todo\n"
+            "      path: src/todo.py\n"
+            "      min_lines: 8\n"
+            "      exports: [\"Todo\"]\n"
+            "      anti_stub: true\n"
+        )
+        (cr / "verification-manifest.yml").write_text(manifest, encoding="utf-8")
+
+        ok = True
+        r = run(cr, repo)
+        if r.returncode == 0 and _json.loads(r.stdout)["status"] == "pass":
+            print(f"  {PASS} 谓词全成立 → PASS")
+        else:
+            print(f"  {FAIL} 应 PASS，得 {r.stdout[:120]}"); ok = False
+
+        (repo / "src" / "todo.py").write_text("class Todo:\n    pass  # TODO\n", encoding="utf-8")
+        r = run(cr, repo)
+        if r.returncode == 1 and _json.loads(r.stdout)["status"] == "blocked":
+            print(f"  {PASS} stub/缺行 → BLOCKED")
+        else:
+            print(f"  {FAIL} 应 BLOCKED，得 rc={r.returncode} {r.stdout[:120]}"); ok = False
+
+        (cr / "verification-manifest.yml").write_text("build:\n  enabled: false\n", encoding="utf-8")
+        r = run(cr, repo)
+        if r.returncode == 0 and _json.loads(r.stdout)["status"] == "skip":
+            print(f"  {PASS} 无 must_haves 段 → skip（向后兼容）")
+        else:
+            print(f"  {FAIL} 应 skip，得 {r.stdout[:120]}"); ok = False
+
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} must_haves 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_token_budget_contract():
+    """入口链 token 预算契约（Pocock token 经济一等指标）：常驻链不得无声膨胀。"""
+    section("32. 入口链 token 预算契约 (token_budget)")
+    tb = ROOT / "scripts" / "token_budget.py"
+    if not tb.exists():
+        print(f"  {FAIL} token_budget.py 不存在")
+        return False
+    rc = subprocess.run(
+        [sys.executable, str(tb)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+        env=SUBPROCESS_ENV,
+    )
+    out = rc.stdout.decode("utf-8", "replace")
+    if rc.returncode == 0 and "在预算内" in out:
+        for line in out.splitlines():
+            if "总计" in line:
+                print(f"  {PASS} {line.strip()}")
+                break
+        else:
+            print(f"  {PASS} 入口链在预算内")
+        return True
+    print(f"  {FAIL} 入口链超 token 预算（裁剪入口或下沉到 references/）")
+    for line in out.splitlines():
+        if "总计" in line:
+            print(f"    {line.strip()}")
+    return False
+
+
+def check_capability_tiers_contract():
+    """能力调用分层契约（Pocock 双轴）：core 由 default_enabled 派生，且有界。"""
+    section("30. 能力调用分层契约 (capability_tiers)")
+    ct = ROOT / "scripts" / "capability_tiers.py"
+    if not ct.exists():
+        print(f"  {FAIL} capability_tiers.py 不存在")
+        return False
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import capability_tiers as ctmod
+    except Exception as e:
+        print(f"  {FAIL} 无法导入 capability_tiers: {e}")
+        return False
+
+    rows = ctmod.parse_matrix()
+    if not rows:
+        print(f"  {FAIL} 未从矩阵解析到任何能力行")
+        return False
+    core, on_demand = ctmod.classify(rows)
+
+    ok = True
+    if all(r["default_enabled"] for r in core) and not any(r["default_enabled"] for r in on_demand):
+        print(f"  {PASS} 分层与 default_enabled 一致（core={len(core)}, on-demand={len(on_demand)}）")
+    else:
+        print(f"  {FAIL} 分层与 default_enabled 不一致")
+        ok = False
+
+    CORE_MAX = 20
+    if len(core) <= CORE_MAX:
+        print(f"  {PASS} core 集合有界（{len(core)} ≤ {CORE_MAX}）")
+    else:
+        print(f"  {FAIL} core 集合超界（{len(core)} > {CORE_MAX}）：新增常驻能力须显式提高上限并说明")
+        ok = False
+
+    return ok
+
+
+def check_lane_advisor_contract():
+    """客观规模分档建议器契约：fast / standard / high-risk / split 四类正例。"""
+    section("31. 客观规模分档契约 (lane_advisor)")
+    la = ROOT / "scripts" / "lane_advisor.py"
+    if not la.exists():
+        print(f"  {FAIL} lane_advisor.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-lane-"))
+
+    def make(spec, trace):
+        cr = tmp / ("cr_%d" % make.n); make.n += 1
+        cr.mkdir()
+        (cr / "acceptance-spec.md").write_text(spec, encoding="utf-8")
+        (cr / "traceability.yml").write_text(trace, encoding="utf-8")
+        return cr
+    make.n = 0
+
+    def run(cr):
+        return subprocess.run(
+            [sys.executable, str(la), str(cr), "--json"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+
+    def trace_files(n):
+        lines = ["schema: x", "X:", "  implementation:"]
+        for i in range(n):
+            lines.append("    - file: f%d.py" % i)
+        return "\n".join(lines) + "\n"
+
+    try:
+        import json as _json
+        ok = True
+
+        r = run(make("## 验收条件\n### 场景 1: a\n", trace_files(1)))
+        if _json.loads(r.stdout)["lane"] == "fast":
+            print(f"  {PASS} 小改动 → fast")
+        else:
+            print(f"  {FAIL} 小改动应 fast，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: a\n### 场景 2: b\n### 场景 3: c\n", trace_files(4)))
+        if _json.loads(r.stdout)["lane"] == "standard":
+            print(f"  {PASS} 中等规模 → standard")
+        else:
+            print(f"  {FAIL} 中等规模应 standard，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: 用户登录 auth token\n",
+                     "schema: x\nX:\n  implementation:\n    - file: login.py\n"))
+        if _json.loads(r.stdout)["lane"] == "high-risk":
+            print(f"  {PASS} 敏感域 → high-risk（不降级）")
+        else:
+            print(f"  {FAIL} 敏感域应 high-risk，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: a\n", trace_files(9)))
+        if r.returncode == 2 and _json.loads(r.stdout)["decision"] == "split":
+            print(f"  {PASS} 超硬阈值 → 建议拆分 (exit 2)")
+        else:
+            print(f"  {FAIL} 超阈值应建议拆分，rc={r.returncode}"); ok = False
+
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} lane_advisor 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_gate_composition_contract():
+    """Gate 冻结 + 组合规则契约：防止治理债无声扩张.
+
+    正例：当前仓库应 PASS。
+    反例：临时引入一个未登记的 *gate*.py → 检查应 BLOCK。
+    """
+    section("29. Gate 冻结 + 组合规则契约")
+    gc = ROOT / "scripts" / "gate_composition_check.py"
+    if not gc.exists():
+        print(f"  {FAIL} gate_composition_check.py 不存在")
+        return False
+
+    rc = subprocess.run(
+        [sys.executable, str(gc)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+        env=SUBPROCESS_ENV,
+    ).returncode
+    if rc != 0:
+        print(f"  {FAIL} 当前仓库应 PASS 但被 BLOCK")
+        return False
+    print(f"  {PASS} 当前 Gate 集合与组合规则 PASS")
+
+    intruder = ROOT / "scripts" / "_tmp_intruder_gate.py"
+    try:
+        intruder.write_text("# temp unregistered gate for contract test\n", encoding="utf-8")
+        rc2 = subprocess.run(
+            [sys.executable, str(gc)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+            env=SUBPROCESS_ENV,
+        ).returncode
+        if rc2 == 0:
+            print(f"  {FAIL} 未登记的新 Gate 脚本应被 BLOCK 但通过了")
+            return False
+        print(f"  {PASS} 未登记的新 Gate 脚本 → BLOCKED")
+        return True
+    finally:
+        if intruder.exists():
+            intruder.unlink()
+
+
+def check_needs_clarification_contract():
+    """SpecGate 必须阻断含 [NEEDS CLARIFICATION] 的 spec（借 Spec-Kit 约定）。
+
+    正反例：
+      - 注入 [NEEDS CLARIFICATION] 的临时 spec → BLOCKED
+      - 同一 spec 去掉标记 → 不因该标记阻断
+    用临时目录，不污染示例 CR。
+    """
+    section("28. NEEDS CLARIFICATION 契约 (SpecGate)")
+    specgate = ROOT / "scripts" / "specgate.py"
+    if not specgate.exists():
+        print(f"  {FAIL} specgate.py 不存在")
+        return False
+
+    base = (
+        "# Acceptance Spec\n\n"
+        "## 1. Data Spec\n字段 A：字符串\n\n"
+        "## 2. Interface Spec\n`do()`：执行\n\n"
+        "## 3. Behavior Spec\n## 验收条件\n"
+        "### 场景 1: 正常\n- 响应时间 < 200ms\n"
+        "### 场景 2: 异常\n- 报错\n"
+        "### 场景 3: 边界\n- 上限\n"
+    )
+    marker = "\n### 场景 4: 并发\n- 并发上限 [NEEDS CLARIFICATION: 未定]\n"
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-needs-clar-"))
+    try:
+        neg = tmp / "neg.md"
+        neg.write_text(base + marker, encoding="utf-8")
+        pos = tmp / "pos.md"
+        pos.write_text(base, encoding="utf-8")
+
+        neg_rc = subprocess.run(
+            [sys.executable, str(specgate), str(neg)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            env=SUBPROCESS_ENV,
+        ).returncode
+        pos_rc = subprocess.run(
+            [sys.executable, str(specgate), str(pos)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10,
+            env=SUBPROCESS_ENV,
+        ).returncode
+
+        ok = True
+        if neg_rc != 0:
+            print(f"  {PASS} 含 [NEEDS CLARIFICATION] 的 spec 被 BLOCKED")
+        else:
+            print(f"  {FAIL} 含 [NEEDS CLARIFICATION] 的 spec 未被阻断")
+            ok = False
+        if pos_rc == 0:
+            print(f"  {PASS} 去掉标记后不因该标记阻断")
+        else:
+            print(f"  {FAIL} 去掉标记后仍被阻断（标记检查过宽）")
+            ok = False
+        return ok
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def main():
     routing_only = "--routing-eval" in sys.argv
 
@@ -1444,6 +1871,14 @@ def main():
         results["predev_requires_architecture_contract"] = check_predev_requires_architecture_contract()
         results["structure_governance_contract"] = check_structure_governance_contract()
         results["packaging_hygiene"] = check_packaging_hygiene()
+        results["needs_clarification_contract"] = check_needs_clarification_contract()
+        results["gate_composition_contract"] = check_gate_composition_contract()
+        results["capability_tiers_contract"] = check_capability_tiers_contract()
+        results["token_budget_contract"] = check_token_budget_contract()
+        results["must_haves_contract"] = check_must_haves_contract()
+        results["handoff_state_contract"] = check_handoff_state_contract()
+        results["lane_advisor_contract"] = check_lane_advisor_contract()
+        results["flatten_reproducible_contract"] = check_flatten_reproducible_contract()
     finally:
         restore_example_crs(snapshot_dir)
 

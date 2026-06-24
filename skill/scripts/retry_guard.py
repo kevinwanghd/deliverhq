@@ -13,7 +13,7 @@ retry_guard.py —— 重试上限 + needs-human 出口（防无限重试）
 重试账本独立存于 <CR>/evidence/retry-ledger.yml，不侵入 state.yml 序列化。
 needs_human 决策仍写回 state.yml（通过 cr_state）。
 
-跨平台 / Python 3.6 兼容。
+跨平台 / Python 3.10+。
 
 用法：
   # 记录一次失败并判定是否还能重试
@@ -56,10 +56,7 @@ def save_ledger(cr_dir, ledger):
     p = _ledger_path(cr_dir)
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "w", encoding="utf-8") as f:
-        try:
-            yaml.safe_dump(ledger, f, allow_unicode=True, sort_keys=False)
-        except TypeError:
-            yaml.safe_dump(ledger, f, allow_unicode=True)
+        yaml.safe_dump(ledger, f, allow_unicode=True, sort_keys=False)
 
 
 def _failure_signature(gate, blocker):

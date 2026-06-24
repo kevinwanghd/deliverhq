@@ -264,7 +264,7 @@ loop_until_done:
 - [ ] Selftest 通过率 ≥ 85%
 - [ ] 文档完整性 100%
 - [ ] 向后兼容 v4.7
-- [ ] Python 3.6+ 兼容
+- [x] Python 3.10+ 兼容
 
 ### 性能标准
 - [ ] Workflow routing < 1s

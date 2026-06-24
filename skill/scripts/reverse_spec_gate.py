@@ -14,7 +14,7 @@ reverse_spec_gate.py —— 逆向需求门禁（目标2 的硬约束）
   PASS WITH WARNING：
     - 存在 deferred 条目（暂缓，不阻塞，但提示）
 
-跨平台 / Python 3.6 兼容。写回 state.yml（若存在 cr_state）。
+跨平台 / Python 3.10+。写回 state.yml（若存在 cr_state）。
 
 用法：
   python reverse_spec_gate.py <CR目录 或 reverse-spec-candidates.yml 路径>

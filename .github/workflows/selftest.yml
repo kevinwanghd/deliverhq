@@ -1,0 +1,36 @@
+name: selftest
+
+# DeliverHQ 集成测试门禁:PR 与推送到 main 时自动运行 selftest。
+# 单人维护仓库的"机器审批人"——34/34 全绿才允许合并。
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install PyYAML
+
+      - name: Run DeliverHQ selftest
+        # selftest 必须从 skill 目录运行;CR-EXAMPLE 的 manifest 调用 `python`,
+        # setup-python 已在 PATH 中提供 `python`,无需额外 shim。
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: |
+          cd skill
+          python scripts/selftest.py

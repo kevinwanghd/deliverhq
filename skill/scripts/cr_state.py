@@ -271,10 +271,7 @@ def save_state(cr_path: Path, state: CRStateSnapshot):
 
     payload = _serialize_state(state)
     with open(state_file, "w", encoding="utf-8") as f:
-        try:
-            yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)
-        except TypeError:
-            yaml.safe_dump(payload, f, allow_unicode=True)
+        yaml.safe_dump(payload, f, allow_unicode=True, sort_keys=False)
 
 
 def transition_state(

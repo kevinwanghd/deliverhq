@@ -19,7 +19,7 @@
 
 | 工具 | 用途 | Windows 安装 | macOS/Linux 安装 |
 |------|------|-------------|----------------|
-| **Python 3.6+** | 运行框架 | [python.org](https://python.org) 或 Microsoft Store | 通常预装 |
+| **Python 3.10+** | 运行框架 | [python.org](https://python.org) 或 Microsoft Store | 通常预装 |
 | **Git** | PermissionGate / 变更追踪 | [git-scm.com](https://git-scm.com) | `brew install git` / `apt install git` |
 
 安装后验证：
@@ -40,7 +40,6 @@ pip install PyYAML   # 必需（YAML 解析）
 以下场景中，**用户提供的命令字符串会通过 `shell=True` 执行**，框架不做转换：
 
 1. **`verification-manifest.yml` 中的命令**（build / test / lint）
-2. **`loop_mode.py` 的 `check_command`**
 
 ### 跨平台命令编写建议
 

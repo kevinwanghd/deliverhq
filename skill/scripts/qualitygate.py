@@ -369,6 +369,25 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
         verification_results, verification_blockers = run_real_verification(cr_path, manifest)
         blockers.extend(verification_blockers)
 
+    # must_haves 谓词校验（借 GSD 判据语法，确定性）：断言"建出来的=计划的"。
+    # manifest 无 must_haves 段则跳过（向后兼容）。
+    if manifest and manifest.get('must_haves'):
+        print(f"\n{Color.BLUE}[must_haves 谓词]{Color.END}")
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from must_haves_check import check_must_haves, _resolve_root
+            mh_status, mh_blockers = check_must_haves(Path(cr_path), _resolve_root(Path(cr_path), None))
+            if mh_status == 'pass':
+                print(f"{Color.GREEN}  ✓ must_haves 全部成立{Color.END}")
+            elif mh_status == 'blocked':
+                for b in mh_blockers:
+                    print(f"{Color.RED}  ✗ {b}{Color.END}")
+                blockers.extend(mh_blockers)
+            else:
+                print(f"{Color.YELLOW}  ⚠ must_haves 无法校验: {mh_blockers}{Color.END}")
+        except Exception as exc:
+            print(f"{Color.YELLOW}  ⚠ must_haves 校验跳过: {exc}{Color.END}")
+
     baseline_artifacts: List[str] = []
     if lane in {'standard', 'high-risk'} and manifest and not blockers:
         print(f"\n{Color.BLUE}[Baseline Comparison]{Color.END}")

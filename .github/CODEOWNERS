@@ -1,0 +1,8 @@
+# 默认所有变更指派给仓库维护者评审。
+# 单人维护:这让每个 PR 自动把你列为 reviewer,作为人工把关的提醒。
+* @kevinwanghd
+
+# 承重区:治理脚本与集成测试改动尤其需要 owner 确认
+/skill/scripts/        @kevinwanghd
+/skill/scripts/selftest.py  @kevinwanghd
+/.github/              @kevinwanghd
