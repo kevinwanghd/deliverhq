@@ -121,6 +121,10 @@ for pattern in unresolved_patterns:
 
 **教训**：不要用简单字符串匹配，要用正则匹配结构化位置。
 
+**补充（v5.9，借 Spec-Kit）**：起草期允许用 `[NEEDS CLARIFICATION: 问题]` 或 `[待确认]`/`[TODO]`
+显式占位标记，但 SpecGate 放行前这些标记必须全部清零（与 `[TODO]` 同级阻断，大小写不敏感）。
+正文叙述里出现"待确认"三字不阻断——只检查显式占位标记。对应 `needs_clarification_contract`。
+
 ---
 
 ### 5. 模板变量误判

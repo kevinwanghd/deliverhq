@@ -1403,6 +1403,34 @@ def check_packaging_hygiene():
     return True
 
 
+def check_token_budget_contract():
+    """入口链 token 预算契约（Pocock token 经济一等指标）：常驻链不得无声膨胀。"""
+    section("32. 入口链 token 预算契约 (token_budget)")
+    tb = ROOT / "scripts" / "token_budget.py"
+    if not tb.exists():
+        print(f"  {FAIL} token_budget.py 不存在")
+        return False
+    rc = subprocess.run(
+        [sys.executable, str(tb)],
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=15,
+        env=SUBPROCESS_ENV,
+    )
+    out = rc.stdout.decode("utf-8", "replace")
+    if rc.returncode == 0 and "在预算内" in out:
+        for line in out.splitlines():
+            if "总计" in line:
+                print(f"  {PASS} {line.strip()}")
+                break
+        else:
+            print(f"  {PASS} 入口链在预算内")
+        return True
+    print(f"  {FAIL} 入口链超 token 预算（裁剪入口或下沉到 references/）")
+    for line in out.splitlines():
+        if "总计" in line:
+            print(f"    {line.strip()}")
+    return False
+
+
 def check_capability_tiers_contract():
     """能力调用分层契约（Pocock 双轴）：core 由 default_enabled 派生，且有界。"""
     section("30. 能力调用分层契约 (capability_tiers)")
@@ -1662,6 +1690,7 @@ def main():
         results["needs_clarification_contract"] = check_needs_clarification_contract()
         results["gate_composition_contract"] = check_gate_composition_contract()
         results["capability_tiers_contract"] = check_capability_tiers_contract()
+        results["token_budget_contract"] = check_token_budget_contract()
         results["lane_advisor_contract"] = check_lane_advisor_contract()
     finally:
         restore_example_crs(snapshot_dir)

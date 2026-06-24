@@ -79,32 +79,12 @@ license: 见仓库
 > PRD 锚点被改后哈希失配 → `drift_check.py` 提示对账(改CR/改PRD/记差异);confirmed 锚点强制对账,reverse-engineered 锚点(老项目逆向)仅警告。
 > 分工:PRD 给人看意图(不写 ID/schema/Do-Not-Touch),acceptance-spec 给机器验;拆分是 Spec Agent 职责,SpecGate 只检查。
 
-### 模式 1：初始化新项目
+### 模式 1 & 2：初始化新项目 / 扫描老项目（按需，详见 `references/modes.md`）
 
-**场景**：为新项目启用 DeliverHQ 治理。
+- **模式 1 初始化**：复制 `DeliverHQ/` 到项目根 → `check_skeleton.py DeliverHQ` → 填 `docs/CONTEXT.md` → 调 `dir-graph.yaml` → `selftest.py`。
+- **模式 2 扫描老项目**：Scan Agent 分析源码/Git/依赖 → 生成 `docs/reports/code-health-report.md` 与 `legacy-scan-report.md` → 人工审核决定是否起改造 CR。
 
-**步骤**：
-1. 将 `DeliverHQ/` 目录复制到项目根目录
-2. 运行骨架检查：`python DeliverHQ/scripts/check_skeleton.py DeliverHQ`
-3. 填写 `DeliverHQ/docs/CONTEXT.md`（项目上下文）
-4. 调整 `DeliverHQ/dir-graph.yaml`（权限路径）
-5. 自检通过：`python DeliverHQ/scripts/selftest.py`
-
-**产出**：开箱即用的治理框架。
-
----
-
-### 模式 2：扫描老项目
-
-**场景**：分析现有项目的代码健康度。
-
-**步骤**：
-1. 运行扫描 Agent：让 Scan Agent 分析项目源码、Git 历史、依赖
-2. Scan Agent 生成 `DeliverHQ/docs/reports/code-health-report.md`
-3. 生成 `DeliverHQ/docs/reports/legacy-scan-report.md`
-4. 人工审核报告，决定是否启动改造 CR
-
-**产出**：技术债清单 + 改进建议。
+> 这两种是一次性/低频操作，完整步骤与产出在 `references/modes.md`。下面 模式 3/4 是日常主路径。
 
 ---
 
@@ -184,52 +164,13 @@ python DeliverHQ/scripts/writeback_gate.py DeliverHQ/change-requests/CR-001
 
 ## 常见坑（Gotchas）
 
-### 1. 路径依赖问题
-❌ **错误**：脚本依赖 `cwd`，从不同目录调用会失败。
-✅ **正确**：所有脚本使用 `Path(__file__).parent.parent` 定位 DeliverHQ 根目录。
+> 完整 10 条踩坑（含代码示例）见 `references/gotchas.md`。这里只留最常踩的 3 条。
 
-```python
-# 所有脚本开头
-from pathlib import Path
-DELIVERHQ_ROOT = Path(__file__).parent.parent
-```
+- **过度治理**：改个 README 错别字不必启动完整 CR 流程；轻量任务保持灵活（判据见 lane_advisor `--suggest-lane`）。
+- **SpecGate 占位符**：`[NEEDS CLARIFICATION:…]`（借 Spec-Kit）/`[待确认]`/`[TODO]` 放行前必须清零；正文叙述里的"待确认"三字不阻断。
+- **workflow_router 是建议器**：只在关键事件手动运行读 JSON 建议，不要接成后台扫描或自动创建 CR。
 
-### 2. Windows 兼容性
-❌ **错误**：文档写 `python3 scripts/xxx.py`（Windows 没有 python3）
-✅ **正确**：优先写 `python scripts/xxx.py`，或提示 Windows 用户配置 `python3` 别名。
-
-### 3. SpecGate 误判
-❌ **错误**：把说明文字里的"待确认"误判为未解决项。
-✅ **正确**：只检查表格状态列 `| 待确认 |`，用正则 `r'\|\s*待确认\s*\|'`。
-✅ **补充**：起草期可用 `[NEEDS CLARIFICATION: ...]`（借 Spec-Kit）或 `[待确认]`/`[TODO]` 显式占位标记，SpecGate 放行前必须清零；正文叙述里的"待确认"三字不阻断。
-
-### 4. 模板变量误判
-❌ **错误**：把合法代码示例里的 `{{}}` 误判为模板变量。
-✅ **正确**：只检查 Markdown 文本区域，排除代码块。
-
-### 5. 不要直接修改 CR-TEMPLATE
-❌ **错误**：用户直接改 `CR-TEMPLATE/`，导致后续 CR 继承错误。
-✅ **正确**：复制 `CR-TEMPLATE` → `CR-001`，再修改。
-
-### 6. DeliverHQ vs 项目根 docs
-❌ **错误**：DeliverHQ 覆盖项目根目录的 `docs/` 约定。
-✅ **正确**：`DeliverHQ/docs` 是治理记忆，项目根 `docs/` 是权威工程约定，互补不覆盖。
-
-### 7. 纯后端项目不强制 DesignGate
-❌ **错误**：后端 API 项目也要求高保真设计稿。
-✅ **正确**：DesignGate 检查 `metadata.yml` 的 `ui_type: none`，纯后端可跳过。
-
-### 8. QualityGate 自动写入副作用
-❌ **错误**：QualityGate 失败自动写 `mistake-book.md`，用户未预期。
-✅ **正确**：通过环境变量 `DELIVERHQ_AUTO_MISTAKE_BOOK=0` 可禁用。
-
-### 9. 过度治理问题
-❌ **错误**：改一个 README 错别字也启动完整 CR 流程。
-✅ **正确**：轻量任务不强制进 DeliverHQ，保持灵活性。
-
-### 10. workflow_router 是建议器，不是自动拦截器
-❌ **错误**：把 `workflow_router.py` 接成后台扫描或自动创建 CR。
-✅ **正确**：只在不确定是否启用 DeliverHQ、准备写代码、准备提交等关键事件上手动运行，读取 JSON 建议后再决定。
+其余（脚本路径依赖 cwd、Windows `python` vs `python3`、模板变量误判、勿改 CR-TEMPLATE、DeliverHQ vs 项目根 docs、纯后端跳过 DesignGate、QualityGate 自动写 mistake-book）→ `references/gotchas.md`。
 
 ---
 
@@ -282,33 +223,18 @@ python scripts/specgate.py change-requests/CR-001/acceptance-spec.md
 
 ---
 
-## 一键自检
-
-```bash
-python scripts/selftest.py
-```
-
-输出：
-- ✅ 骨架完整（47/47）
-- ✅ 示例 CR 可通过
-- ✅ 所有 Gate 行为正常
-- ✅ 脚本可从任意 cwd 调用
-- ✅ 无模板变量残留
-
----
-
 ## 深入阅读
 
 需要了解更多时，按需阅读：
 
 - `references/modes.md` — 四种模式详解
-- `references/gates.md` — 5 个 Gate 详解
+- `references/gates.md` — Gate 详解
 - `references/gotchas.md` — 完整踩坑经验
-- `references/file-structure.md` — 47 个文件说明
+- `references/file-structure.md` — 文件结构说明
 - `references/examples.md` — Before/After 案例
+
+一键自检：`python scripts/selftest.py`（骨架完整 / 示例 CR 通过 / Gate 行为正常 / 无模板残留）。
 
 ---
 
-**版本**：v5.8.0  
-**更新日期**：2026-06-21  
-**一句话**：文档门禁 + 动态多 Agent 工作流编排 + 对抗式验证。
+**版本**：v5.9.0 ｜ **一句话**：文档门禁 + 证据驱动 + 对抗式验证（信证据不信声明）。
