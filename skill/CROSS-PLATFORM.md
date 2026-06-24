@@ -40,7 +40,6 @@ pip install PyYAML   # 必需（YAML 解析）
 以下场景中，**用户提供的命令字符串会通过 `shell=True` 执行**，框架不做转换：
 
 1. **`verification-manifest.yml` 中的命令**（build / test / lint）
-2. **`loop_mode.py` 的 `check_command`**
 
 ### 跨平台命令编写建议
 

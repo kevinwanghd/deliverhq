@@ -8,6 +8,12 @@
 - default_enabled: true / false
 - allowed_in_pipeline: true / false
 
+> **调用分层（借 Matt Pocock 双轴模型）**：能力按 `default_enabled` 派生为两层——
+> `default_enabled=true` → **core**（model-invoked，默认流程常驻 context）；
+> `default_enabled=false` → **on-demand**（user-invoked，零 per-turn 成本，按需加载）。
+> 派生与有界检查见 `scripts/capability_tiers.py`（`capability_tiers_contract` 锁死 core 上界，
+> 防止常驻能力无声膨胀）。查看：`python scripts/capability_tiers.py`。
+
 | 能力 | 脚本/文档 | status | integrated | default_enabled | allowed_in_pipeline | 说明 |
 |---|---|---|---|---:|---:|---|
 | CR 初始化 | scripts/init_cr.py | stable | integrated | true | false | 创建 CR、state.yml、运行时目录；worktree 创建失败只警告 |
@@ -16,7 +22,7 @@
 | DesignGate | scripts/designgate.py | experimental | integrated | true | true | UI/设计产物检查，后端项目需 metadata 声明跳过 |
 | ContextWindowGate | scripts/context_window_check.py | experimental | integrated | true | true | 当前主要检查摘要存在和上下文纪律，schema 化仍是后续项 |
 | PermissionGate | scripts/permissiongate.py | experimental | integrated | false | true | 最小权限边界检查；依赖 git status/protected_paths/人工例外，不能视为深度自动化安全能力 |
-| PreDevGate | scripts/pre_dev_gate.py | stable | integrated | true | true | 开发前真实门禁；通过后进入 DevPhase，不直接进入 Review |
+| PreDevGate | scripts/pre_dev_gate.py | stable | integrated | true | true | 开发前真实门禁；通过后进入 DevPhase，不直接进入 Review；`--suggest-lane` 调 lane_advisor 给客观规模建议 |
 | DevPhase Handoff | scripts/dev_phase.py | stable | integrated | true | true | 运行/确认 PreDevGate、检查 worktree、输出开发上下文；不自动写代码 |
 | Worktree Manager | scripts/worktree_manager.py | stable | integrated | false | false | 仅通过 init_cr/dev_phase 调用，不作为 Dev Agent 直接进 pipeline |
 | ReviewGate | scripts/reviewgate.py | stable | integrated | false | true | 代码实现后手动/状态机运行，默认 pipeline 不跨过人工开发点 |
@@ -39,14 +45,12 @@
 | PlanChecker（执行层） | scripts/plan_checker.py | experimental | integrated | false | true | 机检 plan.yml：task 粒度/verify/done/依赖/文件冲突/AC 覆盖；派生 wave；selftest 有契约。Worker=Dev Agent、Verifier=ReviewGate（不新增角色） |
 | 证据补全 Loop（执行层） | scripts/evidence_loop.py | experimental | integrated | false | true | 可恢复 loop：扫 CR 缺哪些 evidence(spec/traceability/changed-files/manifest/test-plan)→列 gaps+next_action→写回 needs_human。复用 cr_state/reviewgate口径/write_gate_evidence，不新增 Agent；selftest 有契约 |
 | Gate JSON Output | scripts/gate_json_output.py + scripts/runtime_support.py | experimental | integrated | false | false | 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer |
-| Loop Mode | scripts/loop_mode.py | experimental | not_integrated | false | false | 不进默认流程，需人工监督 |
-| Darwin Score | scripts/darwin_score.py | experimental | not_integrated | false | false | 仅报告观察，不硬阻断 |
-| Quality Ratchet | scripts/quality_ratchet.py | experimental | not_integrated | false | false | 仅报告观察，不硬阻断 |
 | Dynamic Workflows / Tournament / Fan-out | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 不得在入口文档承诺为可用能力 |
 | Scout / Repo Harness | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 规划项 |
 | PRD 层（产品意图唯一来源） | docs/PRD.md | experimental | integrated | true | false | 产品意图唯一来源，薄/给人看/仅人工维护；功能锚点 `[PRD-XXX]` 是 CR 挂载点；CR 用 derived_from 回指 |
 | PRD↔CR 对账（DriftCheck） | scripts/drift_check.py | experimental | integrated | true | true | 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate 检查9 复用同逻辑，warning-first |
 | Project Structure Governance | scripts/init_project_structure.py + scripts/structuregate.py + structure-profiles/fullstack-web.yml | experimental | integrated | false | false | opt-in 初始化 AI 友好/人类易复查目录契约；默认不生成业务代码，不进入默认阻断链路 |
+| Lane Advisor（客观规模分档） | scripts/lane_advisor.py | experimental | integrated | false | false | 借 GSD 客观阈值 + BMAD Quick Flow；按 changed_files/ac_count/敏感域给 lane 建议（fast/standard/high-risk）或建议拆 CR；建议器非 Gate，pre_dev_gate --suggest-lane 调用，最终 lane 仍由 state.yml 决定 |
 | Legacy Structure Scan | scripts/scan_legacy_structure.py | experimental | integrated | false | false | 只读扫描老项目目录结构，生成 structure-assessment-report.md 与 STRUCTURE-PROFILE.candidate.yml；不搬目录不改源码 |
 
 | ArchitectureGate（架构确认门禁） | scripts/architecturegate.py | experimental | integrated | true | true | 第二道人工门禁；编码前必须有 architecture-design.md 并人工确认；缺章节或残留 {{}} → BLOCKED |
@@ -62,7 +66,7 @@
 1. 默认 pipeline 只跑到 `dev_phase.py`，输出开发上下文后停止；代码实现、Review、Quality、Deploy、Writeback 必须在实现完成后显式推进。
 2. QualityGate 默认不能只读 AI 写的 `quality-report.md`。缺少 `verification-manifest.yml` 或没有启用真实命令时 fail-closed。
 3. `worktree_manager.py` 是工具，不是 Dev Agent。任何 pipeline 不得把 CR 路径直接传给它假装开发。
-4. Darwin Score / Quality Ratchet 先做观察报告，不进入阻断链路。
+4. Darwin Score / Quality Ratchet / Loop Mode 已退役至 `_archived/`（AI 自评违反"信证据不信声明"，loop 自动执行违反"人在环、停在 handoff"）；不在能力矩阵承诺，复活需经 CR。
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 6. **Gate 集合已冻结**：当前 11 道 Gate 是基线，由 `scripts/gate_composition_check.py` 的 `FROZEN_GATES` 单一事实源约束。新增/删除 Gate 必须更新该集合并经 CR 论证；Gate 之间禁止相互 import（除 `ALLOWED_GATE_EDGES` 白名单），串联只由编排器显式完成。对应 `gate_composition_contract`。
 

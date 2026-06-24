@@ -569,8 +569,6 @@ def check_capability_status_consistency():
         "experimental",
         "default_enabled",
         "allowed_in_pipeline",
-        "Darwin Score",
-        "Quality Ratchet",
     ]
     for phrase in required_phrases:
         if phrase not in matrix_text:
@@ -1405,8 +1403,114 @@ def check_packaging_hygiene():
     return True
 
 
+def check_capability_tiers_contract():
+    """能力调用分层契约（Pocock 双轴）：core 由 default_enabled 派生，且有界。"""
+    section("30. 能力调用分层契约 (capability_tiers)")
+    ct = ROOT / "scripts" / "capability_tiers.py"
+    if not ct.exists():
+        print(f"  {FAIL} capability_tiers.py 不存在")
+        return False
+
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import capability_tiers as ctmod
+    except Exception as e:
+        print(f"  {FAIL} 无法导入 capability_tiers: {e}")
+        return False
+
+    rows = ctmod.parse_matrix()
+    if not rows:
+        print(f"  {FAIL} 未从矩阵解析到任何能力行")
+        return False
+    core, on_demand = ctmod.classify(rows)
+
+    ok = True
+    if all(r["default_enabled"] for r in core) and not any(r["default_enabled"] for r in on_demand):
+        print(f"  {PASS} 分层与 default_enabled 一致（core={len(core)}, on-demand={len(on_demand)}）")
+    else:
+        print(f"  {FAIL} 分层与 default_enabled 不一致")
+        ok = False
+
+    CORE_MAX = 20
+    if len(core) <= CORE_MAX:
+        print(f"  {PASS} core 集合有界（{len(core)} ≤ {CORE_MAX}）")
+    else:
+        print(f"  {FAIL} core 集合超界（{len(core)} > {CORE_MAX}）：新增常驻能力须显式提高上限并说明")
+        ok = False
+
+    return ok
+
+
+def check_lane_advisor_contract():
+    """客观规模分档建议器契约：fast / standard / high-risk / split 四类正例。"""
+    section("31. 客观规模分档契约 (lane_advisor)")
+    la = ROOT / "scripts" / "lane_advisor.py"
+    if not la.exists():
+        print(f"  {FAIL} lane_advisor.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-lane-"))
+
+    def make(spec, trace):
+        cr = tmp / ("cr_%d" % make.n); make.n += 1
+        cr.mkdir()
+        (cr / "acceptance-spec.md").write_text(spec, encoding="utf-8")
+        (cr / "traceability.yml").write_text(trace, encoding="utf-8")
+        return cr
+    make.n = 0
+
+    def run(cr):
+        return subprocess.run(
+            [sys.executable, str(la), str(cr), "--json"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+
+    def trace_files(n):
+        lines = ["schema: x", "X:", "  implementation:"]
+        for i in range(n):
+            lines.append("    - file: f%d.py" % i)
+        return "\n".join(lines) + "\n"
+
+    try:
+        import json as _json
+        ok = True
+
+        r = run(make("## 验收条件\n### 场景 1: a\n", trace_files(1)))
+        if _json.loads(r.stdout)["lane"] == "fast":
+            print(f"  {PASS} 小改动 → fast")
+        else:
+            print(f"  {FAIL} 小改动应 fast，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: a\n### 场景 2: b\n### 场景 3: c\n", trace_files(4)))
+        if _json.loads(r.stdout)["lane"] == "standard":
+            print(f"  {PASS} 中等规模 → standard")
+        else:
+            print(f"  {FAIL} 中等规模应 standard，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: 用户登录 auth token\n",
+                     "schema: x\nX:\n  implementation:\n    - file: login.py\n"))
+        if _json.loads(r.stdout)["lane"] == "high-risk":
+            print(f"  {PASS} 敏感域 → high-risk（不降级）")
+        else:
+            print(f"  {FAIL} 敏感域应 high-risk，得 {r.stdout[:80]}"); ok = False
+
+        r = run(make("## 验收条件\n### 场景 1: a\n", trace_files(9)))
+        if r.returncode == 2 and _json.loads(r.stdout)["decision"] == "split":
+            print(f"  {PASS} 超硬阈值 → 建议拆分 (exit 2)")
+        else:
+            print(f"  {FAIL} 超阈值应建议拆分，rc={r.returncode}"); ok = False
+
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} lane_advisor 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_gate_composition_contract():
-    """Gate 冻结 + 组合规则契约：防止治理债无声扩张。
+    """Gate 冻结 + 组合规则契约：防止治理债无声扩张.
 
     正例：当前仓库应 PASS。
     反例：临时引入一个未登记的 *gate*.py → 检查应 BLOCK。
@@ -1557,6 +1661,8 @@ def main():
         results["packaging_hygiene"] = check_packaging_hygiene()
         results["needs_clarification_contract"] = check_needs_clarification_contract()
         results["gate_composition_contract"] = check_gate_composition_contract()
+        results["capability_tiers_contract"] = check_capability_tiers_contract()
+        results["lane_advisor_contract"] = check_lane_advisor_contract()
     finally:
         restore_example_crs(snapshot_dir)
 

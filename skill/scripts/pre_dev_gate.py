@@ -277,6 +277,8 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('cr_id', help='CR-ID')
     parser.add_argument('--lane', choices=sorted(VALID_LANES), help='覆盖 state.yml 的 lane')
+    parser.add_argument('--suggest-lane', action='store_true',
+                        help='按客观规模信号建议 lane（借 lane_advisor），不修改 state，仅打印参考')
     args = parser.parse_args()
 
     cr_path = DELIVERHQ_ROOT / "change-requests" / args.cr_id
@@ -285,6 +287,20 @@ def main():
         print(f"{Color.RED}错误: CR 目录不存在: {cr_path}{Color.END}")
         print(f"提示: 从 CR-TEMPLATE 复制开始新 CR")
         sys.exit(1)
+
+    if args.suggest_lane:
+        try:
+            from lane_advisor import advise
+            rec = advise(cr_path)
+            if rec["decision"] == "split":
+                print(f"{Color.YELLOW}⚠ 规模建议：{rec['reason']}{Color.END}")
+            else:
+                print(f"{Color.BLUE}建议 lane: {rec['lane']}（{rec['reason']}）{Color.END}")
+            s = rec["signals"]
+            print(f"  信号: changed_files={s['changed_files']}, ac_count={s['ac_count']}, "
+                  f"sensitive={s['sensitive_domains'] or '无'}")
+        except Exception as exc:
+            print(f"{Color.YELLOW}⚠ lane 建议不可用: {exc}{Color.END}")
 
     state_lane = args.lane or ensure_state(cr_path).lane
     passed = check_cr_readiness(cr_path, lane=state_lane)

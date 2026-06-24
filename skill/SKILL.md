@@ -67,8 +67,8 @@ license: 见仓库
 ### 不进默认阻断链路
 
 - Routing Eval JSON 化、Context schema、MaintenanceGate：后续优化
-- Darwin Score / Quality Ratchet：只做报告观察，不硬阻断
 - Dynamic Workflow / Tournament / Fan-out / Scout：roadmap，不承诺可用
+- Darwin Score / Quality Ratchet / Loop Mode：已退役至 `_archived/`（AI 自评 / 自动循环执行违反核心哲学）
 
 ---
 
@@ -119,6 +119,8 @@ license: 见仓库
 4. 运行 SpecGate：`python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md`
 5. 对账 PRD↔CR：`python DeliverHQ/scripts/drift_check.py DeliverHQ/change-requests/CR-001`（PRD 锚点被改后哈希失配会提示对账）
 6. 开发前运行：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --lane standard`
+   - 不确定走哪条 lane？先看客观规模建议（不改 state，仅参考）：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --suggest-lane`
+   - 小改动建议 fast（免全套证据）、敏感域强制 high-risk、超硬阈值（>8 文件或 >10 AC）建议拆 CR 而非硬塞。
 7. 开发交接：`python DeliverHQ/scripts/dev_phase.py DeliverHQ/change-requests/CR-001`
 8. `dev_phase.py` 输出 worktree/上下文路径后停止；不会自动写代码或跳到 Review。
 
