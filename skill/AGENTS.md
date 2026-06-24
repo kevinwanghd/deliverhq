@@ -1,6 +1,7 @@
 # AGENTS.md — DeliverHQ Behavior Entry
 
 ## Read order
+0. `STATE.md`（极小 STATE 指针，每轮必读；长会话/compaction 后靠它重建"我在链条哪一环"。由 `handoff_state.py` 从各 CR 的 state.yml 刷新）
 1. `AGENTS.md`
 2. `dir-graph.yaml`
 3. `state.yml`（当前 CR 的状态快照）
@@ -9,6 +10,10 @@
 6. `REPO_MAP.md` / `NOISE_FILTER.yml` / `COMMANDS.yml`（模块地图、噪音过滤、权威命令）
 7. Current CR artifacts under `change-requests/CR-*`
 8. `CAPABILITY-MATRIX.md`（能力状态唯一真相源；本文不重复维护完整能力状态）
+
+> **STATE 指针纪律（替代 SessionStart hook）**：阶段切换 / Gate 通过后，运行
+> `python scripts/handoff_state.py --home <项目根>/DeliverHQ` 刷新 `STATE.md`。
+> 它 agent 无关、零 hook，是长会话里"别忘了自己在治理链哪一环"的最便宜手段。
 
 ## 统一交付不变式（贯穿全链）
 

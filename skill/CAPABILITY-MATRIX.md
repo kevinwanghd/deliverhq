@@ -26,7 +26,8 @@
 | DevPhase Handoff | scripts/dev_phase.py | stable | integrated | true | true | 运行/确认 PreDevGate、检查 worktree、输出开发上下文；不自动写代码 |
 | Worktree Manager | scripts/worktree_manager.py | stable | integrated | false | false | 仅通过 init_cr/dev_phase 调用，不作为 Dev Agent 直接进 pipeline |
 | ReviewGate | scripts/reviewgate.py | stable | integrated | false | true | 代码实现后手动/状态机运行，默认 pipeline 不跨过人工开发点 |
-| QualityGate | scripts/qualitygate.py | stable | integrated | false | true | 默认 hybrid；必须有 verification-manifest.yml，parse_only 仅 demo/兼容 |
+| QualityGate | scripts/qualitygate.py | stable | integrated | false | true | 默认 hybrid；必须有 verification-manifest.yml，parse_only 仅 demo/兼容；可选 must_haves 谓词（见下）|
+| must_haves 谓词（借 GSD 判据语法） | scripts/must_haves_check.py | experimental | integrated | false | true | 确定性校验 verification-manifest 的 must_haves 段（key_links/artifacts/min_lines/exports/contains/反 stub）；断言"建出来的=计划的"；QualityGate 调用，无此段则跳过（向后兼容）。非向 GSD agent-verifier 收敛，是给已有确定性门禁补判据语法 |
 | DeployGate | scripts/deploygate.py | experimental | integrated | false | true | 部署就绪检查，不做真实部署 |
 | WritebackGate | scripts/writeback_gate.py | stable | integrated | false | true | 交付后知识沉淀检查 |
 | Gate Contract Check | scripts/gate_contract_check.py | stable | integrated | true | false | 验证脚本存在、正反例与参数契约 |
@@ -35,7 +36,7 @@
 | Mistake Book Dedup | scripts/update_mistake_book.py | experimental | integrated | true | false | CR+Gate+failure_hash 去重，重复 3 次标记 rules_candidate |
 | Routing Eval | scripts/eval_routing.py + evals/*routing-cases.md | stable | integrated | true | false | selftest 真实执行，禁止 total=0 通过 |
 | Workflow Router | scripts/workflow_router.py | experimental | integrated | false | false | 规则版低噪路由，输出可解释 JSON；不替代人工判断 |
-| Legacy Scan（逆向，目标2） | scripts/scan_legacy.py | experimental | integrated | false | false | 客观扫描老项目：技术栈/测试覆盖/复杂度/敏感域；review_required 由客观信号推导，AI 无权降级 |
+| Legacy Scan（逆向，目标2） | scripts/scan_legacy.py | experimental | integrated | false | false | 客观扫描老项目：技术栈/测试覆盖/复杂度/敏感域；review_required 由客观信号推导，AI 无权降级。文件按相对路径确定性排序，并产出 reverse-input-flatten.yml（借 BMAD flatten：每文件 sha256 + 整体 input_hash），同一份代码必产同一候选集（flatten_reproducible_contract）|
 | ReverseSpecGate（逆向） | scripts/reverse_spec_gate.py | experimental | integrated | false | true | 未裁决高风险逆向需求 → BLOCK；selftest 有正反例契约（reverse_spec_contract）|
 | Reverse Confirm（逆向） | scripts/confirm_reverse_spec.py | experimental | integrated | false | false | 人工逐条裁决候选：confirm/modify/reject/defer + is_real_requirement |
 | Reverse → Spec（逆向） | scripts/reverse_to_spec.py | experimental | integrated | false | false | 已确认条目 → acceptance-spec.md + traceability.yml；产物须过 SpecGate 才进正向链路 |
@@ -51,6 +52,7 @@
 | PRD↔CR 对账（DriftCheck） | scripts/drift_check.py | experimental | integrated | true | true | 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate 检查9 复用同逻辑，warning-first |
 | Project Structure Governance | scripts/init_project_structure.py + scripts/structuregate.py + structure-profiles/fullstack-web.yml | experimental | integrated | false | false | opt-in 初始化 AI 友好/人类易复查目录契约；默认不生成业务代码，不进入默认阻断链路 |
 | Lane Advisor（客观规模分档） | scripts/lane_advisor.py | experimental | integrated | false | false | 借 GSD 客观阈值 + BMAD Quick Flow；按 changed_files/ac_count/敏感域给 lane 建议（fast/standard/high-risk）或建议拆 CR；建议器非 Gate，pre_dev_gate --suggest-lane 调用，最终 lane 仍由 state.yml 决定 |
+| STATE 指针（借 Pocock /handoff） | scripts/handoff_state.py | experimental | integrated | false | false | 从各 CR 的 state.yml 汇总刷新极小 `STATE.md`（每轮必读），长会话/compaction 后重建治理上下文；agent 无关、零 hook，替代 SessionStart hook（避免 per-harness shim 膨胀） |
 | Legacy Structure Scan | scripts/scan_legacy_structure.py | experimental | integrated | false | false | 只读扫描老项目目录结构，生成 structure-assessment-report.md 与 STRUCTURE-PROFILE.candidate.yml；不搬目录不改源码 |
 
 | ArchitectureGate（架构确认门禁） | scripts/architecturegate.py | experimental | integrated | true | true | 第二道人工门禁；编码前必须有 architecture-design.md 并人工确认；缺章节或残留 {{}} → BLOCKED |

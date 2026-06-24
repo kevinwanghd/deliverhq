@@ -24,6 +24,7 @@ Python 3.10+。
 
 import argparse
 import ast
+import hashlib
 import subprocess
 import sys
 from datetime import datetime
@@ -77,7 +78,12 @@ def detect_tech_stack(root):
 
 
 def find_source_files(root, lang):
-    """收集主技术栈的源码文件（排除测试文件本身）。"""
+    """收集主技术栈的源码文件（排除测试文件本身）。
+
+    按相对路径**确定性排序**返回：rglob 的迭代顺序依赖文件系统，
+    不排序会导致候选 ID(RC-001…) 与 --max-files 截断集合在不同机器上漂移
+    （借 BMAD flatten 的"可复现输入"思想——同一份代码必产同一份候选）。
+    """
     exts = [e for e, l in EXT_LANG.items() if l == lang]
     files = []
     for path in root.rglob("*"):
@@ -85,6 +91,7 @@ def find_source_files(root, lang):
             continue
         if path.suffix.lower() in exts and not _is_test_file(path):
             files.append(path)
+    files.sort(key=lambda p: str(p.relative_to(root)).replace("\\", "/"))
     return files
 
 
@@ -187,6 +194,45 @@ def derive_review_required(risk_signals, contradicting_tests):
     if contradicting_tests:
         reasons.append("与现有测试矛盾")
     return (len(reasons) > 0), reasons
+
+
+def build_flatten_manifest(root, tech_stack, source_files, test_files):
+    """构造可复现的输入快照（借 BMAD flatten）。
+
+    逆向链最隐蔽的不可复现来源：同一份代码、不同机器/不同时刻扫出不同候选集
+    （rglob 顺序、--max-files 截断、文件被悄悄改过）。flatten 把"这次到底吃了哪些
+    文件、各自什么内容"压成一份**确定性、可哈希**的清单：
+      - files: 按相对路径排序的 [path, sha256, lines] 三元组
+      - input_hash: 对上述清单整体再哈希 —— 同一输入必得同一 hash
+
+    有了它，逆向产物可声明"我源于 input_hash=X"，复跑时比对 hash 即知输入是否漂移，
+    不必重读全部源码。纯客观，AI 无权伪造。
+    """
+    entries = []
+    for p in source_files:
+        rel = str(p.relative_to(root)).replace("\\", "/")
+        try:
+            raw = p.read_bytes()
+            sha = hashlib.sha256(raw).hexdigest()
+            lines = len([l for l in raw.splitlines() if l.strip()])
+        except Exception:
+            sha, lines = "", 0
+        entries.append({"path": rel, "sha256": sha, "lines": lines})
+    # entries 已随 source_files 的确定性排序而有序；再按 path 兜底排序
+    entries.sort(key=lambda e: e["path"])
+
+    digest = hashlib.sha256()
+    digest.update(("tech_stack=%s\n" % tech_stack).encode("utf-8"))
+    for e in entries:
+        digest.update(("%s %s %d\n" % (e["path"], e["sha256"], e["lines"])).encode("utf-8"))
+
+    return {
+        "tech_stack": tech_stack,
+        "source_file_count": len(source_files),
+        "test_file_count": len(test_files),
+        "input_hash": digest.hexdigest(),
+        "files": entries,
+    }
 
 
 def build_candidate(idx, path, root, test_text):
@@ -356,6 +402,8 @@ def main():
     for i, sf in enumerate(source_files, 1):
         candidates.append(build_candidate(i, sf, root, test_text))
 
+    flatten = build_flatten_manifest(root, tech_stack, source_files, test_files)
+
     doc = {
         "schema": "deliverhq-reverse-spec",
         "version": 1,
@@ -364,6 +412,7 @@ def main():
             "scanned_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "scan_root": str(root),
             "tech_stack": tech_stack,
+            "input_hash": flatten["input_hash"],
         },
         "candidates": candidates,
     }
@@ -373,8 +422,14 @@ def main():
     with open(out_path, "w", encoding="utf-8") as f:
         yaml.safe_dump(doc, f, allow_unicode=True, sort_keys=False)
 
+    # flatten 快照（可复现输入指纹）落在产物同目录
+    flatten_path = out_path.parent / "reverse-input-flatten.yml"
+    with open(flatten_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(flatten, f, allow_unicode=True, sort_keys=False)
+
     need_review = sum(1 for c in candidates if c["review_required"])
     print("已生成 %d 个候选，其中 %d 个需人工确认 -> %s" % (len(candidates), need_review, out_path))
+    print("输入快照(flatten) input_hash=%s -> %s" % (flatten["input_hash"][:12], flatten_path))
 
     if args.report:
         report_path = Path(args.report)

@@ -1403,6 +1403,190 @@ def check_packaging_hygiene():
     return True
 
 
+def check_handoff_state_contract():
+    """STATE 指针契约（借 Pocock /handoff，替代 SessionStart hook）：从 state.yml 汇总刷新 STATE.md。"""
+    section("34. STATE 指针契约 (handoff_state)")
+    hs = ROOT / "scripts" / "handoff_state.py"
+    if not hs.exists():
+        print(f"  {FAIL} handoff_state.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-handoff-"))
+    try:
+        home = tmp / "DeliverHQ"
+        cr = home / "change-requests" / "CR-001"
+        cr.mkdir(parents=True)
+        # 最小 state.yml（cr_state 可解析的字段）
+        (cr / "state.yml").write_text(
+            "cr_id: CR-001\nlane: standard\ncurrent_state: blocked\ncurrent_phase: dev\n"
+            "next_required_gate: review\nrequires_human: false\nblocking_reason: 测试阻塞\n",
+            encoding="utf-8")
+
+        rc = subprocess.run(
+            [sys.executable, str(hs), "--home", str(home)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+        state_md = home / "STATE.md"
+        ok = True
+        if rc.returncode == 0 and state_md.exists():
+            text = state_md.read_text(encoding="utf-8")
+            if "CR-001" in text and "review" in text and "done = 建出来的" in text:
+                print(f"  {PASS} STATE.md 含 CR/下一道门/不变式")
+            else:
+                print(f"  {FAIL} STATE.md 内容不完整"); ok = False
+        else:
+            print(f"  {FAIL} 刷新 STATE.md 失败 rc={rc.returncode}"); ok = False
+
+        # 无活跃 CR 时也应安全生成
+        empty_home = tmp / "EmptyHQ"
+        (empty_home / "change-requests").mkdir(parents=True)
+        rc2 = subprocess.run(
+            [sys.executable, str(hs), "--home", str(empty_home), "--print"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+        if rc2.returncode == 0 and "无活跃 CR" in rc2.stdout:
+            print(f"  {PASS} 无活跃 CR → 安全输出")
+        else:
+            print(f"  {FAIL} 空 home 处理异常 rc={rc2.returncode}"); ok = False
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} handoff_state 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_flatten_reproducible_contract():
+    """逆向输入 flatten 可复现契约（借 BMAD flatten）：同一份代码必产同一 input_hash。
+
+    逆向链最隐蔽的不可复现来源——rglob 顺序/--max-files 截断/源码被悄改——
+    会让"同一项目"扫出不同候选集。flatten 把输入压成确定性、可哈希的清单：
+      1. 同一项目两次扫描 → input_hash 完全相同（确定性）
+      2. 改动任一源码文件 → input_hash 必变（敏感性，防伪造"我没动过代码"）
+    """
+    section("35. 逆向输入 flatten 可复现契约 (BMAD flatten)")
+    sl = ROOT / "scripts" / "scan_legacy.py"
+    if not sl.exists():
+        print(f"  {FAIL} scan_legacy.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-flatten-"))
+    try:
+        proj = tmp / "legacy"
+        (proj / "src" / "auth").mkdir(parents=True)
+        (proj / "src" / "auth" / "login.py").write_text(
+            "def check_login(u, p):\n    if u and p:\n        return True\n    return False\n",
+            encoding="utf-8")
+        (proj / "src" / "util.py").write_text("def add(a, b):\n    return a + b\n", encoding="utf-8")
+
+        def scan(out):
+            return subprocess.run(
+                [sys.executable, str(sl), str(proj), "--out", str(out)],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, env=SUBPROCESS_ENV, cwd=str(ROOT))
+
+        def read_hash(out_dir):
+            f = out_dir / "reverse-input-flatten.yml"
+            if not f.exists():
+                return None
+            return (yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("input_hash")
+
+        ok = True
+        d1, d2 = tmp / "o1", tmp / "o2"
+        scan(d1 / "c.yml"); scan(d2 / "c.yml")
+        h1, h2 = read_hash(d1), read_hash(d2)
+        if h1 and h1 == h2:
+            print(f"  {PASS} 同一项目两次扫描 → input_hash 一致 ({h1[:12]})")
+        else:
+            print(f"  {FAIL} 应一致：{h1} vs {h2}"); ok = False
+
+        # 改一个字节 → hash 必变
+        (proj / "src" / "util.py").write_text("def add(a, b):\n    return a + b + 0\n", encoding="utf-8")
+        d3 = tmp / "o3"
+        scan(d3 / "c.yml")
+        h3 = read_hash(d3)
+        if h3 and h3 != h1:
+            print(f"  {PASS} 改动源码 → input_hash 必变（敏感性）")
+        else:
+            print(f"  {FAIL} 改码后 hash 未变（伪造风险）：{h3}"); ok = False
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} flatten 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
+def check_must_haves_contract():
+    """must_haves 谓词校验契约（借 GSD 判据语法，确定性）：pass / blocked / skip。"""
+    section("33. must_haves 谓词契约 (must_haves_check)")
+    mh = ROOT / "scripts" / "must_haves_check.py"
+    if not mh.exists():
+        print(f"  {FAIL} must_haves_check.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-musthaves-"))
+
+    def run(cr, root):
+        return subprocess.run(
+            [sys.executable, str(mh), str(cr), "--root", str(root), "--json"],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            universal_newlines=True, env=SUBPROCESS_ENV,
+        )
+
+    try:
+        import json as _json
+        repo = tmp / "repo"
+        (repo / "src").mkdir(parents=True)
+        cr = repo / "DeliverHQ" / "change-requests" / "CR-X"
+        cr.mkdir(parents=True)
+
+        (repo / "src" / "todo.py").write_text(
+            "\n".join("class Todo:" if i == 0 else "    f%d = %d" % (i, i) for i in range(12)),
+            encoding="utf-8")
+
+        manifest = (
+            "must_haves:\n"
+            "  artifacts:\n"
+            "    - name: Todo\n"
+            "      path: src/todo.py\n"
+            "      min_lines: 8\n"
+            "      exports: [\"Todo\"]\n"
+            "      anti_stub: true\n"
+        )
+        (cr / "verification-manifest.yml").write_text(manifest, encoding="utf-8")
+
+        ok = True
+        r = run(cr, repo)
+        if r.returncode == 0 and _json.loads(r.stdout)["status"] == "pass":
+            print(f"  {PASS} 谓词全成立 → PASS")
+        else:
+            print(f"  {FAIL} 应 PASS，得 {r.stdout[:120]}"); ok = False
+
+        (repo / "src" / "todo.py").write_text("class Todo:\n    pass  # TODO\n", encoding="utf-8")
+        r = run(cr, repo)
+        if r.returncode == 1 and _json.loads(r.stdout)["status"] == "blocked":
+            print(f"  {PASS} stub/缺行 → BLOCKED")
+        else:
+            print(f"  {FAIL} 应 BLOCKED，得 rc={r.returncode} {r.stdout[:120]}"); ok = False
+
+        (cr / "verification-manifest.yml").write_text("build:\n  enabled: false\n", encoding="utf-8")
+        r = run(cr, repo)
+        if r.returncode == 0 and _json.loads(r.stdout)["status"] == "skip":
+            print(f"  {PASS} 无 must_haves 段 → skip（向后兼容）")
+        else:
+            print(f"  {FAIL} 应 skip，得 {r.stdout[:120]}"); ok = False
+
+        return ok
+    except Exception as e:
+        print(f"  {FAIL} must_haves 契约异常: {e}")
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_token_budget_contract():
     """入口链 token 预算契约（Pocock token 经济一等指标）：常驻链不得无声膨胀。"""
     section("32. 入口链 token 预算契约 (token_budget)")
@@ -1691,7 +1875,10 @@ def main():
         results["gate_composition_contract"] = check_gate_composition_contract()
         results["capability_tiers_contract"] = check_capability_tiers_contract()
         results["token_budget_contract"] = check_token_budget_contract()
+        results["must_haves_contract"] = check_must_haves_contract()
+        results["handoff_state_contract"] = check_handoff_state_contract()
         results["lane_advisor_contract"] = check_lane_advisor_contract()
+        results["flatten_reproducible_contract"] = check_flatten_reproducible_contract()
     finally:
         restore_example_crs(snapshot_dir)
 

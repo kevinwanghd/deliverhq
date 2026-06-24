@@ -89,6 +89,24 @@ custom:
     command: "npm run validate-openapi"
     enabled: false
 
+# must_haves 谓词（借 GSD 判据语法，由 must_haves_check.py 确定性校验）
+# 目标倒推：断言"建出来的 = 计划的"。无此段则 QualityGate 跳过（向后兼容）。
+# 路径相对仓库根（DeliverHQ 上一级）解析。注释掉即不启用。
+# must_haves:
+#   key_links:                  # 文件级关联：from/to 存在，且 via 中含 pattern
+#     - name: "api 路由挂载"
+#       from: "src/api/todos.py"
+#       to: "src/main.py"
+#       via: "src/main.py"
+#       pattern: "todos"
+#   artifacts:                  # 产物断言：存在 + 最小非空行 + 导出符 + 必含内容 + 反 stub
+#     - name: "Todo 模型"
+#       path: "src/models/todo.py"
+#       min_lines: 10
+#       exports: ["Todo"]
+#       contains: []
+#       anti_stub: true         # 含 TODO/NotImplementedError/stub 即 fail
+
 # QualityGate 行为配置
 qualitygate:
   mode: "hybrid"  # parse_only / execute_only / hybrid
