@@ -2,6 +2,16 @@
 
 > 由 Spec Agent 生成，定义可验证的验收条件。
 
+## 来源锚点（derived_from）
+
+> 本 CR 派生自 `docs/PRD.md` 的 `[PRD-TODO]` 锚点。`prd_hash` 由 drift_check.py 用于 PRD↔CR 对账。
+
+```yaml
+derived_from:
+  prd_section: PRD-TODO
+  prd_hash: e08d52188b97
+```
+
 ## 验收条件
 
 ### AC-1: 创建待办事项

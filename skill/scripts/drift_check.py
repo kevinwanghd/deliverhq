@@ -46,12 +46,24 @@ def _anchor_section(prd_text, anchor_id):
     return prd_text[m.start(): m.end() + (nxt.start() if nxt else len(rest))]
 
 
+def _is_assoc_line(line):
+    """识别「关联 CR」行(允许 markdown 粗体 ** 与缩进)。
+
+    PRD 模板写作 `**关联 CR**: ...`,旧版 `lstrip().startswith('关联 CR')` 不会脱掉
+    `**`,导致这一行实际计入哈希——一旦回填就触发对账死循环。修复:剥掉首部 `*` 再判断。
+    """
+    s = line.lstrip()
+    while s.startswith('*'):
+        s = s[1:]
+    return s.startswith('关联 CR')
+
+
 def _anchor_hash(prd_text, anchor_id):
     """锚点章节哈希，排除「关联 CR」行。"""
     section = _anchor_section(prd_text, anchor_id)
     if section is None:
         return None
-    kept = [l for l in section.splitlines() if not l.lstrip().startswith('关联 CR')]
+    kept = [l for l in section.splitlines() if not _is_assoc_line(l)]
     norm = '\n'.join(kept).strip()
     return hashlib.sha256(norm.encode('utf-8')).hexdigest()[:12]
 

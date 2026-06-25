@@ -74,10 +74,9 @@ license: 见仓库
 
 ## 四种核心模式
 
-> **PRD 层(产品意图唯一来源)**：`docs/PRD.md` 是产品**意图**的唯一来源——薄、叙事、给人看全貌,仅人工维护,Agent 只读。功能锚点 `[PRD-XXX]` 是 CR 的挂载点。
-> 每个 CR 的 `acceptance-spec.md` 是某个锚点的**可执行切片**,用 `derived_from{prd_section, prd_hash}` 回指。
-> PRD 锚点被改后哈希失配 → `drift_check.py` 提示对账(改CR/改PRD/记差异);confirmed 锚点强制对账,reverse-engineered 锚点(老项目逆向)仅警告。
-> 分工:PRD 给人看意图(不写 ID/schema/Do-Not-Touch),acceptance-spec 给机器验;拆分是 Spec Agent 职责,SpecGate 只检查。
+> **PRD 层**:`docs/PRD.md` 是产品**意图唯一来源**——薄、叙事、给人看,仅人工维护,Agent 只读。功能锚点 `[PRD-XXX]` 是 CR 挂载点。
+> 每个 CR 的 `acceptance-spec.md` 是该锚点**可执行切片**,顶部用 `derived_from{prd_section, prd_hash}` 回指。
+> 锚点改后哈希失配 → `drift_check.py` 提示对账(改CR/改PRD/记差异);confirmed 强制,reverse-engineered 仅警告。PRD 不写 ID/schema/Do-Not-Touch(那是 spec 的职责)。
 
 ### 模式 1 & 2：初始化新项目 / 扫描老项目（按需，详见 `references/modes.md`）
 
@@ -97,7 +96,7 @@ license: 见仓库
 2. 填写 `DeliverHQ/change-requests/CR-001/request.md`
 3. Spec Agent 从 `DeliverHQ/docs/PRD.md` 的功能锚点派生 `acceptance-spec.md`，并在顶部填 `derived_from{prd_section, prd_hash}`（CR 是 PRD 的可执行切片）
 4. 运行 SpecGate：`python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md`
-5. 对账 PRD↔CR：`python DeliverHQ/scripts/drift_check.py DeliverHQ/change-requests/CR-001`（PRD 锚点被改后哈希失配会提示对账）
+5. 对账 PRD↔CR：`python DeliverHQ/scripts/drift_check.py DeliverHQ/change-requests/CR-001`;完成后 `python DeliverHQ/scripts/prd_writeback.py CR-001` 回填关联 CR 行(哈希不变)
 6. 开发前运行：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --lane standard`
    - 不确定走哪条 lane？先看客观规模建议（不改 state，仅参考）：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --suggest-lane`
    - 小改动建议 fast（免全套证据）、敏感域强制 high-risk、超硬阈值（>8 文件或 >10 AC）建议拆 CR 而非硬塞。
