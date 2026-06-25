@@ -1458,6 +1458,154 @@ def check_handoff_state_contract():
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+def check_prd_linkage_contract():
+    """PRD↔CR 链路契约:drift_check + prd_writeback 端到端。
+
+    设计文档(PRD-LAYER-DESIGN)承诺过的事必须有契约守:
+      1. CR 正确填 derived_from → drift_check PASS
+      2. 改 PRD 锚点正文 → drift_check 警告(confirmed 锚点)
+      3. CR 无 derived_from → drift_check 警告
+      4. prd_writeback 回填占位符 → 哈希不变(关键不变式,曾因 _anchor_hash
+         漏剥 markdown ** 而失效,本契约同时守这个 bug 不复现)
+      5. prd_writeback 幂等(同一 CR 反复回填 ≡ 单次)
+      6. 多 CR 回填 → 去重排序
+    """
+    section("36. PRD↔CR 链路契约 (drift_check + prd_writeback)")
+    dc = ROOT / "scripts" / "drift_check.py"
+    wb = ROOT / "scripts" / "prd_writeback.py"
+    if not dc.exists() or not wb.exists():
+        print(f"  {FAIL} drift_check.py / prd_writeback.py 不存在")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-prd-"))
+    try:
+        # 临时骨架:docs/PRD.md + scripts 副本 + 一个 CR
+        skill = tmp / "skill"
+        (skill / "docs").mkdir(parents=True)
+        (skill / "change-requests" / "CR-X").mkdir(parents=True)
+        shutil.copytree(str(ROOT / "scripts"), str(skill / "scripts"))
+
+        prd_path = skill / "docs" / "PRD.md"
+        prd_path.write_text(
+            "# PRD\n\n## [PRD-FOO] 功能\n\n"
+            "- **状态**: confirmed\n\n意图:做某事。\n\n"
+            "**关联 CR**: {{由 writeback-agent 自动回填}}\n",
+            encoding="utf-8")
+
+        # 用 drift_check 算锚点哈希
+        sys.path.insert(0, str(skill / "scripts"))
+        try:
+            import importlib
+            import drift_check as _dc
+            importlib.reload(_dc)
+            h0 = _dc._anchor_hash(prd_path.read_text(encoding="utf-8"), "PRD-FOO")
+        finally:
+            if str(skill / "scripts") in sys.path:
+                sys.path.remove(str(skill / "scripts"))
+
+        spec = skill / "change-requests" / "CR-X" / "acceptance-spec.md"
+        spec.write_text(
+            "# spec\n\n```yaml\nderived_from:\n  prd_section: PRD-FOO\n  prd_hash: " + h0 + "\n```\n",
+            encoding="utf-8")
+
+        def run(script, *args):
+            return subprocess.run(
+                [sys.executable, str(skill / "scripts" / script)] + list(args),
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, env=SUBPROCESS_ENV)
+
+        ok = True
+
+        # 1. drift_check PASS
+        r = run("drift_check.py", str(skill / "change-requests" / "CR-X"), "--root", str(skill))
+        if r.returncode == 0 and "PASS" in r.stdout:
+            print(f"  {PASS} 正确填 derived_from → PASS")
+        else:
+            print(f"  {FAIL} 应 PASS,得 {r.stdout[:160]}"); ok = False
+
+        # 2. 改 PRD 正文 → 警告
+        prd_path.write_text(prd_path.read_text(encoding="utf-8").replace("做某事", "做另一件事"), encoding="utf-8")
+        r = run("drift_check.py", str(skill / "change-requests" / "CR-X"), "--root", str(skill))
+        if "reconcile" in r.stdout or "confirmed" in r.stdout:
+            print(f"  {PASS} 改 PRD 正文 → 警告(对账提示)")
+        else:
+            print(f"  {FAIL} 改正文应警告,得 {r.stdout[:160]}"); ok = False
+
+        # 3. CR 无 derived_from → 警告
+        spec.write_text("# spec\n\n纯净 spec,无 derived_from\n", encoding="utf-8")
+        r = run("drift_check.py", str(skill / "change-requests" / "CR-X"), "--root", str(skill))
+        if "未链接 PRD" in r.stdout or "无 derived_from" in r.stdout:
+            print(f"  {PASS} CR 无 derived_from → 警告")
+        else:
+            print(f"  {FAIL} 应警告未链接,得 {r.stdout[:160]}"); ok = False
+
+        # 4. prd_writeback 回填占位符,哈希不变(关键不变式)
+        spec.write_text(
+            "# spec\n\n```yaml\nderived_from:\n  prd_section: PRD-FOO\n  prd_hash: x\n```\n",
+            encoding="utf-8")
+        # 重读 _anchor_hash 反映最新 PRD
+        sys.path.insert(0, str(skill / "scripts"))
+        try:
+            import importlib
+            import drift_check as _dc
+            importlib.reload(_dc)
+            h_before = _dc._anchor_hash(prd_path.read_text(encoding="utf-8"), "PRD-FOO")
+        finally:
+            if str(skill / "scripts") in sys.path:
+                sys.path.remove(str(skill / "scripts"))
+
+        r = run("prd_writeback.py", str(skill / "change-requests" / "CR-X"))
+        if r.returncode == 0 and "hash 不变" in r.stdout:
+            print(f"  {PASS} 占位符首次回填 → 哈希不变 ({h_before})")
+        else:
+            print(f"  {FAIL} 回填应成功且哈希不变,得 {r.stdout[:200]}"); ok = False
+
+        # PRD 现在含真实 CR-X,断言哈希值真的没变
+        sys.path.insert(0, str(skill / "scripts"))
+        try:
+            import importlib
+            import drift_check as _dc
+            importlib.reload(_dc)
+            h_after = _dc._anchor_hash(prd_path.read_text(encoding="utf-8"), "PRD-FOO")
+        finally:
+            if str(skill / "scripts") in sys.path:
+                sys.path.remove(str(skill / "scripts"))
+        if h_before == h_after:
+            print(f"  {PASS} 回填后再算哈希仍 {h_after}(守 _anchor_hash 粗体 bug)")
+        else:
+            print(f"  {FAIL} 哈希变了 {h_before} → {h_after}"); ok = False
+
+        # 5. 幂等
+        r = run("prd_writeback.py", str(skill / "change-requests" / "CR-X"))
+        if "幂等" in r.stdout or "已记录" in r.stdout:
+            print(f"  {PASS} 二次回填同 CR → 幂等无操作")
+        else:
+            print(f"  {FAIL} 应幂等,得 {r.stdout[:160]}"); ok = False
+
+        # 6. 多 CR → 去重排序
+        (skill / "change-requests" / "CR-AAA").mkdir()
+        (skill / "change-requests" / "CR-AAA" / "acceptance-spec.md").write_text(
+            "```yaml\nderived_from: {prd_section: PRD-FOO, prd_hash: x}\n```\n",
+            encoding="utf-8")
+        run("prd_writeback.py", str(skill / "change-requests" / "CR-AAA"))
+        prd_text = prd_path.read_text(encoding="utf-8")
+        # 应按字母序:CR-AAA 在 CR-X 之前
+        assoc = [l for l in prd_text.splitlines() if "关联 CR" in l]
+        if assoc and "CR-AAA, CR-X" in assoc[0]:
+            print(f"  {PASS} 多 CR 回填 → 去重+排序: {assoc[0].strip()}")
+        else:
+            print(f"  {FAIL} 排序异常: {assoc}"); ok = False
+
+        return ok
+    except Exception as e:
+        import traceback
+        print(f"  {FAIL} PRD 链路契约异常: {e}")
+        traceback.print_exc()
+        return False
+    finally:
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_flatten_reproducible_contract():
     """逆向输入 flatten 可复现契约（借 BMAD flatten）：同一份代码必产同一 input_hash。
 
@@ -1879,6 +2027,7 @@ def main():
         results["handoff_state_contract"] = check_handoff_state_contract()
         results["lane_advisor_contract"] = check_lane_advisor_contract()
         results["flatten_reproducible_contract"] = check_flatten_reproducible_contract()
+        results["prd_linkage_contract"] = check_prd_linkage_contract()
     finally:
         restore_example_crs(snapshot_dir)
 
