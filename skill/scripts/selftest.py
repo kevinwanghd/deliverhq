@@ -563,6 +563,7 @@ orch = SkillOrchestrator()
 errors, warnings = orch.validate_verbs()
 print('VERBS=' + ','.join(sorted(VERBS)))
 print('ERRORS=' + '|'.join(errors))
+print('VERIFY=' + ','.join(VERBS.get('verify', [])))
 """
     result = subprocess.run(
         [sys.executable, "-c", code],
@@ -580,11 +581,14 @@ print('ERRORS=' + '|'.join(errors))
 
     verbs_line = ""
     errors_line = ""
+    verify_line = ""
     for line in result.stdout.splitlines():
         if line.startswith("VERBS="):
             verbs_line = line[len("VERBS="):]
         elif line.startswith("ERRORS="):
             errors_line = line[len("ERRORS="):]
+        elif line.startswith("VERIFY="):
+            verify_line = line[len("VERIFY="):]
 
     ok = True
 
@@ -603,6 +607,15 @@ print('ERRORS=' + '|'.join(errors))
     else:
         print(f"  {PASS} 动词集合冻结: {verbs_line}")
 
+    # 2b. verify 链必须串入 loop 治理：goal_contract（双轨/防 Goodhart）+ anti_gaming（diff 取证）
+    verify_steps = verify_line.split(",") if verify_line else []
+    for must in ("goal_contract", "anti_gaming"):
+        if must not in verify_steps:
+            print(f"  {FAIL} verify 链缺少 '{must}'（loop 可控性未串入）")
+            ok = False
+    if "goal_contract" in verify_steps and "anti_gaming" in verify_steps:
+        print(f"  {PASS} verify 链含 goal_contract + anti_gaming: {' → '.join(verify_steps)}")
+
     # 3. 失败分支透传 verbatim 报告（静态检查源码）
     orch_src = (ROOT / "scripts" / "skill_orchestrator.py").read_text(encoding="utf-8")
     fail_branch = orch_src.split("Skill failed", 1)
@@ -611,6 +624,27 @@ print('ERRORS=' + '|'.join(errors))
     else:
         print(f"  {FAIL} 失败分支未透传 stdout，BLOCK 报告会被吞掉")
         ok = False
+
+    # 4. verify 失败只跑 retry_guard 只读 status，绝不自动 record（防违背"重试需人给新假设"）
+    #    检查 _run_retry_status 方法体：必须调 status 子命令，且体内不得出现 record 子命令调用。
+    method_body = ""
+    if "def _run_retry_status" in orch_src:
+        after = orch_src.split("def _run_retry_status", 1)[1]
+        # 方法体到下一个同级 def 为止
+        method_body = after.split("\n    def ", 1)[0]
+    if not method_body:
+        print(f"  {FAIL} 未发现 retry_guard 只读 status 集成")
+        ok = False
+    elif '"status"' not in method_body and "'status'" not in method_body:
+        print(f"  {FAIL} _run_retry_status 未调用 status 子命令")
+        ok = False
+    elif '"record"' in method_body or "'record'" in method_body or ", record" in method_body:
+        print(f"  {FAIL} _run_retry_status 体内出现 record，违背'重试需人给新假设'")
+        ok = False
+    else:
+        print(f"  {PASS} 失败后仅 retry_guard status（只读，不自动 record）")
+
+
 
     return ok
 

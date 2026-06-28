@@ -47,14 +47,15 @@ class SkillConfig:
 #      不另起平行清单）；非门禁辅助步骤登记在 VERB_NON_GATE_STEPS。
 #      validate_verbs() 把这两条做成机器可检约束。
 #   4. 不触碰 get_default_pipeline()（受 selftest 契约锁定：自动链停在 dev handoff）。
-#   5. 失败不自动跑 retry_guard —— 重试需人/Agent 给出「新假设」，由人显式发起。
+#   5. 失败不自动 record retry —— 重试需人/Agent 给出「新假设」，由人显式发起。
+#      verify 失败后只跑 retry_guard 的**只读 status**（展示收敛状态），绝不 record。
 #
 # 每个动词是一串 skill type（见 _load_skills 的 self.skills 键）。
 VERBS: Dict[str, List[str]] = {
     "spec":    ["spec", "drift_check"],
     "design":  ["design", "architecture"],
     "dev":     ["pre_dev", "context", "dev"],
-    "verify":  ["review", "quality", "anti_gaming"],
+    "verify":  ["goal_contract", "review", "quality", "anti_gaming"],
     "archive": ["writeback", "rule_maturity"],
 }
 
@@ -62,7 +63,7 @@ VERB_DESCRIPTIONS: Dict[str, str] = {
     "spec":    "验收规格完备性 + PRD↔CR 对账",
     "design":  "UI/设计产物 + 架构设计人工确认",
     "dev":     "开发前综合门禁 + 上下文纪律 + 开发交接（停在写码前）",
-    "verify":  "对抗式审查 + 真实构建/测试 + 反钻空子（信证据不信声明）",
+    "verify":  "目标契约双轨校验 + 对抗式审查 + 真实构建/测试 + 反钻空子（信证据不信声明）",
     "archive": "知识沉淀完整性 + 规则成熟度更新",
 }
 
@@ -79,7 +80,16 @@ VERB_GATE_STEPS: Dict[str, str] = {
 }
 
 # 动词链里的非门禁辅助步骤（不计入 FROZEN_GATES，但允许出现在链中）。
-VERB_NON_GATE_STEPS = {"context", "dev", "drift_check", "anti_gaming", "rule_maturity"}
+VERB_NON_GATE_STEPS = {"context", "dev", "drift_check", "anti_gaming",
+                       "rule_maturity", "goal_contract"}
+
+# 「条件步」：所需输入文件缺失时 **跳过而非失败**（这是 opt-in 能力，非每个 CR 必备）。
+# 形如 step -> 它依赖的 CR 内文件。例如 goal-contract.yml 只有显式启用 loop 治理的 CR 才有；
+# 缺失时 verify 不应硬 BLOCK（否则等于强制每个 CR 都写目标契约，违背 fast-lane）。
+# anti_gaming 本身在脚本层已对缺文件/非 git 做降级，故不列为条件步（让它自己降级并打印）。
+VERB_CONDITIONAL_STEPS: Dict[str, str] = {
+    "goal_contract": "goal-contract.yml",
+}
 
 # 不进日常动词链、按需单独调用的门禁（文档化，不丢失）：
 #   permissiongate —— high-risk 时由 pre_dev_gate 内部复用（ALLOWED_GATE_EDGES）
@@ -223,6 +233,15 @@ class SkillOrchestrator:
                 inputs=["goal-contract.yml"],
                 outputs=["evidence/anti-gaming-result.json"],
                 args_template="{cr_path}"  # anti_gaming_check expects CR dir
+            ),
+            "goal_contract": SkillConfig(
+                name="Goal Contract Check",
+                type="goal_contract",
+                script_path="scripts/goal_contract.py",
+                description="目标契约双轨校验（metrics 必要条件 + invariants 防 Goodhart）",
+                inputs=[],  # 条件步：文件存在性由 execute_verb 在调用前判断（缺失则跳过）
+                outputs=["evidence/goal-contract-result.json"],
+                args_template="{cr_path}"  # goal_contract 接受 CR 目录或 yml 路径
             ),
             "rule_maturity": SkillConfig(
                 name="Rule Maturity Update",
@@ -403,6 +422,11 @@ class SkillOrchestrator:
 
         results: Dict[str, bool] = {}
         for step in chain:
+            # 条件步：所需输入文件缺失则跳过（opt-in 能力，不强制每个 CR 都有）
+            need = VERB_CONDITIONAL_STEPS.get(step)
+            if need and not (Path(cr_path) / need).exists():
+                print(f"\n⏭  跳过 '{step}'：未发现 {need}（该 CR 未启用此项，非失败）")
+                continue
             success = self.execute_skill(step, cr_path)
             results[step] = success
             if not success:
@@ -415,12 +439,33 @@ class SkillOrchestrator:
         for step, success in results.items():
             print(f"{'✅' if success else '❌'} {step}")
 
-        # verify 失败时提示重试纪律（不自动跑 retry_guard：重试需人给出新假设）
+        # verify 失败：只跑 retry_guard 的**只读 status**展示收敛状态，绝不 record。
+        # record 需人/Agent 给出新假设（达上限转 needs_human），由人显式发起。
         if verb == "verify" and not all(results.values()):
-            print("\n提示: 修复后若需记录重试，请显式带新假设调用 retry_guard.py（达上限转 needs_human）")
+            print("\n── 重试收敛状态（只读，不记录）──")
+            self._run_retry_status(cr_path)
+            print("提示: 修复后若需记录重试，请显式带新假设调用 "
+                  "`retry_guard.py <CR> record --gate <G> --blocker <..> --hypothesis <新假设>`")
         print()
 
         return results
+
+    def _run_retry_status(self, cr_path: str):
+        """只读展示 retry_guard 的当前重试账本状态（绝不 record，不改 state）。"""
+        import subprocess
+        script = Path("scripts/retry_guard.py")
+        if not script.exists():
+            return
+        try:
+            r = subprocess.run(
+                [sys.executable, str(script), cr_path, "status"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, timeout=20,
+            )
+            if r.stdout:
+                print(r.stdout.rstrip())
+        except Exception as e:  # 只读辅助，失败不影响 verify 结论
+            print(f"(retry_guard status 不可用: {e})")
 
     def execute_next_gate(self, cr_path: str) -> bool:
         """Execute the gate required by state.yml."""

@@ -11,8 +11,14 @@
 | `spec`    | specgate → drift_check | 验收规格完备性 + PRD↔CR 对账（Spec/SpecGate） |
 | `design`  | designgate → architecturegate | UI/设计产物 + 架构设计人工确认（Design/Architecture） |
 | `dev`     | pre_dev_gate → context_window_check → dev_phase | 开发前门禁 + 上下文纪律 + 交接（**停在写码前**；Context/Dev） |
-| `verify`  | reviewgate → qualitygate → anti_gaming_check | 对抗式审查 + 真实构建/测试 + 反钻空子（Review/Quality） |
+| `verify`  | goal_contract*（条件） → reviewgate → qualitygate → anti_gaming_check | 目标契约双轨 + 对抗式审查 + 真实构建/测试 + 反钻空子（Review/Quality） |
 | `archive` | writeback_gate → update_rule_maturity | 知识沉淀 + 规则成熟度（Writeback/Memory） |
+
+> *`goal_contract` 是**条件步**：仅当 CR 内有 `goal-contract.yml` 时才跑（显式启用 loop 治理的 CR）；
+> 缺失则**跳过而非失败**——不强制每个 CR 都写目标契约，保住 fast-lane。
+> 它放在链首，是为了在信任 review/quality 的指标**之前**先校验"指标+不变量"双轨（防 Goodhart：
+> 只盯 metrics 会被"删测试"达成）。`verify` 失败后会跑 `retry_guard` 的**只读 status** 展示收敛状态，
+> 但**绝不自动 record**——record 需人/Agent 给出新假设（达上限转 needs_human）。
 
 ## 用法
 
