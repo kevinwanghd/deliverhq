@@ -35,23 +35,7 @@
 
 ## Loop 可控性（防 Goodhart + 收敛出口）
 
-DeliverHQ 的 loop 可控性由 3 件套组成，已集成进 `verify` 动词（5.11.0+）：
-
-1. **goal_contract**（条件步）: metrics + invariants 双轨校验（防"删测试让测试绿"这类 Goodhart）
-   - 仅当 CR 有 `goal-contract.yml` 时才跑，缺失则跳过（不强制每个 CR 都写目标契约，保住 fast-lane）
-   - 放在 verify 链首，**在信任 review/quality 指标之前**先校验双轨
-
-2. **anti_gaming**: 反钻空子检查（信证据不信声明）
-   - 从 git diff 取证，检查"声称做了 X 但 diff 里没有 X"
-   - 在 verify 链尾运行
-
-3. **retry_guard**: 重试上限 + 只读 status
-   - verify 失败后展示收敛状态（重试次数、是否收敛），但**绝不自动 record**
-   - record 需人/Agent 给出新假设（达上限转 needs_human）
-   - 守住"重试需人介入"的纪律
-
-**集成**: `verify` 动词链 = `goal_contract*（条件） → review → quality → anti_gaming`  
-**详见**: `references/loop-control.md`（设计哲学、用法、陷阱）
+`verify` 动词已集成 loop 可控性三件套（5.11.0+）：goal_contract*（条件）→ review → quality → anti_gaming，失败后 retry_guard 只读 status（不自动 record）。详见 `references/loop-control.md`。
 
 ## Fail-closed rules
 - If CR-ID, current phase, source of truth, path, or permission is unclear, stop and ask.
