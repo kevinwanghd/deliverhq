@@ -543,6 +543,112 @@ print(','.join(SkillOrchestrator().get_default_pipeline()))
     return True
 
 
+def check_verb_layer_contract():
+    """动词层契约：5 个用户面动词派生自 FROZEN_GATES，无漂移、无丢失门禁。
+
+    动词层是 54 个脚本的「默认入口」收口（降低认知负荷），但绝不能成为第二个事实源。
+    本契约真实执行 orchestrator 的 validate_verbs()，并锁死动词集合与 BLOCK 透传纪律：
+      1. validate_verbs() 必须 PASS（动词↔冻结门禁一致）。
+      2. 动词集合恰为 {spec, design, dev, verify, archive}（防悄悄增删动词）。
+      3. execute_skill 在失败分支必须透传脚本 stdout（verbatim 报告，不二次概括）。
+      4. 不触碰 get_default_pipeline（由 default_pipeline_contract 单独锁定）。
+    """
+    section("13b. 动词层契约 (verb layer ↔ FROZEN_GATES)")
+
+    code = """
+import sys
+sys.path.insert(0, 'scripts')
+from skill_orchestrator import SkillOrchestrator, VERBS
+orch = SkillOrchestrator()
+errors, warnings = orch.validate_verbs()
+print('VERBS=' + ','.join(sorted(VERBS)))
+print('ERRORS=' + '|'.join(errors))
+print('VERIFY=' + ','.join(VERBS.get('verify', [])))
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=str(ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
+        env=SUBPROCESS_ENV,
+    )
+    if result.returncode != 0:
+        print(f"  {FAIL} 无法加载动词层: {result.stderr.splitlines()[:2]}")
+        return False
+
+    verbs_line = ""
+    errors_line = ""
+    verify_line = ""
+    for line in result.stdout.splitlines():
+        if line.startswith("VERBS="):
+            verbs_line = line[len("VERBS="):]
+        elif line.startswith("ERRORS="):
+            errors_line = line[len("ERRORS="):]
+        elif line.startswith("VERIFY="):
+            verify_line = line[len("VERIFY="):]
+
+    ok = True
+
+    # 1. validate_verbs 必须无 error
+    if errors_line.strip():
+        print(f"  {FAIL} validate_verbs 报错: {errors_line}")
+        ok = False
+    else:
+        print(f"  {PASS} validate_verbs 通过（动词↔FROZEN_GATES 一致）")
+
+    # 2. 动词集合冻结
+    expected_verbs = "archive,design,dev,spec,verify"
+    if verbs_line != expected_verbs:
+        print(f"  {FAIL} 动词集合应为 [{expected_verbs}]，实际 [{verbs_line}]")
+        ok = False
+    else:
+        print(f"  {PASS} 动词集合冻结: {verbs_line}")
+
+    # 2b. verify 链必须串入 loop 治理：goal_contract（双轨/防 Goodhart）+ anti_gaming（diff 取证）
+    verify_steps = verify_line.split(",") if verify_line else []
+    for must in ("goal_contract", "anti_gaming"):
+        if must not in verify_steps:
+            print(f"  {FAIL} verify 链缺少 '{must}'（loop 可控性未串入）")
+            ok = False
+    if "goal_contract" in verify_steps and "anti_gaming" in verify_steps:
+        print(f"  {PASS} verify 链含 goal_contract + anti_gaming: {' → '.join(verify_steps)}")
+
+    # 3. 失败分支透传 verbatim 报告（静态检查源码）
+    orch_src = (ROOT / "scripts" / "skill_orchestrator.py").read_text(encoding="utf-8")
+    fail_branch = orch_src.split("Skill failed", 1)
+    if len(fail_branch) == 2 and "result.stdout" in fail_branch[1].split("return False", 1)[0]:
+        print(f"  {PASS} 失败分支透传脚本 stdout（不丢取证粒度）")
+    else:
+        print(f"  {FAIL} 失败分支未透传 stdout，BLOCK 报告会被吞掉")
+        ok = False
+
+    # 4. verify 失败只跑 retry_guard 只读 status，绝不自动 record（防违背"重试需人给新假设"）
+    #    检查 _run_retry_status 方法体：必须调 status 子命令，且体内不得出现 record 子命令调用。
+    method_body = ""
+    if "def _run_retry_status" in orch_src:
+        after = orch_src.split("def _run_retry_status", 1)[1]
+        # 方法体到下一个同级 def 为止
+        method_body = after.split("\n    def ", 1)[0]
+    if not method_body:
+        print(f"  {FAIL} 未发现 retry_guard 只读 status 集成")
+        ok = False
+    elif '"status"' not in method_body and "'status'" not in method_body:
+        print(f"  {FAIL} _run_retry_status 未调用 status 子命令")
+        ok = False
+    elif '"record"' in method_body or "'record'" in method_body or ", record" in method_body:
+        print(f"  {FAIL} _run_retry_status 体内出现 record，违背'重试需人给新假设'")
+        ok = False
+    else:
+        print(f"  {PASS} 失败后仅 retry_guard status（只读，不自动 record）")
+
+
+
+    return ok
+
+
 def check_capability_status_consistency():
     """入口文档必须引用 CAPABILITY-MATRIX，不重复维护完整能力状态。"""
     section("14. 能力状态一致性检查")
@@ -2007,6 +2113,7 @@ def main():
         results["orchestrator_refs"] = check_orchestrator_references()
         results["orchestrator_contracts"] = check_orchestrator_contracts()
         results["default_pipeline_contract"] = check_default_pipeline_contract()
+        results["verb_layer_contract"] = check_verb_layer_contract()
         results["capability_status_consistency"] = check_capability_status_consistency()
         results["gate_contract"] = check_gate_contract()
         results["reverse_spec_contract"] = check_reverse_spec_contract()

@@ -91,17 +91,14 @@ license: 见仓库
 
 **场景**：新功能开发、Bug 修复、重构。
 
-**步骤**（命令均在**项目根**执行，治理产物落在 `DeliverHQ/` 内）：
-1. 创建 CR：`python DeliverHQ/scripts/init_cr.py CR-001 "需求名称" "提出人" --home DeliverHQ`
-2. 填写 `DeliverHQ/change-requests/CR-001/request.md`
-3. Spec Agent 从 `DeliverHQ/docs/PRD.md` 的功能锚点派生 `acceptance-spec.md`，并在顶部填 `derived_from{prd_section, prd_hash}`（CR 是 PRD 的可执行切片）
-4. 运行 SpecGate：`python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md`
-5. 对账 PRD↔CR：`python DeliverHQ/scripts/drift_check.py DeliverHQ/change-requests/CR-001`;完成后 `python DeliverHQ/scripts/prd_writeback.py CR-001` 回填关联 CR 行(哈希不变)
-6. 开发前运行：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --lane standard`
-   - 不确定走哪条 lane？先看客观规模建议（不改 state，仅参考）：`python DeliverHQ/scripts/pre_dev_gate.py CR-001 --suggest-lane`
-   - 小改动建议 fast（免全套证据）、敏感域强制 high-risk、超硬阈值（>8 文件或 >10 AC）建议拆 CR 而非硬塞。
-7. 开发交接：`python DeliverHQ/scripts/dev_phase.py DeliverHQ/change-requests/CR-001`
-8. `dev_phase.py` 输出 worktree/上下文路径后停止；不会自动写代码或跳到 Review。
+> **首选入口：5 个动词**（收口 54 脚本）：`spec`/`design`/`dev`(停在写码前)/`verify`/`archive`。默认入口非唯一入口，脚本仍可单独调用；任一步 BLOCK 即停并透传原始报告。链路与纪律见 `references/verbs.md`，用法 `skill_orchestrator.py verb <动词> <CR目录>`。
+
+**完整步骤**（命令在**项目根**执行，产物落 `DeliverHQ/` 内）：
+1. 建 CR：`python DeliverHQ/scripts/init_cr.py CR-001 "需求名称" "提出人" --home DeliverHQ`，填 `request.md`
+2. Spec Agent 从 `docs/PRD.md` 锚点派生 `acceptance-spec.md`，顶部填 `derived_from{prd_section, prd_hash}`
+3. **`verb spec`**（specgate+drift_check）；完成后 `prd_writeback.py CR-001` 回填关联 CR 行
+4. 选 lane（`pre_dev_gate.py CR-001 --suggest-lane` 看客观建议）：小改动 fast、敏感域 high-risk、超阈值（>8 文件/>10 AC）建议拆 CR
+5. **`verb dev`**（pre_dev+context+dev_phase）；输出 worktree/上下文路径后**停止**，不自动写码或跳 Review
 
 **产出**：可测试的验收规格 + 实施计划 + 可回写状态。
 
@@ -111,32 +108,9 @@ license: 见仓库
 
 **场景**：阶段切换前验证文档完备性。
 
-**核心 Gates**（在**项目根**执行）：
-```bash
-# 验收规格完备性
-python DeliverHQ/scripts/specgate.py DeliverHQ/change-requests/CR-001/acceptance-spec.md
-
-# 设计产物完备性（C 端强制高保真）
-python DeliverHQ/scripts/designgate.py DeliverHQ/change-requests/CR-001
-
-# 开发前综合检查
-python DeliverHQ/scripts/pre_dev_gate.py CR-001
-
-# 上下文窗口纪律
-python DeliverHQ/scripts/context_window_check.py DeliverHQ/change-requests/CR-001
-
-# 代码审查门禁（对抗式验证）
-python DeliverHQ/scripts/reviewgate.py DeliverHQ/change-requests/CR-001
-
-# 质量门禁（默认 hybrid，必须执行 verification-manifest.yml）
-python DeliverHQ/scripts/qualitygate.py DeliverHQ/change-requests/CR-001
-
-# 部署就绪检查
-python DeliverHQ/scripts/deploygate.py DeliverHQ/change-requests/CR-001
-
-# 知识沉淀完整性
-python DeliverHQ/scripts/writeback_gate.py DeliverHQ/change-requests/CR-001
-```
+**首选**：用动词跑成组门禁（`verb verify` = 审查+质量+反钻空子；`verb archive` = 沉淀+成熟度）。
+也可单独调用底层脚本（调试 / CI / 按需），例如 `qualitygate.py <CR>`（真实构建/测试）、`anti_gaming_check.py <CR>`（从 diff 取证）。
+> 全部门禁脚本路径、按需单独调用的门禁（permissiongate/deploygate/structuregate/reverse_spec_gate）见 `references/verbs.md` 与 `references/gates.md`。
 
 **结果**：PASS（放行）/ BLOCKED（阻断，提示缺失项）
 
@@ -204,21 +178,15 @@ python DeliverHQ/scripts/writeback_gate.py DeliverHQ/change-requests/CR-001
 2. **CR 没有验收规格，不准写代码**
 3. **每次交付后，把规则先写入 `docs/rules-candidates.md`，其他经验写回 mistake-book / decisions**
 
-### 最常用三条命令
+### 最常用命令（动词收口，记 5 个动词即可）
 
 ```bash
-# 0. 可选：不确定是否启用 DeliverHQ 时，先看低噪路由建议
-python scripts/workflow_router.py "用户请求"
-
-# 1. 创建 CR
-python scripts/init_cr.py CR-001 "需求名称" "提出人"
-
-# 2. 开发前检查
-python scripts/pre_dev_gate.py CR-001
-
-# 3. 验收规格检查
-python scripts/specgate.py change-requests/CR-001/acceptance-spec.md
+python scripts/workflow_router.py "用户请求"                 # 0. 可选：低噪路由建议
+python scripts/init_cr.py CR-001 "需求名称" "提出人"         # 1. 建 CR（动词未覆盖的前置步骤）
+python scripts/skill_orchestrator.py verb <动词> change-requests/CR-001  # 2. 推进：spec/design/dev/verify/archive
+python scripts/specgate.py change-requests/CR-001/acceptance-spec.md     # 3. 也可单独跑某个底层门禁（调试/CI）
 ```
+> 动词→链路与纪律见 `references/verbs.md`；`skill_orchestrator.py verbs` 列出全部链路。
 
 ---
 
@@ -227,6 +195,7 @@ python scripts/specgate.py change-requests/CR-001/acceptance-spec.md
 需要了解更多时，按需阅读：
 
 - `references/modes.md` — 四种模式详解
+- `references/verbs.md` — 5 个用户面动词（链路 / 纪律 / 单独调用）
 - `references/gates.md` — Gate 详解
 - `references/gotchas.md` — 完整踩坑经验
 - `references/file-structure.md` — 文件结构说明
@@ -236,4 +205,4 @@ python scripts/specgate.py change-requests/CR-001/acceptance-spec.md
 
 ---
 
-**版本**：v5.9.0 ｜ **一句话**：文档门禁 + 证据驱动 + 对抗式验证（信证据不信声明）。
+**版本**：v5.11.0 ｜ **一句话**：文档门禁 + 证据驱动 + 对抗式验证（信证据不信声明）；日常 CR 用 5 个动词收口。

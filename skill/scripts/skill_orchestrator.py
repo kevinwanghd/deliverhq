@@ -15,6 +15,14 @@ from dataclasses import dataclass
 from cr_state import ensure_state, load_state
 from runtime_support import configure_console
 
+# 动词→门禁映射从冻结集合派生（单一事实源），不另起平行清单。
+# 若 gate_composition_check 不可用（极少数环境），退化为空集合，
+# validate_verbs() 会据此跳过派生校验而非误报。
+try:
+    from gate_composition_check import FROZEN_GATES as _FROZEN_GATES
+except Exception:  # pragma: no cover - 防御性退化
+    _FROZEN_GATES = {}
+
 configure_console()
 
 @dataclass
@@ -27,6 +35,71 @@ class SkillConfig:
     inputs: List[str]
     outputs: List[str]
     args_template: str = "{cr_path}"  # How to build CLI args: {cr_path}, {cr_path}/file.md, {cr_id}
+
+
+# ── 用户面动词（收口 54 个脚本，降低认知负荷）────────────────────
+#
+# 设计纪律（务必保持，否则会反噬 DeliverHQ 的可观测性 / 取证粒度）：
+#   1. 动词是「默认入口」不是「唯一入口」：底层每个脚本仍可被 execute / 直接调用。
+#   2. 任一步 BLOCK → 立即停止并透传该脚本的 verbatim 报告，不做二次概括
+#      （由 execute_skill 透传 stdout 实现；execute_verb 命中失败即 break）。
+#   3. 动词链里的「门禁」步骤必须能在 FROZEN_GATES 中找到（派生自单一事实源，
+#      不另起平行清单）；非门禁辅助步骤登记在 VERB_NON_GATE_STEPS。
+#      validate_verbs() 把这两条做成机器可检约束。
+#   4. 不触碰 get_default_pipeline()（受 selftest 契约锁定：自动链停在 dev handoff）。
+#   5. 失败不自动 record retry —— 重试需人/Agent 给出「新假设」，由人显式发起。
+#      verify 失败后只跑 retry_guard 的**只读 status**（展示收敛状态），绝不 record。
+#
+# 每个动词是一串 skill type（见 _load_skills 的 self.skills 键）。
+VERBS: Dict[str, List[str]] = {
+    "spec":    ["spec", "drift_check"],
+    "design":  ["design", "architecture"],
+    "dev":     ["pre_dev", "context", "dev"],
+    "verify":  ["goal_contract", "review", "quality", "anti_gaming"],
+    "archive": ["writeback", "rule_maturity"],
+}
+
+VERB_DESCRIPTIONS: Dict[str, str] = {
+    "spec":    "验收规格完备性 + PRD↔CR 对账",
+    "design":  "UI/设计产物 + 架构设计人工确认",
+    "dev":     "开发前综合门禁 + 上下文纪律 + 开发交接（停在写码前）",
+    "verify":  "目标契约双轨校验 + 对抗式审查 + 真实构建/测试 + 反钻空子（信证据不信声明）",
+    "archive": "知识沉淀完整性 + 规则成熟度更新",
+}
+
+# 动词链里属于「门禁」、必须在 FROZEN_GATES 中可追溯的 skill type → gate 模块名。
+# 这是「动词 step ↔ 冻结门禁」的映射，供 validate_verbs 做派生校验。
+VERB_GATE_STEPS: Dict[str, str] = {
+    "spec":          "specgate",
+    "design":        "designgate",
+    "architecture":  "architecturegate",
+    "pre_dev":       "pre_dev_gate",
+    "review":        "reviewgate",
+    "quality":       "qualitygate",
+    "writeback":     "writeback_gate",
+}
+
+# 动词链里的非门禁辅助步骤（不计入 FROZEN_GATES，但允许出现在链中）。
+VERB_NON_GATE_STEPS = {"context", "dev", "drift_check", "anti_gaming",
+                       "rule_maturity", "goal_contract"}
+
+# 「条件步」：所需输入文件缺失时 **跳过而非失败**（这是 opt-in 能力，非每个 CR 必备）。
+# 形如 step -> 它依赖的 CR 内文件。例如 goal-contract.yml 只有显式启用 loop 治理的 CR 才有；
+# 缺失时 verify 不应硬 BLOCK（否则等于强制每个 CR 都写目标契约，违背 fast-lane）。
+# anti_gaming 本身在脚本层已对缺文件/非 git 做降级，故不列为条件步（让它自己降级并打印）。
+VERB_CONDITIONAL_STEPS: Dict[str, str] = {
+    "goal_contract": "goal-contract.yml",
+}
+
+# 不进日常动词链、按需单独调用的门禁（文档化，不丢失）：
+#   permissiongate —— high-risk 时由 pre_dev_gate 内部复用（ALLOWED_GATE_EDGES）
+#   deploygate     —— 部署就绪检查
+#   structuregate  —— 项目结构契约（模式 1 初始化）
+#   reverse_spec_gate —— 逆向需求未裁决高风险阻断（模式 2 扫描老项目）
+VERB_STANDALONE_GATES = {"permissiongate", "deploygate", "structuregate", "reverse_spec_gate"}
+
+# 不接受位置参数（CR 路径）的尾步脚本：以无参方式调用。
+VERB_NO_ARG_STEPS = {"rule_maturity"}
 
 
 class SkillOrchestrator:
@@ -141,6 +214,45 @@ class SkillOrchestrator:
                 inputs=["*"],
                 outputs=["docs/decisions.md", "docs/mistake-book.md"],
                 args_template="{cr_path}"  # writeback_gate expects CR dir
+            ),
+            # ── 以下为动词链路复用的非 Gate 辅助步骤（不属于 FROZEN_GATES）──
+            "drift_check": SkillConfig(
+                name="PRD↔CR Drift Check",
+                type="drift_check",
+                script_path="scripts/drift_check.py",
+                description="PRD 锚点与 CR 验收规格哈希对账",
+                inputs=["acceptance-spec.md"],
+                outputs=["evidence/drift-result.json"],
+                args_template="{cr_path}"  # drift_check expects CR dir
+            ),
+            "anti_gaming": SkillConfig(
+                name="Anti-Gaming Check",
+                type="anti_gaming",
+                script_path="scripts/anti_gaming_check.py",
+                description="从 git diff 客观检测 reward hacking（信证据不信声明）",
+                inputs=["goal-contract.yml"],
+                outputs=["evidence/anti-gaming-result.json"],
+                args_template="{cr_path}"  # anti_gaming_check expects CR dir
+            ),
+            "goal_contract": SkillConfig(
+                name="Goal Contract Check",
+                type="goal_contract",
+                script_path="scripts/goal_contract.py",
+                description="目标契约双轨校验（metrics 必要条件 + invariants 防 Goodhart）",
+                inputs=[],  # 条件步：文件存在性由 execute_verb 在调用前判断（缺失则跳过）
+                outputs=["evidence/goal-contract-result.json"],
+                args_template="{cr_path}"  # goal_contract 接受 CR 目录或 yml 路径
+            ),
+            "rule_maturity": SkillConfig(
+                name="Rule Maturity Update",
+                type="rule_maturity",
+                script_path="scripts/update_rule_maturity.py",
+                description="按引用次数自动提升规则成熟度（draft→verified→proven）",
+                inputs=["*"],
+                outputs=["docs/rules.md"],
+                # 占位 args_template 满足 orchestrator 参数契约；该脚本不读位置参数，
+                # execute_skill 对 VERB_NO_ARG_STEPS 以无参方式实际调用。
+                args_template="{cr_path}"
             )
         }
 
@@ -205,9 +317,15 @@ class SkillOrchestrator:
         cr_id = Path(cr_path).name  # e.g., CR-001
         args_value = skill.args_template.format(cr_path=cr_path, cr_id=cr_id)
 
+        # 尾步脚本（如 rule_maturity / update_rule_maturity）不接受位置参数：无参调用。
+        if skill_type in VERB_NO_ARG_STEPS:
+            cmd = [sys.executable, str(script_path)]
+        else:
+            cmd = [sys.executable, str(script_path), args_value]
+
         # Run skill script
         result = subprocess.run(
-            [sys.executable, str(script_path), args_value],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True
@@ -220,9 +338,134 @@ class SkillOrchestrator:
             return True
         else:
             print(f"❌ Skill failed")
+            # 透传脚本自身的 verbatim 报告：门禁的 BLOCK 细节多写在 stdout，
+            # 必须原样转出，不做二次概括，否则丢失"哪一环、为什么"的取证粒度。
+            if result.stdout:
+                print(result.stdout)
             if result.stderr:
                 print(result.stderr)
             return False
+
+    def list_verbs(self) -> Dict[str, List[str]]:
+        """返回用户面动词 → skill 链映射。"""
+        return dict(VERBS)
+
+    def validate_verbs(self):
+        """机器可检约束：动词层不漂移、与 FROZEN_GATES 单一事实源一致。
+
+        返回 (errors, warnings)。errors 非空表示动词定义破坏了纪律，应 BLOCK。
+        校验项：
+          1. 每个动词的每个 step 都在 self.skills 中存在（链不引用幽灵 skill）。
+          2. 动词链里被标记为「门禁」的 step（VERB_GATE_STEPS）必须映射到一个
+             存在于 FROZEN_GATES 的门禁模块 —— 派生自单一事实源，不另起平行清单。
+          3. 每个 FROZEN_GATES 的门禁要么被某动词覆盖（经 VERB_GATE_STEPS），
+             要么登记在 VERB_STANDALONE_GATES（按需单独调用），否则就是「丢了门禁」。
+          4. 动词链里的每个 step 要么是门禁 step，要么登记在 VERB_NON_GATE_STEPS。
+        """
+        errors: List[str] = []
+        warnings: List[str] = []
+
+        # 1. step 存在性
+        for verb, steps in VERBS.items():
+            for step in steps:
+                if step not in self.skills:
+                    errors.append(f"动词 {verb} 引用了未注册的 skill: {step}")
+                if step not in VERB_GATE_STEPS and step not in VERB_NON_GATE_STEPS:
+                    errors.append(
+                        f"动词 {verb} 的 step '{step}' 既非门禁(VERB_GATE_STEPS)亦未登记为辅助(VERB_NON_GATE_STEPS)"
+                    )
+
+        # FROZEN_GATES 不可用时（防御性退化），跳过派生校验，仅给警告。
+        if not _FROZEN_GATES:
+            warnings.append("FROZEN_GATES 不可用，跳过动词↔冻结门禁派生校验")
+            return errors, warnings
+
+        frozen = set(_FROZEN_GATES.keys())
+
+        # 2. 门禁 step 映射的模块必须在 FROZEN_GATES 中
+        for step, gate_module in VERB_GATE_STEPS.items():
+            if gate_module not in frozen:
+                errors.append(
+                    f"门禁 step '{step}' 映射到 '{gate_module}'，但它不在 FROZEN_GATES（事实源漂移）"
+                )
+
+        # 3. 每个冻结门禁要么被动词覆盖，要么是登记的 standalone
+        covered = set(VERB_GATE_STEPS.values())
+        for gate_module in frozen:
+            if gate_module not in covered and gate_module not in VERB_STANDALONE_GATES:
+                errors.append(
+                    f"冻结门禁 '{gate_module}' 既未进任何动词链，也未登记为 standalone —— 动词层丢了门禁"
+                )
+
+        # standalone 集合里的名字也应是真实冻结门禁（防笔误）
+        for g in VERB_STANDALONE_GATES:
+            if g not in frozen:
+                warnings.append(f"VERB_STANDALONE_GATES 中 '{g}' 不在 FROZEN_GATES，建议核对")
+
+        return errors, warnings
+
+    def execute_verb(self, verb: str, cr_path: str) -> Dict[str, bool]:
+        """执行一个用户面动词（顺序跑其 skill 链）。
+
+        任一步失败立即停止；execute_skill 已透传该步的 verbatim 报告。
+        这是「默认入口」——底层每个 skill 仍可经 execute 单独调用。
+        """
+        if verb not in VERBS:
+            raise ValueError(f"未知动词: {verb}（可用: {', '.join(VERBS)}）")
+
+        chain = VERBS[verb]
+        print(f"\n{'#'*60}")
+        print(f"# 动词 {verb}: {VERB_DESCRIPTIONS.get(verb, '')}")
+        print(f"# 链路: {' → '.join(chain)}")
+        print(f"# CR: {cr_path}")
+        print(f"{'#'*60}\n")
+
+        results: Dict[str, bool] = {}
+        for step in chain:
+            # 条件步：所需输入文件缺失则跳过（opt-in 能力，不强制每个 CR 都有）
+            need = VERB_CONDITIONAL_STEPS.get(step)
+            if need and not (Path(cr_path) / need).exists():
+                print(f"\n⏭  跳过 '{step}'：未发现 {need}（该 CR 未启用此项，非失败）")
+                continue
+            success = self.execute_skill(step, cr_path)
+            results[step] = success
+            if not success:
+                print(f"\n❌ 动词 {verb} 在 '{step}' 处中止（上方为该步原始报告，未做概括）")
+                break
+
+        print(f"\n{'#'*60}")
+        print(f"# 动词 {verb} 小结")
+        print(f"{'#'*60}")
+        for step, success in results.items():
+            print(f"{'✅' if success else '❌'} {step}")
+
+        # verify 失败：只跑 retry_guard 的**只读 status**展示收敛状态，绝不 record。
+        # record 需人/Agent 给出新假设（达上限转 needs_human），由人显式发起。
+        if verb == "verify" and not all(results.values()):
+            print("\n── 重试收敛状态（只读，不记录）──")
+            self._run_retry_status(cr_path)
+            print("提示: 修复后若需记录重试，请显式带新假设调用 "
+                  "`retry_guard.py <CR> record --gate <G> --blocker <..> --hypothesis <新假设>`")
+        print()
+
+        return results
+
+    def _run_retry_status(self, cr_path: str):
+        """只读展示 retry_guard 的当前重试账本状态（绝不 record，不改 state）。"""
+        import subprocess
+        script = Path("scripts/retry_guard.py")
+        if not script.exists():
+            return
+        try:
+            r = subprocess.run(
+                [sys.executable, str(script), cr_path, "status"],
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                universal_newlines=True, timeout=20,
+            )
+            if r.stdout:
+                print(r.stdout.rstrip())
+        except Exception as e:  # 只读辅助，失败不影响 verify 结论
+            print(f"(retry_guard status 不可用: {e})")
 
     def execute_next_gate(self, cr_path: str) -> bool:
         """Execute the gate required by state.yml."""
@@ -341,6 +584,14 @@ def main():
     resume_parser.add_argument('cr_path', help='CR directory path')
     resume_parser.add_argument('--max-steps', type=int, default=10, help='Safety cap for loop iterations')
 
+    # ── 用户面动词（收口脚本，默认入口）──
+    verb_parser = subparsers.add_parser('verb', help='Execute a user-facing verb (spec/design/dev/verify/archive)')
+    verb_parser.add_argument('verb', choices=sorted(VERBS), help='Verb name')
+    verb_parser.add_argument('cr_path', help='CR directory path')
+
+    subparsers.add_parser('verbs', help='List user-facing verbs and their script chains')
+    subparsers.add_parser('validate-verbs', help='Check verb layer derives from FROZEN_GATES (no drift / no dropped gate)')
+
     args = parser.parse_args()
 
     if not args.command:
@@ -381,6 +632,32 @@ def main():
             results = orchestrator.execute_state_machine(args.cr_path, max_steps=args.max_steps)
             all_success = all(results.values()) if results else True
             sys.exit(0 if all_success else 1)
+
+        elif args.command == 'verb':
+            results = orchestrator.execute_verb(args.verb, args.cr_path)
+            all_success = all(results.values()) if results else True
+            sys.exit(0 if all_success else 1)
+
+        elif args.command == 'verbs':
+            print("\n📋 用户面动词（默认入口；底层脚本仍可经 execute 单独调用）:\n")
+            for verb, chain in orchestrator.list_verbs().items():
+                print(f"{verb:9} - {VERB_DESCRIPTIONS.get(verb, '')}")
+                print(f"{'':9}   链路: {' → '.join(chain)}")
+                print()
+            print("按需单独调用（不进日常动词链）: " + ", ".join(sorted(VERB_STANDALONE_GATES)))
+            print()
+
+        elif args.command == 'validate-verbs':
+            errors, warnings = orchestrator.validate_verbs()
+            for w in warnings:
+                print(f"⚠ {w}")
+            if errors:
+                print("❌ BLOCKED — 动词层定义破坏纪律:")
+                for e in errors:
+                    print(f"  - {e}")
+                sys.exit(1)
+            print("✅ PASS — 动词层派生自 FROZEN_GATES，无漂移、无丢失门禁")
+            sys.exit(0)
 
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)

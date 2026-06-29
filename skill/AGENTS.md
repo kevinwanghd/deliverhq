@@ -56,6 +56,9 @@ Spec → Design (if UI) → SpecGate/DesignGate → Architecture → Architectur
 - Test Agent 执行测试用例
 - Quality Agent 验证测试结果和质量指标
 
+## 用户面动词（脚本收口，默认入口）
+5 个动词收口日常 CR：`spec`/`design`/`dev`(停在写码前)/`verify`/`archive`（`skill_orchestrator.py verb <动词> <CR>`）。默认入口非唯一入口、任一步 BLOCK 即停并透传原报告、派生自 `FROZEN_GATES`、不碰 `get_default_pipeline()`——详见 `references/verbs.md`（`verb_layer_contract` 锁死）。
+
 ## Gate 冻结 + 组合规则（治理债红线）
 - **Gate 集合已冻结**：当前 11 道 Gate（见 `scripts/gate_composition_check.py` 的 `FROZEN_GATES`）是基线。
   新增一道 Gate 前，必须在 CR 里论证"现有 Gate 无法覆盖"，并显式更新 `FROZEN_GATES`；否则 `gate_composition_check.py` BLOCK。
