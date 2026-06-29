@@ -7,14 +7,14 @@ project:
 
 build:
   enabled: true
-  command: "python -c \"print('Build succeeded')\""
+  command: "python3 -c \"print('Build succeeded')\""
   working_dir: "."
   timeout: 30
 
 test:
   unit:
     enabled: true
-    command: "python -c \"print('92% passed')\""
+    command: "python3 -c \"print('92% passed')\""
     working_dir: "."
     timeout: 30
     coverage_enabled: true
@@ -24,7 +24,7 @@ lint:
   enabled: true
   tools:
     - name: "smoke-lint"
-      command: "python -c \"print('lint ok')\""
+      command: "python3 -c \"print('lint ok')\""
       severity: "warning"
 
 qualitygate:
