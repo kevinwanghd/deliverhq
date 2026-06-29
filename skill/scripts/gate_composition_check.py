@@ -64,6 +64,8 @@ NON_GATE_ALLOWLIST = {
     "gate_contract_check",   # 验证 Gate 正反例与参数契约（元检查，非 Gate 本身）
     "gate_json_output",      # Gate evidence JSON schema helper
     "gate_composition_check",  # 本脚本自身
+    "gate_cache",            # Gate 缓存机制（fingerprint 计算，非 Gate 本身）
+    "gate_wrapper",          # Gate 执行包装器（缓存集成，非 Gate 本身）
 }
 
 # ── 约束 2：允许的 gate->gate 依赖边（显式白名单）────────────────
