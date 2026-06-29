@@ -8,17 +8,21 @@
 
 | 动词 | 链路（顺序执行，任一 BLOCK 即停并透传原始报告） | 覆盖门禁 / 对应 phase |
 |---|---|---|
-| `spec`    | specgate → drift_check | 验收规格完备性 + PRD↔CR 对账（Spec/SpecGate） |
+| `spec`    | grill*（条件） → specgate → drift_check | 需求澄清拷问 + 验收规格完备性 + PRD↔CR 对账（Spec/SpecGate） |
 | `design`  | designgate → architecturegate | UI/设计产物 + 架构设计人工确认（Design/Architecture） |
 | `dev`     | pre_dev_gate → context_window_check → dev_phase | 开发前门禁 + 上下文纪律 + 交接（**停在写码前**；Context/Dev） |
 | `verify`  | goal_contract*（条件） → reviewgate → qualitygate → anti_gaming_check | 目标契约双轨 + 对抗式审查 + 真实构建/测试 + 反钻空子（Review/Quality） |
 | `archive` | writeback_gate → update_rule_maturity | 知识沉淀 + 规则成熟度（Writeback/Memory） |
 
-> *`goal_contract` 是**条件步**：仅当 CR 内有 `goal-contract.yml` 时才跑（显式启用 loop 治理的 CR）；
-> 缺失则**跳过而非失败**——不强制每个 CR 都写目标契约，保住 fast-lane。
-> 它放在链首，是为了在信任 review/quality 的指标**之前**先校验"指标+不变量"双轨（防 Goodhart：
-> 只盯 metrics 会被"删测试"达成）。`verify` 失败后会跑 `retry_guard` 的**只读 status** 展示收敛状态，
-> 但**绝不自动 record**——record 需人/Agent 给出新假设（达上限转 needs_human）。
+> *`grill` 和 `goal_contract` 是**条件步**：
+> - `grill`：仅当 CR 内有 `request.md` 时才跑（填 DeliverHQ 输入端对齐空洞，借 Matt Pocock grilling）。
+>   缺失则**跳过而非失败**——不强制每个 CR 都经过拷问（如直接写 spec 的 CR），保住 fast-lane。
+>   它放在 spec 链首，在生成 acceptance-spec **之前**逐条拷问（一次一问+推荐答案+能查代码就查），
+>   产出 `request-clarifications.md`（Spec Agent 消费它生成更精准规格）。修复"需求本身没想清楚"导致的
+>   垃圾进、(合规的)垃圾出——SpecGate 只检查 spec 格式，不检查 spec 是否建立在模糊需求上。
+> - `goal_contract`：仅当 CR 内有 `goal-contract.yml` 时才跑（显式启用 loop 治理）。它放在 verify 链首，
+>   在信任 review/quality 指标**之前**先校验"metrics + invariants"双轨（防 Goodhart）。
+>   `verify` 失败后会跑 `retry_guard` 只读 status，**绝不自动 record**（record 需人给新假设）。
 
 ## 用法
 

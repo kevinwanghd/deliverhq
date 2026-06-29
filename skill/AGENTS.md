@@ -33,6 +33,10 @@
 
 声明"完成"而无证据闭合此不变式的，按 fail-closed 处理，不予放行。
 
+## Loop 可控性（防 Goodhart + 收敛出口）
+
+`verify` 动词已集成 loop 可控性三件套（5.11.0+）：goal_contract*（条件）→ review → quality → anti_gaming，失败后 retry_guard 只读 status（不自动 record）。详见 `references/loop-control.md`。
+
 ## Fail-closed rules
 - If CR-ID, current phase, source of truth, path, or permission is unclear, stop and ask.
 - Do not develop when SpecGate, DesignGate, ArchitectureGate, or ContextWindowGate blocks.

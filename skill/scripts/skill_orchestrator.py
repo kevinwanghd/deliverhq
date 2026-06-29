@@ -52,7 +52,7 @@ class SkillConfig:
 #
 # 每个动词是一串 skill type（见 _load_skills 的 self.skills 键）。
 VERBS: Dict[str, List[str]] = {
-    "spec":    ["spec", "drift_check"],
+    "spec":    ["grill", "spec", "drift_check"],
     "design":  ["design", "architecture"],
     "dev":     ["pre_dev", "context", "dev"],
     "verify":  ["goal_contract", "review", "quality", "anti_gaming"],
@@ -60,7 +60,7 @@ VERBS: Dict[str, List[str]] = {
 }
 
 VERB_DESCRIPTIONS: Dict[str, str] = {
-    "spec":    "验收规格完备性 + PRD↔CR 对账",
+    "spec":    "需求澄清拷问（条件）+ 验收规格完备性 + PRD↔CR 对账",
     "design":  "UI/设计产物 + 架构设计人工确认",
     "dev":     "开发前综合门禁 + 上下文纪律 + 开发交接（停在写码前）",
     "verify":  "目标契约双轨校验 + 对抗式审查 + 真实构建/测试 + 反钻空子（信证据不信声明）",
@@ -81,14 +81,16 @@ VERB_GATE_STEPS: Dict[str, str] = {
 
 # 动词链里的非门禁辅助步骤（不计入 FROZEN_GATES，但允许出现在链中）。
 VERB_NON_GATE_STEPS = {"context", "dev", "drift_check", "anti_gaming",
-                       "rule_maturity", "goal_contract"}
+                       "rule_maturity", "goal_contract", "grill"}
 
 # 「条件步」：所需输入文件缺失时 **跳过而非失败**（这是 opt-in 能力，非每个 CR 必备）。
 # 形如 step -> 它依赖的 CR 内文件。例如 goal-contract.yml 只有显式启用 loop 治理的 CR 才有；
 # 缺失时 verify 不应硬 BLOCK（否则等于强制每个 CR 都写目标契约，违背 fast-lane）。
+# grill 同理：request.md 缺失（如某些 CR 直接写 spec）或用户选择跳过，则不强制拷问。
 # anti_gaming 本身在脚本层已对缺文件/非 git 做降级，故不列为条件步（让它自己降级并打印）。
 VERB_CONDITIONAL_STEPS: Dict[str, str] = {
     "goal_contract": "goal-contract.yml",
+    "grill": "request.md",
 }
 
 # 不进日常动词链、按需单独调用的门禁（文档化，不丢失）：
@@ -242,6 +244,15 @@ class SkillOrchestrator:
                 inputs=[],  # 条件步：文件存在性由 execute_verb 在调用前判断（缺失则跳过）
                 outputs=["evidence/goal-contract-result.json"],
                 args_template="{cr_path}"  # goal_contract 接受 CR 目录或 yml 路径
+            ),
+            "grill": SkillConfig(
+                name="Grill (需求澄清拷问)",
+                type="grill",
+                script_path="scripts/grill.py",
+                description="需求澄清拷问（借 Matt Pocock grilling，填输入端对齐空洞）",
+                inputs=[],  # 条件步：request.md 缺失则跳过（不强制每个 CR 都 grill）
+                outputs=["request-clarifications.md"],
+                args_template="{cr_path}"  # grill.py 接受 CR 目录或 request.md 路径
             ),
             "rule_maturity": SkillConfig(
                 name="Rule Maturity Update",
@@ -557,6 +568,135 @@ class SkillOrchestrator:
         ]
 
 
+def route_situation(situation: str = None):
+    """动词路由器（借 Pocock ask-matt，治 54→5 收口后剩余认知负荷）。
+
+    根据用户场景（新需求/bug/重构/遗留代码）推荐动词流。
+    """
+    print("\n🧭 DeliverHQ 动词路由器\n")
+
+    # 路由决策树（仿 Pocock ask-matt 的流程分支逻辑）
+    routes = {
+        "new_feature": {
+            "name": "新需求/功能",
+            "flow": ["grill (如有 request.md)", "spec", "design", "dev", "verify", "archive"],
+            "entry": "spec",
+            "description": "从想法到交付的主流程。有代码库从 grill→spec 开始；无 request.md 直接写 spec。",
+            "mode": "standard",
+            "keywords": ["新功能", "需求", "feature", "idea", "想法", "加个"]
+        },
+        "bug_fix": {
+            "name": "Bug 修复",
+            "flow": ["spec (简化)", "dev", "verify"],
+            "entry": "spec",
+            "description": "小改动可简化 spec（只写验收条件），跳过 design，直奔 dev→verify。",
+            "mode": "fast-lane",
+            "keywords": ["bug", "修复", "fix", "错误", "问题"]
+        },
+        "refactor": {
+            "name": "重构/优化",
+            "flow": ["spec (重构目标)", "design (架构)", "dev", "verify"],
+            "entry": "spec",
+            "description": "重构需要明确目标（spec）和架构约束（design），然后 dev→verify。",
+            "mode": "standard",
+            "keywords": ["重构", "refactor", "优化", "optimize", "改进"]
+        },
+        "legacy": {
+            "name": "遗留代码/逆向工程",
+            "flow": ["reverse-spec (模式2)", "design", "verify"],
+            "entry": "reverse-spec",
+            "description": "已有代码无文档：先逆向生成 spec（模式2：analyze→spec），再补 design 和测试。",
+            "mode": "reverse",
+            "keywords": ["遗留", "legacy", "无文档", "逆向", "已有代码"]
+        },
+        "cr_exists": {
+            "name": "已有 spec/设计，继续开发",
+            "flow": ["design (如未完成)", "dev", "verify", "archive"],
+            "entry": "design",
+            "description": "CR 已有 acceptance-spec，从 design 或 dev 继续（用 resume 自动判断）。",
+            "mode": "standard",
+            "keywords": ["继续", "resume", "已有spec", "接着做"]
+        },
+        "unknown": {
+            "name": "不确定/需要引导",
+            "flow": ["参考下方决策树"],
+            "entry": None,
+            "description": "回答几个问题帮你定位场景。",
+            "mode": None,
+            "keywords": []
+        }
+    }
+
+    # 如果没给 situation 或给了 "interactive"，走交互式问答
+    if not situation or situation.lower() in ("interactive", "?", "help"):
+        print("回答几个问题，帮你找到合适的动词流:\n")
+        print("1. 你的场景是?")
+        print("   a) 我有一个新想法/需求要实现")
+        print("   b) 我要修一个 bug")
+        print("   c) 我要重构/优化现有代码")
+        print("   d) 我有遗留代码，没文档，想补齐")
+        print("   e) 我已经有 CR 和 spec，想继续开发")
+        print()
+        choice = input("选择 (a/b/c/d/e): ").strip().lower()
+
+        route_map = {
+            'a': 'new_feature',
+            'b': 'bug_fix',
+            'c': 'refactor',
+            'd': 'legacy',
+            'e': 'cr_exists'
+        }
+
+        route_key = route_map.get(choice, 'unknown')
+        if route_key == 'unknown':
+            print("\n⚠ 未识别的选择，显示所有路径供参考。\n")
+            for key, route in routes.items():
+                if key != 'unknown':
+                    print(f"** {route['name']} **")
+                    print(f"   流程: {' → '.join(route['flow'])}")
+                    print(f"   入口: {route['entry']}")
+                    print(f"   说明: {route['description']}\n")
+            return
+    else:
+        # 根据关键词匹配场景
+        situation_lower = situation.lower()
+        route_key = 'unknown'
+
+        for key, route in routes.items():
+            if any(kw in situation_lower for kw in route['keywords']):
+                route_key = key
+                break
+
+    route = routes[route_key]
+
+    print(f"📍 识别场景: {route['name']}\n")
+    print(f"   推荐流程: {' → '.join(route['flow'])}")
+    print(f"   入口动词: {route['entry'] or '(见下方)'}")
+    if route['mode']:
+        print(f"   模式: {route['mode']}")
+    print(f"\n   {route['description']}\n")
+
+    # 给出具体命令示例
+    if route['entry']:
+        print("💡 下一步命令:")
+        if route['entry'] == 'spec':
+            print(f"   python scripts/skill_orchestrator.py verb spec <CR目录>")
+        elif route['entry'] == 'design':
+            print(f"   python scripts/skill_orchestrator.py verb design <CR目录>")
+        elif route['entry'] == 'reverse-spec':
+            print(f"   python scripts/reverse_spec_gate.py mode2 <目标目录>")
+        print()
+
+    # 额外提示
+    if route_key == 'new_feature':
+        print("💬 提示: 如果需求还不清楚，先跑 grill 拷问（需要 request.md）；")
+        print("   如果需求已明确，直接写 acceptance-spec.md 后跑 spec 动词。\n")
+    elif route_key == 'bug_fix':
+        print("💬 提示: Bug 修复可走 fast-lane（简化 spec，跳 design），但要保证测试覆盖。\n")
+    elif route_key == 'legacy':
+        print("💬 提示: 逆向模式2会先 analyze 代码生成 spec，再转正向流程。\n")
+
+
 def main():
     """CLI entry point"""
     import argparse
@@ -591,6 +731,10 @@ def main():
 
     subparsers.add_parser('verbs', help='List user-facing verbs and their script chains')
     subparsers.add_parser('validate-verbs', help='Check verb layer derives from FROZEN_GATES (no drift / no dropped gate)')
+
+    # route command (借鉴 Pocock ask-matt 路由器，治认知负荷)
+    route_parser = subparsers.add_parser('route', help='Recommend verb flow for your situation (idea/bug/refactor/legacy)')
+    route_parser.add_argument('situation', nargs='?', help='Your situation or use "interactive" for guided questions')
 
     args = parser.parse_args()
 
@@ -657,6 +801,10 @@ def main():
                     print(f"  - {e}")
                 sys.exit(1)
             print("✅ PASS — 动词层派生自 FROZEN_GATES，无漂移、无丢失门禁")
+            sys.exit(0)
+
+        elif args.command == 'route':
+            route_situation(args.situation)
             sys.exit(0)
 
     except Exception as e:
