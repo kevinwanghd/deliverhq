@@ -52,7 +52,7 @@ class SkillConfig:
 #
 # 每个动词是一串 skill type（见 _load_skills 的 self.skills 键）。
 VERBS: Dict[str, List[str]] = {
-    "spec":    ["spec", "drift_check"],
+    "spec":    ["grill", "spec", "drift_check"],
     "design":  ["design", "architecture"],
     "dev":     ["pre_dev", "context", "dev"],
     "verify":  ["goal_contract", "review", "quality", "anti_gaming"],
@@ -60,7 +60,7 @@ VERBS: Dict[str, List[str]] = {
 }
 
 VERB_DESCRIPTIONS: Dict[str, str] = {
-    "spec":    "验收规格完备性 + PRD↔CR 对账",
+    "spec":    "需求澄清拷问（条件）+ 验收规格完备性 + PRD↔CR 对账",
     "design":  "UI/设计产物 + 架构设计人工确认",
     "dev":     "开发前综合门禁 + 上下文纪律 + 开发交接（停在写码前）",
     "verify":  "目标契约双轨校验 + 对抗式审查 + 真实构建/测试 + 反钻空子（信证据不信声明）",
@@ -81,14 +81,16 @@ VERB_GATE_STEPS: Dict[str, str] = {
 
 # 动词链里的非门禁辅助步骤（不计入 FROZEN_GATES，但允许出现在链中）。
 VERB_NON_GATE_STEPS = {"context", "dev", "drift_check", "anti_gaming",
-                       "rule_maturity", "goal_contract"}
+                       "rule_maturity", "goal_contract", "grill"}
 
 # 「条件步」：所需输入文件缺失时 **跳过而非失败**（这是 opt-in 能力，非每个 CR 必备）。
 # 形如 step -> 它依赖的 CR 内文件。例如 goal-contract.yml 只有显式启用 loop 治理的 CR 才有；
 # 缺失时 verify 不应硬 BLOCK（否则等于强制每个 CR 都写目标契约，违背 fast-lane）。
+# grill 同理：request.md 缺失（如某些 CR 直接写 spec）或用户选择跳过，则不强制拷问。
 # anti_gaming 本身在脚本层已对缺文件/非 git 做降级，故不列为条件步（让它自己降级并打印）。
 VERB_CONDITIONAL_STEPS: Dict[str, str] = {
     "goal_contract": "goal-contract.yml",
+    "grill": "request.md",
 }
 
 # 不进日常动词链、按需单独调用的门禁（文档化，不丢失）：
@@ -242,6 +244,15 @@ class SkillOrchestrator:
                 inputs=[],  # 条件步：文件存在性由 execute_verb 在调用前判断（缺失则跳过）
                 outputs=["evidence/goal-contract-result.json"],
                 args_template="{cr_path}"  # goal_contract 接受 CR 目录或 yml 路径
+            ),
+            "grill": SkillConfig(
+                name="Grill (需求澄清拷问)",
+                type="grill",
+                script_path="scripts/grill.py",
+                description="需求澄清拷问（借 Matt Pocock grilling，填输入端对齐空洞）",
+                inputs=[],  # 条件步：request.md 缺失则跳过（不强制每个 CR 都 grill）
+                outputs=["request-clarifications.md"],
+                args_template="{cr_path}"  # grill.py 接受 CR 目录或 request.md 路径
             ),
             "rule_maturity": SkillConfig(
                 name="Rule Maturity Update",
