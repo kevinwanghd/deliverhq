@@ -72,5 +72,5 @@
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 6. **Gate 集合已冻结**：当前 11 道 Gate 是基线，由 `scripts/gate_composition_check.py` 的 `FROZEN_GATES` 单一事实源约束。新增/删除 Gate 必须更新该集合并经 CR 论证；Gate 之间禁止相互 import（除 `ALLOWED_GATE_EDGES` 白名单），串联只由编排器显式完成。对应 `gate_composition_contract`。
 
-**版本**: v5.11.0  
+**版本**: v5.12.0  
 **最后更新**: 2026-06-23
