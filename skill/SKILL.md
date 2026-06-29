@@ -53,28 +53,20 @@ license: 见仓库
 
 ### 默认可用
 
-- CR 初始化和状态机：`init_cr.py` / `cr_state.py`
-- 核心 Gate：SpecGate、DesignGate、ArchitectureGate、PreDevGate、ReviewGate、QualityGate、WritebackGate
-- **用户面动词**（5.10.0+）：spec/design/dev/verify/archive（收口 54 个脚本的认知负荷）
-- **动词路由器**（5.12.0+）：`route` 子命令推荐动词流（治 54→5 收口后剩余负荷）
-- DevPhase Handoff：`dev_phase.py` 只做开发交接，不自动写代码
-- Gate Contract / selftest：验证脚本存在、参数契约和默认 pipeline 契约
-- Loop 可控性（5.11.0+）：goal_contract（条件步）+ anti_gaming + retry_guard（已集成进 verify 动词）
+- CR 初始化和状态机、核心 Gate（Spec/Design/Architecture/PreDev/Review/Quality/Writeback）
+- **用户面动词**（5.10.0+）：spec/design/dev/verify/archive + route 路由器
+- DevPhase Handoff（交接，不自动写码）、Gate Contract / selftest
+- Loop 可控性（5.11.0+）：已集成进 verify 动词（goal_contract*/anti_gaming/retry_guard）
 
 ### 需要谨慎
 
-- DeployGate / PermissionGate：已接入但仍按 experimental 使用；PermissionGate 只是最小权限边界检查
-- Worktree Manager：是工具，不是 Dev Agent；不要把它直接放进 pipeline 当开发阶段
-- Failure Attribution / mistake-book dedup：已接入基础链路，但规则演进仍需人工复核
+- DeployGate / PermissionGate（experimental）、Worktree Manager（工具，非 Agent）
+- Failure Attribution / mistake-book dedup（规则演进需人工复核）
 
-### Roadmap（不承诺可用）
+### Roadmap / 已退役
 
-- Routing Eval JSON 化、Context schema、MaintenanceGate
-- Dynamic Workflow / Tournament / Fan-out / Scout
-
-### 已退役（`_archived/`，不要用）
-
-- Darwin Score / Quality Ratchet / Loop Mode：AI 自评 / 自动循环执行违反核心哲学
+- Roadmap: Routing Eval JSON 化、Context schema、MaintenanceGate、Dynamic Workflow
+- 已退役: Darwin Score / Quality Ratchet / Loop Mode（违反核心哲学，见 `_archived/`）
 
 ---
 
