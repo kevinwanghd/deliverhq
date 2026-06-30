@@ -42,6 +42,13 @@ const POINTER_BEGIN = '<!-- BEGIN DELIVERHQ -->';
 const POINTER_END = '<!-- END DELIVERHQ -->';
 const SELFTEST_MAX_BUFFER = 32 * 1024 * 1024;
 
+// Windows 编码修复：强制子进程使用 UTF-8（同 skill_orchestrator.py 的 SUBPROCESS_ENV）
+const SUBPROCESS_ENV = {
+  ...process.env,
+  PYTHONUTF8: '1',
+  PYTHONIOENCODING: 'utf-8',
+};
+
 // Agent 注册表。kind: 'folder'（带 skills 目录的 agent）| 'flat'（扁平指令文件的 agent）
 const TARGETS = {
   claude: {
@@ -112,7 +119,7 @@ function copyDir(src, dst) {
       if (SKIP_DIRS.has(entry.name)) continue; // evidence 保留（含 fixture）
       copyDir(path.join(src, entry.name), path.join(dst, entry.name));
     } else if (entry.isFile()) {
-      if (entry.name.endsWith('.pyc')) continue;
+      if (entry.name.endsWith('.pyc') || entry.name.endsWith('.backup')) continue;
       fs.copyFileSync(path.join(src, entry.name), path.join(dst, entry.name));
     }
   }
@@ -179,8 +186,8 @@ function injectPointer(instructionPath, coreRelDir) {
     '门禁是 Python 脚本（需 Python 3.10+ 与 PyYAML），用 shell 调用，例如：',
     '',
     '```bash',
-    `python ${coreRelDir}/scripts/selftest.py ${coreRelDir}   # 自检`,
-    `python ${coreRelDir}/scripts/specgate.py <acceptance-spec.md>`,
+    `python3 ${coreRelDir}/scripts/selftest.py ${coreRelDir}   # 自检`,
+    `python3 ${coreRelDir}/scripts/specgate.py <acceptance-spec.md>`,
     '```',
     POINTER_END,
   ].join('\n');
@@ -275,7 +282,7 @@ function cmdInitProject(flags) {
     }
     const args = [path.join(deliverhqDir, 'scripts', 'init_project_structure.py'), targetPath, '--profile', profile];
     if (flags.force) args.push('--force');
-    const out = execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'] }).toString();
+    const out = execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: SUBPROCESS_ENV }).toString();
     console.log(out.trim());
     console.log(C.g('\n✅ 项目结构初始化完成'));
     console.log(`  运行结构检查: ${py.cmd} ${path.join(targetPath, 'DeliverHQ', 'scripts', 'structuregate.py')} ${targetPath}`);
@@ -322,7 +329,7 @@ function runSelftest(py, skillDir, extraArgs) {
   try {
     return {
       ok: true,
-      out: execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: SELFTEST_MAX_BUFFER }).toString(),
+      out: execFileSync(py.cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], maxBuffer: SELFTEST_MAX_BUFFER, env: SUBPROCESS_ENV }).toString(),
     };
   } catch (e) {
     return {
