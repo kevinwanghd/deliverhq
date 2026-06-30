@@ -568,6 +568,112 @@ class SkillOrchestrator:
         ]
 
 
+def analyze_cr_size(cr_path: str) -> dict:
+    """
+    分析 CR 规模，判断是否需要拆解（Epic → Story）。
+
+    判断标准（保守阈值，避免误触发）：
+    - acceptance criteria 数量 > 10 → 建议拆
+    - CR 总 token 估算 > 5000 → 建议拆
+
+    Returns:
+        {
+            'total_tokens': int,
+            'criteria_count': int,
+            'file_count': int,
+            'should_decompose': bool,
+            'reasons': [str]
+        }
+    """
+    cr_dir = Path(cr_path)
+    if not cr_dir.exists():
+        return {'error': f'CR 目录不存在: {cr_path}'}
+
+    # 统计 token（简单估算：字符数 / 4）
+    total_tokens = 0
+    file_count = 0
+    for file_path in cr_dir.rglob('*'):
+        if file_path.is_file() and file_path.suffix in {'.md', '.yml', '.yaml', '.json'}:
+            try:
+                content = file_path.read_text(encoding='utf-8', errors='ignore')
+                total_tokens += len(content) // 4
+                file_count += 1
+            except Exception:
+                pass
+
+    # 统计验收标准数量（从 acceptance-spec.md）
+    criteria_count = 0
+    spec_file = cr_dir / 'acceptance-spec.md'
+    if spec_file.exists():
+        content = spec_file.read_text(encoding='utf-8', errors='ignore')
+        # 计算验收条件条数（- [ ] 或 1. 这类格式）
+        import re
+        criteria_count = len(re.findall(r'^\s*[-\*] \[[ x]\]|^\s*\d+\.\s', content, re.MULTILINE))
+
+    # 判断是否需要拆解
+    reasons = []
+    if criteria_count > 10:
+        reasons.append(f"验收条件 {criteria_count} 条（建议上限 10 条）")
+    if total_tokens > 5000:
+        reasons.append(f"CR 总量约 {total_tokens:,} tokens（建议上限 5,000）")
+
+    return {
+        'total_tokens': total_tokens,
+        'criteria_count': criteria_count,
+        'file_count': file_count,
+        'should_decompose': len(reasons) > 0,
+        'reasons': reasons
+    }
+
+
+def decompose_cr(cr_path: str):
+    """
+    分析 CR 并给出拆解建议（Epic → Story）。
+
+    不自动创建子 CR——输出建议，由人审阅后用 create_sub_cr.py 执行。
+    """
+    print("\n🔍 CR 规模分析\n")
+
+    result = analyze_cr_size(cr_path)
+    if 'error' in result:
+        print(f"❌ {result['error']}")
+        return
+
+    cr_name = Path(cr_path).name
+
+    print(f"CR: {cr_name}")
+    print(f"  文件数:        {result['file_count']}")
+    print(f"  Token 估算:    {result['total_tokens']:,}")
+    print(f"  验收条件数:    {result['criteria_count']}")
+    print()
+
+    if result['should_decompose']:
+        print("⚠️  建议拆解（触发以下阈值）：")
+        for reason in result['reasons']:
+            print(f"  - {reason}")
+
+        print("""
+📋 拆解建议（Epic → Story 模式）：
+
+  1. 把当前 CR 改为 Epic（保留高层验收标准，删除实现细节）
+  2. 为每个独立功能点创建子 CR：
+
+     python3 scripts/create_sub_cr.py {cr_name} --title "功能点 1"
+     python3 scripts/create_sub_cr.py {cr_name} --title "功能点 2" --depends-on {cr_name}-01
+     python3 scripts/create_sub_cr.py {cr_name} --title "功能点 3" --depends-on {cr_name}-02
+
+  3. 每个子 CR 独立走完整 Gate 链（上下文天然隔离）
+  4. 所有子 CR 完成后，Epic 进入 archive
+
+  子 CR 查看：
+     python3 scripts/create_sub_cr.py {cr_name} --list
+     python3 scripts/create_sub_cr.py {cr_name} --status
+""".format(cr_name=cr_name))
+    else:
+        print("✅ CR 规模合理，无需拆解")
+        print(f"  （验收条件 ≤ 10 且 tokens ≤ 5,000）")
+
+
 def route_situation(situation: str = None):
     """动词路由器（借 Pocock ask-matt，治 54→5 收口后剩余认知负荷）。
 
@@ -736,6 +842,10 @@ def main():
     route_parser = subparsers.add_parser('route', help='Recommend verb flow for your situation (idea/bug/refactor/legacy)')
     route_parser.add_argument('situation', nargs='?', help='Your situation or use "interactive" for guided questions')
 
+    # decompose command (Epic → Story 拆解分析)
+    decompose_parser = subparsers.add_parser('decompose', help='Analyse CR size and suggest sub-CR split when it exceeds thresholds')
+    decompose_parser.add_argument('cr_path', help='CR directory path')
+
     args = parser.parse_args()
 
     if not args.command:
@@ -805,6 +915,10 @@ def main():
 
         elif args.command == 'route':
             route_situation(args.situation)
+            sys.exit(0)
+
+        elif args.command == 'decompose':
+            decompose_cr(args.cr_path)
             sys.exit(0)
 
     except Exception as e:
