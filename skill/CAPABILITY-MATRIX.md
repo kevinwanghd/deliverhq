@@ -62,6 +62,11 @@
 | 移动端高保真门禁强化 | scripts/designgate.py + dir-graph design_gate | experimental | integrated | true | true | 识别 Android/iOS/Flutter/RN/鸿蒙/小程序 → 强制 C 端高保真；专项校验平台规范/多机型/深色模式/交互状态 |
 | 编译验证多平台 bundle | verification-manifest.yml (platform_bundles) | experimental | integrated | false | true | 复用 QualityGate + 可选 iOS/Android/Harmony/RN bundle；编译失败自动定位修复 |
 | RN/Figma 可选适配指南 | RN-FIGMA-ADAPTER-GUIDE.md | experimental | integrated | false | false | 可选适配层；核心门禁工具无关，可整体替换为其他技术栈 |
+| Gate 缓存（Fingerprint） | scripts/gate_cache.py + scripts/gate_wrapper.py | experimental | integrated | false | false | 依赖文件 SHA256 fingerprint 缓存：gate 已通过且依赖未变→跳过执行；实测 token 消耗 -50~73%；`DELIVERHQ_GATE_CACHE=0` 禁用。详见 references/gate-cache-guide.md |
+| 子 CR 拆解（Epic→Story） | scripts/create_sub_cr.py | experimental | integrated | false | false | 大需求拆分为多个子 CR（数字后缀 CR-001-01/02/03）；每个子 CR 独立走完整 Gate 链，上下文天然隔离；Epic 只走轻量 spec；自动维护 sub-crs.yml。详见 references/sub-cr.md |
+| CR 规模分析（Decompose） | scripts/skill_orchestrator.py decompose | experimental | integrated | false | false | 分析 CR 规模（token 估算 + criteria 数量）；超阈值（criteria>10 或 tokens>5000）给出拆解建议；建议器非 Gate，不强制阻断 |
+| 动词路由器（Route） | scripts/skill_orchestrator.py route | experimental | integrated | false | false | 根据场景（新需求/bug/重构/legacy/已有spec）推荐动词流；支持关键词匹配或交互式问答。借鉴 Pocock ask-matt |
+| grill（需求澄清拷问） | scripts/grill.py | experimental | integrated | false | false | 生成 acceptance-spec 之前逐条拷问需求（一次一问+推荐答案），产出 request-clarifications.md；条件步，缺 request.md 则跳过。借鉴 Pocock grilling |
 
 ## 设计约束
 
@@ -72,5 +77,5 @@
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 6. **Gate 集合已冻结**：当前 11 道 Gate 是基线，由 `scripts/gate_composition_check.py` 的 `FROZEN_GATES` 单一事实源约束。新增/删除 Gate 必须更新该集合并经 CR 论证；Gate 之间禁止相互 import（除 `ALLOWED_GATE_EDGES` 白名单），串联只由编排器显式完成。对应 `gate_composition_contract`。
 
-**版本**: v5.13.0  
+**版本**: v5.14.0  
 **最后更新**: 2026-06-23
