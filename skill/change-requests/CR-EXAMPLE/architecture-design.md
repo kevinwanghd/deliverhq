@@ -30,7 +30,15 @@ HTTP 接口集中在 `src/api/todos.py`，业务逻辑集中在 `src/services/to
 - 删除使用软删除，重复查询不返回已删除项。
 - 验证通过单元测试、集成测试、OpenAPI 检查和 P95 性能预算。
 
-## 5. 设计分块到实现映射
+## 5. 测试接缝 (Test Seams)
+
+| 接缝 | 位置 (文件/模块) | 覆盖范围 | 是否复用现有 | 测试类型 |
+|---|---|---|---|---|
+| REST API 层 | `tests/test_todos.py` | CRUD 完整路径、错误分支、性能预算 | 是 | 集成测试 |
+
+**接缝选择理由**: 在 FastAPI Router 层测试，覆盖 Schema 校验 + Service 逻辑 + ORM 调用全路径，一个接缝即可。不在 Service/Repository 内部单独测，避免与实现耦合。
+
+## 6. 设计分块到实现映射
 
 | block | 目标文件 | 目标组件 | 数据字段 | 交互 | 设计源证据 |
 |---|---|---|---|---|---|
@@ -39,11 +47,11 @@ HTTP 接口集中在 `src/api/todos.py`，业务逻辑集中在 `src/services/to
 | 更新待办 | `src/api/todos.py` | `update_todo` | partial TodoUpdate | PATCH /api/todos/{id} | AC-3 |
 | 软删除 | `src/api/todos.py` | `delete_todo` | deleted_at | DELETE /api/todos/{id} | AC-4 |
 
-## 6. 直读计划（direct-read plan）
+## 7. 直读计划（direct-read plan）
 
 本 CR 为 API 示例，无 UI 视觉常量。涉及 API 响应字段和错误状态时，以 acceptance-spec.md 与 traceability.yml 为设计源证据。
 
-## 7. 平台差异与验证策略（如涉及多端）
+## 8. 平台差异与验证策略（如涉及多端）
 
 N/A。该 CR 为后端 API 示例，不涉及移动端或多端 UI 差异。
 
@@ -52,6 +60,7 @@ N/A。该 CR 为后端 API 示例，不涉及移动端或多端 UI 差异。
 - [x] 数据流与状态管理清晰
 - [x] 接口封装与依赖列全
 - [x] 异常处理与验证策略明确
+- [x] 测试接缝选择合理（优先复用现有、最高接缝、理想数量1个）
 - [x] 每个设计分块有实现映射
 - [x] 直读计划列出关键证据源
 - [x] 无残留模板变量

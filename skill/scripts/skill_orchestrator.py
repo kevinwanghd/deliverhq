@@ -23,6 +23,17 @@ try:
 except Exception:  # pragma: no cover - 防御性退化
     _FROZEN_GATES = {}
 
+import os as _os
+# Windows 编码修复：PYTHONUTF8=1 强制子进程使用 UTF-8，PYTHONIOENCODING 作为备用
+SUBPROCESS_ENV = {
+    **dict(_os.environ),
+    "PYTHONUTF8": "1",
+    "PYTHONIOENCODING": "utf-8",
+    "PYTHONDONTWRITEBYTECODE": "1",
+}
+
+ROOT = Path(__file__).resolve().parent.parent
+
 configure_console()
 
 @dataclass
@@ -318,7 +329,7 @@ class SkillOrchestrator:
 
         # Execute skill script
         import subprocess
-        script_path = Path(skill.script_path)
+        script_path = ROOT / skill.script_path
 
         if not script_path.exists():
             print(f"❌ Skill script not found: {script_path}")
@@ -339,7 +350,9 @@ class SkillOrchestrator:
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            universal_newlines=True
+            encoding='utf-8',
+            errors='replace',
+            env=SUBPROCESS_ENV,
         )
 
         if result.returncode == 0:
