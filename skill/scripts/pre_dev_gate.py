@@ -281,7 +281,13 @@ def main():
                         help='按客观规模信号建议 lane（借 lane_advisor），不修改 state，仅打印参考')
     args = parser.parse_args()
 
-    cr_path = DELIVERHQ_ROOT / "change-requests" / args.cr_id
+    _arg = Path(args.cr_id)
+    if _arg.is_absolute() and _arg.exists():
+        cr_path = _arg
+    elif _arg.exists():  # 相对路径，解析为绝对
+        cr_path = _arg.resolve()
+    else:
+        cr_path = DELIVERHQ_ROOT / "change-requests" / args.cr_id
 
     if not cr_path.exists():
         print(f"{Color.RED}错误: CR 目录不存在: {cr_path}{Color.END}")

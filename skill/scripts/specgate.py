@@ -100,6 +100,18 @@ def has_quantifiable_metric(content, fuzzy_word):
             return True
     return False
 
+def _strip_code_from_content(text: str) -> str:
+    """剥离代码块和内联代码，只保留正文，避免误匹配文档示例中的占位符。"""
+    # 1. 剥离围栏代码块 ```...``` 或 ~~~...~~~
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    text = re.sub(r'~~~[\s\S]*?~~~', '', text)
+    # 2. 剥离内联代码 `...`
+    text = re.sub(r'`[^`\n]+`', '', text)
+    # 3. 剥离4空格/Tab缩进代码行
+    text = re.sub(r'(?m)^(?:    |\t)[^\n]*', '', text)
+    return text
+
+
 def check_specgate(spec_path):
     """检查 acceptance-spec.md 完备性"""
     print(f"{Color.BLUE}=== SpecGate 检查 ==={Color.END}\n")
@@ -152,8 +164,10 @@ def check_specgate(spec_path):
     print(f"\n{Color.BLUE}[待确认占位符]{Color.END}")
     # [NEEDS CLARIFICATION]：借 Spec-Kit 约定，spec 起草期可标，SpecGate 放行前必须为零。
     # 大小写不敏感，容忍 [NEEDS CLARIFICATION: ...] 带补充说明的形式。
-    needs_clar_count = len(re.findall(r'\[\s*NEEDS[ _]CLARIFICATION', content, re.IGNORECASE))
-    pending_count = content.count('[待确认]') + content.count('[TODO]') + needs_clar_count
+    # 检查前剥离代码块，避免误匹配文档中作为示例的占位符
+    content_text = _strip_code_from_content(content)
+    needs_clar_count = len(re.findall(r'\[\s*NEEDS[ _]CLARIFICATION', content_text, re.IGNORECASE))
+    pending_count = content_text.count('[待确认]') + content_text.count('[TODO]') + needs_clar_count
     if pending_count > 0:
         print(f"{Color.RED}✗ 包含 {pending_count} 处待确认占位符{Color.END}")
         detail = "[待确认]/[TODO]"

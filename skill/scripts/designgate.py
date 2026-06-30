@@ -37,9 +37,13 @@ def detect_ui_type(cr_path):
 
     返回 (ui_type, is_mobile)：
       ui_type ∈ {C端, B端, 无UI}；is_mobile 标记是否移动端/客户端原生场景。
-    判定优先级：移动端/客户端 > C 端 > B 端。
-    理由：移动端 App（安卓/iOS/Flutter/RN/鸿蒙/小程序）即使含"后台"字样，
-    也必须走 C 端高保真，不能因为出现"后台"被降级成 B 端低保真。
+    判定优先级：移动端/客户端 > B端强信号 > C端专属信号 > B端通用信号 > 无UI。
+
+    设计理由：
+    - 移动端 App 即使含"后台"也是 C 端高保真（优先级最高，不变）。
+    - Admin/管理后台是 B端强信号，不应被 'UI'/'页面' 这类泛用词误判为 C端。
+    - '页面'/'UI' 等泛用词既出现在 C 端也出现在 B 端，不能作为 C端判断依据。
+    - 只有明确的 C端专属词（'H5'/'Web 端'/'C 端'/'C端'/'用户界面'/'前端'）才判 C端。
     """
     # 移动端/客户端关键词（命中即视为 C 端 + is_mobile，最高优先级）
     mobile_keywords = [
@@ -48,8 +52,18 @@ def detect_ui_type(cr_path):
         'Flutter', 'React Native', 'RN', 'ReactNative',
         '鸿蒙', 'Harmony', 'HarmonyOS', '小程序', 'Mini Program',
     ]
-    c_end_keywords = ['用户界面', '前端', 'UI', '页面', 'H5', 'Web 端', 'C 端', 'C端']
-    b_end_keywords = ['管理后台', '后台', '管理系统', '内部工具', '运营平台', 'B 端', 'B端']
+    # B端强信号：命中即优先判 B端（高于泛用 C端词）
+    b_end_strong_keywords = [
+        '管理后台', '管理系统', '后台管理', '内部工具', '运营平台',
+        'Admin', 'admin', 'ADMIN', '运营后台', '管理平台', '控制台',
+        'B 端', 'B端', 'Dashboard', 'dashboard',
+    ]
+    # C端专属词：明确指向 C端，泛用词（'UI'/'页面'）移出，不再作为 C端判据
+    c_end_exclusive_keywords = [
+        '用户界面', '前端', 'H5', 'Web 端', 'C 端', 'C端',
+    ]
+    # B端通用信号（不含强信号，用于兜底）
+    b_end_generic_keywords = ['后台']
 
     # 优先读取结构化 metadata.yml
     metadata_path = Path(cr_path) / "design" / "metadata.yml"
@@ -80,15 +94,19 @@ def detect_ui_type(cr_path):
         content = request_path.read_text(encoding='utf-8')
 
     has_mobile = _contains_mobile_keyword(content, mobile_keywords)
-    has_c = any(kw in content for kw in c_end_keywords)
-    has_b = any(kw in content for kw in b_end_keywords)
+    has_b_strong = any(kw in content for kw in b_end_strong_keywords)
+    has_c_exclusive = any(kw in content for kw in c_end_exclusive_keywords)
+    has_b_generic = any(kw in content for kw in b_end_generic_keywords)
 
-    # 优先级：移动端 > C 端 > B 端 > 无UI
+    # 优先级：移动端 > B端强信号 > C端专属词 > B端通用词 > 无UI
+    # 注：'UI'/'页面'等泛用词已从判据中移除，避免把 Admin 后台误判为 C端
     if has_mobile:
         return 'C端', True       # 移动端 App 一律 C 端高保真，即使同时含"后台"
-    elif has_c:
+    elif has_b_strong:
+        return 'B端', False      # Admin/管理系统等强 B端信号优先于泛用 C端词
+    elif has_c_exclusive:
         return 'C端', False
-    elif has_b:
+    elif has_b_generic:
         return 'B端', False
     else:
         return '无UI', False
