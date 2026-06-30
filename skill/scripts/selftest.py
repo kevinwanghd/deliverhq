@@ -1202,7 +1202,8 @@ def make_architecture_design_content(confirmation_line):
         "## 2. 数据流与状态管理\n数据从 API 到页面状态。\n\n"
         "## 3. 接口封装与依赖\n通过 repository 封装。\n\n"
         "## 4. 异常处理与验证策略\n失败时返回清晰错误并跑 selftest。\n\n"
-        "## 5. 设计分块到实现映射\nblock A -> a.py。\n\n"
+        "## 5. 测试接缝 (Test Seams)\nAPI 层集成测试。\n\n"
+        "## 6. 设计分块到实现映射\nblock A -> a.py。\n\n"
         + confirmation_line + "\n"
     )
 
