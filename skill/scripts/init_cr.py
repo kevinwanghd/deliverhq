@@ -118,20 +118,20 @@ def _create_runtime_dirs(target_dir: Path):
             _print(f"  - {directory.relative_to(target_dir)}")
 
 
-def _create_worktree(cr_id: str):
+def _create_worktree(cr_id: str, project_root: Path):
     _print("\n🌲 创建 worktree...")
     result = subprocess.run(
         [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,
-        cwd=str(DELIVERHQ_ROOT),
+        cwd=str(project_root),
     )
 
     if result.returncode == 0:
         _print("✅ Worktree 创建成功")
         _print(f"📂 切换到 worktree: cd .claude/worktrees/{cr_id}")
-        return DELIVERHQ_ROOT / ".claude" / "worktrees" / cr_id
+        return project_root / ".claude" / "worktrees" / cr_id
 
     _print(f"⚠️  Worktree 创建失败: {result.stderr.strip()}")
     _print(f"   可以稍后手动创建: python scripts/worktree_manager.py create {cr_id}")
@@ -178,7 +178,8 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, h
     _print(f"📝 已替换 {replaced_count} 个文件中的变量")
 
     if use_worktree:
-        worktree_path = _create_worktree(cr_id)
+        project_root = home_dir.parent  # home_dir 是 <项目根>/DeliverHQ，项目根是其父目录
+        worktree_path = _create_worktree(cr_id, project_root)
         if worktree_path is not None:
             set_worktree_path(target_dir, str(worktree_path.resolve()))
 
