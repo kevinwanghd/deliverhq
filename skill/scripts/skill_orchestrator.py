@@ -115,6 +115,123 @@ VERB_STANDALONE_GATES = {"permissiongate", "deploygate", "structuregate", "rever
 VERB_NO_ARG_STEPS = {"rule_maturity"}
 
 
+# ── P0 优化：轻量模式 + Token 成本预估 ────────────────────────────
+#
+# 轻量模式（fast lane）：小改动跳过完整 Gate 链，降低过度工程和 token 消耗。
+# Token 成本预估：动词执行前显示预估消耗和费用，用户知情决策。
+
+TOKEN_ESTIMATES = {
+    "spec": {
+        "no_cache": (30000, 50000),  # (min, max) input tokens
+        "with_cache": (5000, 10000),
+        "description": "grill + specgate + drift_check"
+    },
+    "design": {
+        "no_cache": (40000, 70000),
+        "with_cache": (8000, 15000),
+        "description": "designgate + architecturegate"
+    },
+    "dev": {
+        "no_cache": (50000, 100000),
+        "with_cache": (10000, 25000),
+        "description": "pre_dev_gate + dev_phase"
+    },
+    "verify": {
+        "no_cache": (80000, 150000),
+        "with_cache": (15000, 35000),
+        "description": "reviewgate + qualitygate + writeback"
+    },
+    "archive": {
+        "no_cache": (20000, 40000),
+        "with_cache": (5000, 10000),
+        "description": "writeback + rule_maturity"
+    },
+}
+
+SONNET_PRICING = {
+    "input": 3.0 / 1_000_000,   # $3/M input tokens
+    "output": 15.0 / 1_000_000,  # $15/M output tokens
+}
+
+
+def estimate_cost(verb: str, has_cache: bool = False) -> Optional[dict]:
+    """预估 token 消耗和费用"""
+    if verb not in TOKEN_ESTIMATES:
+        return None
+
+    est = TOKEN_ESTIMATES[verb]
+    key = "with_cache" if has_cache else "no_cache"
+    min_tokens, max_tokens = est[key]
+
+    # 假设 output = input * 0.2（经验值）
+    min_cost = min_tokens * SONNET_PRICING["input"] + min_tokens * 0.2 * SONNET_PRICING["output"]
+    max_cost = max_tokens * SONNET_PRICING["input"] + max_tokens * 0.2 * SONNET_PRICING["output"]
+
+    return {
+        "min_tokens": min_tokens,
+        "max_tokens": max_tokens,
+        "min_cost": min_cost,
+        "max_cost": max_cost,
+        "description": est["description"],
+    }
+
+
+def print_cost_estimate(verb: str, cr_path: Path):
+    """打印成本预估（P0-3）"""
+    # 检测是否有 Gate 缓存
+    has_cache = (cr_path / "evidence" / ".gate-cache").exists()
+
+    est = estimate_cost(verb, has_cache)
+    if not est:
+        return
+
+    print(f"\n📊 预估 token 消耗（{est['description']}）：")
+    print(f"  - 范围：{est['min_tokens']/1000:.1f}k - {est['max_tokens']/1000:.1f}k tokens")
+    print(f"  - 费用：${est['min_cost']:.2f} - ${est['max_cost']:.2f} (Sonnet 定价)")
+
+    if has_cache:
+        no_cache_est = estimate_cost(verb, False)
+        saved = (no_cache_est["min_cost"] + no_cache_est["max_cost"]) / 2 - (est["min_cost"] + est["max_cost"]) / 2
+        print(f"  - ✅ Gate 缓存已启用，预计节省 ${saved:.2f}")
+
+    print("")
+
+
+def should_use_fast_lane(cr_path: Path) -> bool:
+    """判断是否走快速通道（跳过完整 Gate 链）（P0-2）"""
+
+    # 规则 1：用户显式指定 --fast
+    if "--fast" in sys.argv:
+        return True
+
+    # 规则 2：state.yml 里 lane=fast
+    state = load_state(cr_path)
+    if state and state.lane == "fast":
+        return True
+
+    # 规则 3：request.md 里有 [fast-lane] 标记
+    request_file = cr_path / "request.md"
+    if request_file.exists():
+        content = request_file.read_text(encoding="utf-8")
+        if "[fast-lane]" in content or "<!-- fast-lane -->" in content:
+            return True
+
+    # 规则 4：智能检测（实验性）
+    # 如果 request.md < 200 字 + 没提到"架构/数据库/API"等高风险关键词
+    if request_file.exists():
+        content = request_file.read_text(encoding="utf-8")
+        if len(content) < 200:
+            risky_keywords = ["架构", "数据库", "schema", "API", "接口", "migration", "重构", "database", "architecture"]
+            if not any(kw in content.lower() for kw in risky_keywords):
+                print("🚀 检测到小改动（<200字 + 无高风险关键词）")
+                print("   建议走快速通道（跳过 design/architecture gate）")
+                print("   保留：specgate（防需求模糊）+ pre_dev_gate（防依赖缺失）")
+                choice = input("   使用快速通道？[Y/n]: ").strip().lower()
+                return choice in ("", "y", "yes")
+
+    return False
+
+
 class SkillOrchestrator:
     """Orchestrate skills execution"""
 
@@ -437,7 +554,27 @@ class SkillOrchestrator:
         if verb not in VERBS:
             raise ValueError(f"未知动词: {verb}（可用: {', '.join(VERBS)}）")
 
-        chain = VERBS[verb]
+        cr_path_obj = Path(cr_path)
+
+        # P0-3: Token 成本预估（动词执行前显示预估）
+        print_cost_estimate(verb, cr_path_obj)
+
+        # P0-2: 轻量模式检测（dev 动词才触发，其他动词走完整链）
+        use_fast_lane = False
+        if verb == "dev" and should_use_fast_lane(cr_path_obj):
+            use_fast_lane = True
+            print("⚡ 快速通道已激活")
+            print("  - 跳过：design/architecture gate")
+            print("  - 保留：spec + pre_dev（最低安全网）")
+            print("  - 预估 token 节省：30-40%\n")
+
+            # 快速通道：只走 spec + pre_dev，跳过 design/architecture
+            # 注意：这里假设 spec 已经跑过了（快速通道通常用于已有 spec 的小改动）
+            # 如果 spec 没跑过，还是会在 pre_dev 时被 BLOCK
+            chain = ["pre_dev", "context", "dev"]  # 跳过 design/architecture
+        else:
+            chain = VERBS[verb]
+
         print(f"\n{'#'*60}")
         print(f"# 动词 {verb}: {VERB_DESCRIPTIONS.get(verb, '')}")
         print(f"# 链路: {' → '.join(chain)}")

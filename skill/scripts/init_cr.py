@@ -8,6 +8,7 @@ CR 初始化脚本
 import shutil
 import subprocess
 import sys
+import os
 from pathlib import Path
 from typing import Iterable, List
 from datetime import datetime
@@ -78,6 +79,53 @@ def _resolve_home(home_arg):
     """
     from deliverhq_home import resolve_home
     return resolve_home(explicit=home_arg, start=Path.cwd())
+
+
+def _check_first_time_setup(home_dir: Path) -> bool:
+    """首次使用检测：CONTEXT.md 不存在 → 停下来问要不要扫描既有代码。
+
+    这是老项目护栏 B1 的入口——一次性投资 15-50k tokens 扫描既有代码，
+    生成 CONTEXT.md（技术栈/命名风格/既有抽象/禁动清单），后续所有 CR 读它，
+    避免重复实现/破坏既有抽象。
+    """
+    context_file = home_dir / "docs" / "CONTEXT.md"
+
+    if context_file.exists():
+        return True  # 已有 CONTEXT，直接继续
+
+    _print("\n🔍 检测到首次在本项目使用 DeliverHQ")
+    _print("")
+    _print("建议选项：")
+    _print("  1. 扫描既有代码生成 CONTEXT.md（15-50k tokens，一次性投资）")
+    _print("     → 后续所有 CR 都读这个文件，避免重复实现/破坏既有抽象")
+    _print("  2. 跳过扫描（不推荐，除非是全新项目）")
+    _print("")
+
+    choice = input("选择 [1/2，默认1]: ").strip() or "1"
+
+    if choice == "1":
+        _print("\n📊 预估 token 消耗：15k-50k（取决于项目规模）")
+        _print("   Claude Sonnet 约 $0.5-1.5，一次性成本")
+        proceed = input("继续？[Y/n]: ").strip().lower()
+        if proceed in ("", "y", "yes"):
+            _print("\n🔄 启动扫描...")
+            scan_script = DELIVERHQ_ROOT / "scripts" / "scan_legacy.py"
+            result = subprocess.run(
+                [sys.executable, str(scan_script),
+                 "--project-root", str(home_dir.parent),
+                 "--out", str(home_dir / "docs")],
+                cwd=str(home_dir.parent),
+                env={"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", **os.environ}
+            )
+            if result.returncode == 0:
+                _print("✅ CONTEXT.md 已生成")
+                return True
+            else:
+                _print("⚠️  扫描失败，但可以继续（后续可手动运行 scan_legacy.py）")
+                return True
+
+    _print("⏭  已跳过扫描（可稍后运行 scan_legacy.py）")
+    return True
 
 
 def _replace_template_vars(target_dir: Path, replacements: dict) -> int:
@@ -215,6 +263,9 @@ def main():
 
     home_dir = _resolve_home(home)
     _print(f"📍 DeliverHQ home: {home_dir}")
+
+    # 首次入场检测：CONTEXT.md 不存在 → 停下来问要不要扫描既有代码
+    _check_first_time_setup(home_dir)
 
     success = init_cr(cr_id, cr_name, requester, lane, use_worktree, str(home_dir))
     sys.exit(0 if success else 1)
