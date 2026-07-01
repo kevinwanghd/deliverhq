@@ -111,13 +111,13 @@ def lint_structure(project_root: Path, profile_path: Path, mode_override: str = 
             continue
         if child.is_dir() and name in forbidden_top:
             message = "发现禁止顶层目录: %s" % name
-            if mode == "progressive" and name in legacy_paths:
+            if mode == "progressive" and _under_legacy_path(name, legacy_paths):
                 warnings.append(message + "（legacy fenced）")
             else:
                 blockers.append(message)
         elif child.is_dir() and allowed_top and name not in allowed_top:
             message = "发现未授权顶层目录: %s" % name
-            if mode == "progressive" and name in legacy_paths:
+            if mode == "progressive" and _under_legacy_path(name, legacy_paths):
                 warnings.append(message + "（legacy fenced）")
             else:
                 blockers.append(message)

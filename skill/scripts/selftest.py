@@ -499,7 +499,10 @@ for key, skill in orch.skills.items():
     for line in result.stdout.splitlines():
         if not line.strip() or "|" not in line:
             continue
-        skill_type, script_path, args_value = line.split("|", 2)
+        parts = line.split("|", 2)
+        if len(parts) < 3:
+            continue  # 防御：不足 3 段的行跳过（避免 unpacking ValueError）
+        skill_type, script_path, args_value = parts
         full_script = ROOT / script_path
         if not full_script.exists():
             print(f"  {FAIL} {skill_type}: {script_path} 缺失")

@@ -162,7 +162,7 @@ def git_change_frequency(root, file_path):
     """用 git log 统计文件改动次数 -> 频率标签。git 不可用则 unknown。"""
     try:
         result = subprocess.run(
-            ["git", "-C", str(root), "log", "--oneline", "--", str(file_path)],
+            ["git", "-C", str(root), "log", "--oneline", "--", file_path.as_posix()],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             universal_newlines=True, timeout=15,
         )

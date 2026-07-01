@@ -141,6 +141,12 @@ def mark_promoted_candidates(
     updated_text = original_text
     today = date.today().isoformat()
     for entry, rule_number in promoted_refs:
+        # 防御：block_text 找不到（被前面的 replace 改动、或块本身缺失）时报错，
+        # 避免静默跳过导致"标记晋升"没写进去却以为成功
+        if entry.block_text not in updated_text:
+            raise ValueError(
+                f"无法标记晋升：在 rules-candidates.md 中找不到候选块 '{getattr(entry, 'title', entry.block_text[:40])}'"
+            )
         replacement = entry.block_text.rstrip() + (
             f"\n- Promotion Status: promoted"
             f"\n- Promoted To: rules.md #{rule_number}"

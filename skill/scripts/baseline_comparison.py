@@ -149,7 +149,11 @@ def _parse_test_metrics(output: str) -> Tuple[int, int, List[str], Optional[floa
         failed = int(failed_match.group(1))
 
     coverage = None
-    coverage_match = re.search(r'(\d+(?:\.\d+)?)%', output)
+    # 优先匹配带 coverage 上下文的百分比，避免误抓其他百分比（如 "15% improvement"）
+    coverage_match = re.search(r'(?i)coverage[^0-9]*?(\d+(?:\.\d+)?)\s*%', output)
+    if not coverage_match:
+        # 兜底：TOTAL 行末尾的百分比（coverage.py 的典型格式）
+        coverage_match = re.search(r'(?im)^TOTAL\b.*?(\d+(?:\.\d+)?)\s*%', output)
     if coverage_match:
         coverage = float(coverage_match.group(1))
 

@@ -53,8 +53,13 @@ class MemoryStore:
     def _load_index(self):
         """Load memory index"""
         if self.index_file.exists():
-            with open(self.index_file, 'r') as f:
-                data = json.load(f)
+            try:
+                with open(self.index_file, 'r') as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                # Corrupted or unreadable index: degrade to empty store.
+                self.entries = {}
+                return
 
             self.entries = {
                 entry_id: MemoryEntry.from_dict(entry_data)

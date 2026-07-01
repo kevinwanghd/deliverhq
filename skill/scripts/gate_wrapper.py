@@ -45,6 +45,7 @@ class Color:
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
     BLUE = '\033[94m'
+    RED = '\033[91m'
     END = '\033[0m'
 
 
@@ -124,10 +125,17 @@ def main():
     print(f"{Color.BLUE}=== {gate_name.capitalize()}Gate 执行（缓存未命中或已失效） ==={Color.END}")
 
     # 执行 Gate
-    result = subprocess.run(
-        [sys.executable, str(gate_script)] + gate_args,
-        env=os.environ
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, str(gate_script)] + gate_args,
+            env=os.environ,
+            timeout=300,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"{Color.RED}❌ {gate_name} Gate 执行超时（>300s），已中止{Color.END}")
+        # 超时视为失败，使下游缓存失效
+        invalidate_downstream_gates(cr_path, gate_name)
+        sys.exit(1)
 
     # 更新缓存
     if result.returncode == 0:
