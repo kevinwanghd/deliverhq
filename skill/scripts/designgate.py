@@ -20,7 +20,7 @@ class Color:
     BLUE = '\033[94m'
     END = '\033[0m'
 
-ASCII_TOKEN_RE = re.compile(r'(?<![A-Za-z0-9])(?:App|APP|Android|iOS|iPhone|iPad|Flutter|React Native|RN|ReactNative|Harmony|HarmonyOS|Mini Program)(?![A-Za-z0-9])')
+ASCII_TOKEN_RE = re.compile(r'(?<![A-Za-z0-9])(?:Android|iOS|iPhone|iPad|Flutter|React Native|RN|ReactNative|Harmony|HarmonyOS|Mini Program)(?![A-Za-z0-9])')
 
 
 def _contains_mobile_keyword(content, mobile_keywords):
@@ -44,13 +44,18 @@ def detect_ui_type(cr_path):
     - Admin/管理后台是 B端强信号，不应被 'UI'/'页面' 这类泛用词误判为 C端。
     - '页面'/'UI' 等泛用词既出现在 C 端也出现在 B 端，不能作为 C端判断依据。
     - 只有明确的 C端专属词（'H5'/'Web 端'/'C 端'/'C端'/'用户界面'/'前端'）才判 C端。
+
+    残余问题2修复：'客户端'/'App' 太宽泛（某些业务里指SDK客户端/合作方App，非移动端UI），
+    从强移动端判据降级为需要结合上下文（"移动端客户端"/"手机App" 才命中）。
     """
     # 移动端/客户端关键词（命中即视为 C 端 + is_mobile，最高优先级）
+    # 注：'客户端'/'App' 已移除（太宽泛，SDK/合作方 App 等场景误判）
     mobile_keywords = [
-        '移动端', '客户端', 'App', 'APP', '原生',
+        '移动端', '原生',
         '安卓', 'Android', 'iOS', 'iPhone', 'iPad',
         'Flutter', 'React Native', 'RN', 'ReactNative',
         '鸿蒙', 'Harmony', 'HarmonyOS', '小程序', 'Mini Program',
+        '手机App', '移动端App', '移动端客户端',  # 明确的移动端上下文
     ]
     # B端强信号：命中即优先判 B端（高于泛用 C端词）
     b_end_strong_keywords = [

@@ -56,17 +56,31 @@ def check_architecturegate(cr_path):
 
     text = arch.read_text(encoding='utf-8')
 
+    # 残余问题3修复：章节号向后兼容，同时接受新旧两种顺序
+    # 旧模板（5.14 之前）：##5 设计分块
+    # 新模板（5.14+）：##5 测试接缝 + ##6 设计分块
+    # 策略：##5/##6 只要有一个是"测试接缝"或"设计分块"就算通过
     required = [
         ('## 1. 模块拆分', '模块拆分与目录结构'),
         ('## 2. 数据流', '数据流与状态管理'),
         ('## 3. 接口封装', '接口封装与依赖'),
         ('## 4. 异常处理', '异常处理与验证策略'),
-        ('## 5. 测试接缝', '测试接缝 (Test Seams)'),
-        ('## 6. 设计分块到实现映射', '设计分块到实现映射'),
+        # ##5 和 ##6 做兼容检查（见下方）
     ]
+
+    # 基础章节检查
     for pat, name in required:
         if pat not in text:
             blockers.append(f"缺少章节: {name}")
+
+    # 测试接缝 + 设计分块：兼容新旧两种顺序
+    has_test_seams = ('## 5. 测试接缝' in text) or ('## 6. 测试接缝' in text)
+    has_design_mapping = ('## 5. 设计分块' in text) or ('## 6. 设计分块' in text)
+
+    if not has_test_seams:
+        blockers.append("缺少章节: 测试接缝 (Test Seams)（##5 或 ##6）")
+    if not has_design_mapping:
+        blockers.append("缺少章节: 设计分块到实现映射（##5 或 ##6）")
 
     # 残留模板变量
     if TEMPLATE_VAR.search(text):
