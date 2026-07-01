@@ -15,6 +15,12 @@ import tempfile
 import yaml
 from pathlib import Path
 
+# 残余问题1修复：统一设置子进程环境变量，防止 Windows GBK 编码问题
+# 注入到当前进程的环境变量，所有 subprocess.run 调用会继承
+os.environ.setdefault("PYTHONUTF8", "1")
+os.environ.setdefault("PYTHONIOENCODING", "utf-8")
+os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
+
 from runtime_support import configure_console
 
 ROOT = Path(__file__).resolve().parent.parent
