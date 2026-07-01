@@ -82,50 +82,76 @@ def _resolve_home(home_arg):
 
 
 def _check_first_time_setup(home_dir: Path) -> bool:
-    """首次使用检测：CONTEXT.md 不存在 → 停下来问要不要扫描既有代码。
+    """首次使用检测：CONTEXT.md 不存在 → 提示 AI/用户建立项目上下文（老项目护栏 B1）。
 
-    这是老项目护栏 B1 的入口——一次性投资 15-50k tokens 扫描既有代码，
-    生成 CONTEXT.md（技术栈/命名风格/既有抽象/禁动清单），后续所有 CR 读它，
-    避免重复实现/破坏既有抽象。
+    Bug#3 修正：CONTEXT.md 是"AI 分析代码后填写的项目上下文"（技术栈/命名风格/
+    既有抽象/禁动清单），不是脚本自动生成的。scan_legacy.py 生成的是**逆向需求候选**
+    （reverse-spec-candidates.yml），语义不同，不能拿来当 CONTEXT.md。
+
+    正确做法：
+      - 检测无 CONTEXT.md → 提示这是一次性投资，引导 AI 读代码填 CONTEXT.md
+      - 不自动调用 scan_legacy（那是模式2逆向扫描的工具，参数/产物都不同）
+      - 非交互环境（CI/无 tty）静默跳过，不阻塞
     """
     context_file = home_dir / "docs" / "CONTEXT.md"
 
     if context_file.exists():
         return True  # 已有 CONTEXT，直接继续
 
-    _print("\n🔍 检测到首次在本项目使用 DeliverHQ")
+    # 非交互环境（CI / 管道）静默跳过，不阻塞自动化
+    if not sys.stdin.isatty() or os.environ.get("DELIVERHQ_NON_INTERACTIVE") == "1":
+        _print("ℹ️  未发现 docs/CONTEXT.md（建议后续补建项目上下文；非交互环境已跳过提示）")
+        return True
+
+    _print("\n🔍 检测到首次在本项目使用 DeliverHQ（未发现 docs/CONTEXT.md）")
+    _print("")
+    _print("CONTEXT.md 是项目上下文的组织记忆（技术栈/命名风格/既有抽象/禁动清单），")
+    _print("由 AI 读一遍既有代码后填写，一次性投资，后续所有 CR 读它，")
+    _print("避免重复实现/破坏既有抽象（老项目护栏 B1）。")
     _print("")
     _print("建议选项：")
-    _print("  1. 扫描既有代码生成 CONTEXT.md（15-50k tokens，一次性投资）")
-    _print("     → 后续所有 CR 都读这个文件，避免重复实现/破坏既有抽象")
-    _print("  2. 跳过扫描（不推荐，除非是全新项目）")
+    _print("  1. 现在建立 CONTEXT.md（推荐）——生成待填模板，让 AI 分析代码后填充")
+    _print("  2. 跳过（全新项目 / 稍后再建）")
     _print("")
 
     choice = input("选择 [1/2，默认1]: ").strip() or "1"
 
     if choice == "1":
-        _print("\n📊 预估 token 消耗：15k-50k（取决于项目规模）")
-        _print("   Claude Sonnet 约 $0.5-1.5，一次性成本")
-        proceed = input("继续？[Y/n]: ").strip().lower()
-        if proceed in ("", "y", "yes"):
-            _print("\n🔄 启动扫描...")
-            scan_script = DELIVERHQ_ROOT / "scripts" / "scan_legacy.py"
-            result = subprocess.run(
-                [sys.executable, str(scan_script),
-                 "--project-root", str(home_dir.parent),
-                 "--out", str(home_dir / "docs")],
-                cwd=str(home_dir.parent),
-                env={"PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8", **os.environ}
-            )
-            if result.returncode == 0:
-                _print("✅ CONTEXT.md 已生成")
-                return True
-            else:
-                _print("⚠️  扫描失败，但可以继续（后续可手动运行 scan_legacy.py）")
-                return True
+        # 生成待填模板（不自动扫描——扫描/填充由 AI 在对话里完成，成本可控可见）
+        context_file.parent.mkdir(parents=True, exist_ok=True)
+        if not context_file.exists():
+            context_file.write_text(_context_md_template(), encoding="utf-8")
+        _print(f"\n✅ 已生成待填模板：{context_file}")
+        _print("📝 下一步：让 AI 读一遍项目代码，填充这份 CONTEXT.md")
+        _print("   （AI 分析 15-50k tokens，一次性；也可参考模式2 scan_legacy 逆向扫描）")
+        return True
 
-    _print("⏭  已跳过扫描（可稍后运行 scan_legacy.py）")
+    _print("⏭  已跳过（可稍后手动建立 docs/CONTEXT.md）")
     return True
+
+
+def _context_md_template() -> str:
+    """CONTEXT.md 待填模板（老项目护栏 B1）。"""
+    return """# 项目上下文 (CONTEXT.md)
+
+> 组织记忆：由 AI 读一遍既有代码后填写，后续所有 CR 读它。
+> 目的：避免重复实现既有能力、避免破坏既有抽象。
+
+## 技术栈
+{{语言/框架/构建工具/测试工具，如 TypeScript + Next.js + Vitest}}
+
+## 命名与代码风格
+{{命名约定、目录结构约定、lint 规则要点}}
+
+## 既有抽象（写新代码前先 grep 这里）
+{{HTTP 客户端 / 状态管理 / 数据访问 / utils / hooks 等已有封装，写新能力前先复用}}
+
+## 禁动清单（Do-Not-Touch）
+{{不能随意改的模块/配置/接口，改动需人工确认}}
+
+## 关键业务概念
+{{领域术语表，帮助 AI 用项目一致的语言}}
+"""
 
 
 def _replace_template_vars(target_dir: Path, replacements: dict) -> int:

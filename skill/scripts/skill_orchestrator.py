@@ -176,10 +176,37 @@ def estimate_cost(verb: str, has_cache: bool = False) -> Optional[dict]:
     }
 
 
+def _has_gate_cache(cr_path: Path, verb: str) -> bool:
+    """检测该动词涉及的 gate 是否有 fingerprint 缓存（Bug#2 修正）。
+
+    gate_cache.py 把 fingerprint 存在 state.yml 的 gates: 字段，
+    不是 evidence/.gate-cache 文件。这里读 state.yml 判断。
+    """
+    state_path = cr_path / "state.yml"
+    if not state_path.exists():
+        return False
+    try:
+        import yaml
+        data = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
+        gates = data.get("gates", {})
+        # 该动词链里任一 gate 有 fingerprint 就算命中缓存
+        verb_steps = VERBS.get(verb, [])
+        gate_modules = [VERB_GATE_STEPS.get(s) for s in verb_steps if s in VERB_GATE_STEPS]
+        for gm in gate_modules:
+            # gates 字段以 skill type 或 gate 模块名为键，两种都查
+            if isinstance(gates, dict):
+                for key, info in gates.items():
+                    if isinstance(info, dict) and info.get("fingerprint"):
+                        return True
+        return False
+    except Exception:
+        return False
+
+
 def print_cost_estimate(verb: str, cr_path: Path):
     """打印成本预估（P0-3）"""
-    # 检测是否有 Gate 缓存
-    has_cache = (cr_path / "evidence" / ".gate-cache").exists()
+    # 检测是否有 Gate 缓存（读 state.yml 的 gates: fingerprint）
+    has_cache = _has_gate_cache(cr_path, verb)
 
     est = estimate_cost(verb, has_cache)
     if not est:
@@ -221,11 +248,16 @@ def should_use_fast_lane(cr_path: Path) -> bool:
     if request_file.exists():
         content = request_file.read_text(encoding="utf-8")
         if len(content) < 200:
-            risky_keywords = ["架构", "数据库", "schema", "API", "接口", "migration", "重构", "database", "architecture"]
+            # 关键词全小写（下方用 content.lower() 匹配，大写关键词永远匹配不到）
+            risky_keywords = ["架构", "数据库", "schema", "api", "接口",
+                              "migration", "重构", "database", "architecture"]
             if not any(kw in content.lower() for kw in risky_keywords):
                 print("🚀 检测到小改动（<200字 + 无高风险关键词）")
-                print("   建议走快速通道（跳过 design/architecture gate）")
-                print("   保留：specgate（防需求模糊）+ pre_dev_gate（防依赖缺失）")
+                print("   建议走快速通道（dev 链精简 context，保留 pre_dev + dev）")
+                # 非交互环境（CI/管道）默认不启用快速通道，走完整链更安全
+                if not sys.stdin.isatty() or os.environ.get("DELIVERHQ_NON_INTERACTIVE") == "1":
+                    print("   （非交互环境，默认走完整链；如需快速通道加 --fast）")
+                    return False
                 choice = input("   使用快速通道？[Y/n]: ").strip().lower()
                 return choice in ("", "y", "yes")
 
@@ -559,19 +591,19 @@ class SkillOrchestrator:
         # P0-3: Token 成本预估（动词执行前显示预估）
         print_cost_estimate(verb, cr_path_obj)
 
-        # P0-2: 轻量模式检测（dev 动词才触发，其他动词走完整链）
-        use_fast_lane = False
+        # P0-2: 轻量模式检测（仅 dev 动词）
+        # 说明（Bug#1 修正）：DeliverHQ 是 5 个独立动词，design/architecture 是独立的
+        # `design` 动词，本就不在 dev 链里。轻量模式的正确语义是：
+        #   1. 提示用户小改动可跳过独立的 `design` 动词（在动词之间做选择）
+        #   2. 在 dev 链内精简 `context`（上下文窗口纪律，小改动过度）
+        # 保留 pre_dev（开发前安全网）+ dev（交接），不牺牲证据门禁。
         if verb == "dev" and should_use_fast_lane(cr_path_obj):
-            use_fast_lane = True
-            print("⚡ 快速通道已激活")
-            print("  - 跳过：design/architecture gate")
-            print("  - 保留：spec + pre_dev（最低安全网）")
-            print("  - 预估 token 节省：30-40%\n")
-
-            # 快速通道：只走 spec + pre_dev，跳过 design/architecture
-            # 注意：这里假设 spec 已经跑过了（快速通道通常用于已有 spec 的小改动）
-            # 如果 spec 没跑过，还是会在 pre_dev 时被 BLOCK
-            chain = ["pre_dev", "context", "dev"]  # 跳过 design/architecture
+            print("⚡ 快速通道已激活（小改动）")
+            print("  - 建议：可跳过独立的 `design` 动词（design/architecture gate）")
+            print("  - dev 链内精简：context（上下文摘要，小改动非必需）")
+            print("  - 保留：pre_dev（开发前安全网）+ dev（交接）")
+            print("  - 预估 token 节省：15-25%\n")
+            chain = ["pre_dev", "dev"]  # 精简掉 context
         else:
             chain = VERBS[verb]
 
