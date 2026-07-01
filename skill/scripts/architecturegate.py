@@ -56,10 +56,12 @@ def check_architecturegate(cr_path):
 
     text = arch.read_text(encoding='utf-8')
 
-    # 残余问题3修复：章节号向后兼容，同时接受新旧两种顺序
-    # 旧模板（5.14 之前）：##5 设计分块
+    # 残余问题3修复（v5.15.2 修正）：真正的向后兼容
+    # 旧模板（5.14 之前）：##5 设计分块（无"测试接缝"节）
     # 新模板（5.14+）：##5 测试接缝 + ##6 设计分块
-    # 策略：##5/##6 只要有一个是"测试接缝"或"设计分块"就算通过
+    # 策略：
+    #   - 设计分块是核心章节，必须有（##5 或 ##6 都接受）
+    #   - 测试接缝是新增章节，旧模板没有 → 降级为 warning，不 block
     required = [
         ('## 1. 模块拆分', '模块拆分与目录结构'),
         ('## 2. 数据流', '数据流与状态管理'),
@@ -73,14 +75,15 @@ def check_architecturegate(cr_path):
         if pat not in text:
             blockers.append(f"缺少章节: {name}")
 
-    # 测试接缝 + 设计分块：兼容新旧两种顺序
-    has_test_seams = ('## 5. 测试接缝' in text) or ('## 6. 测试接缝' in text)
+    # 设计分块到实现映射：核心章节，必须有（兼容 ##5/##6 两种位置）
     has_design_mapping = ('## 5. 设计分块' in text) or ('## 6. 设计分块' in text)
-
-    if not has_test_seams:
-        blockers.append("缺少章节: 测试接缝 (Test Seams)（##5 或 ##6）")
     if not has_design_mapping:
         blockers.append("缺少章节: 设计分块到实现映射（##5 或 ##6）")
+
+    # 测试接缝：新增章节（5.14+），旧模板没有 → 降级为 warning 不 block
+    has_test_seams = ('## 5. 测试接缝' in text) or ('## 6. 测试接缝' in text)
+    if not has_test_seams:
+        warnings.append("建议补充「测试接缝 (Test Seams)」章节（5.14+ 新增；旧模板可忽略）")
 
     # 残留模板变量
     if TEMPLATE_VAR.search(text):
