@@ -1,6 +1,6 @@
 {
   "name": "deliverhq",
-  "version": "5.15.1",
+  "version": "5.15.2",
   "description": "AI 交付防翻车治理框架 — 多 Agent 安装。三层定位(规范/纪律/执行)：文档驱动+可执行门禁+老项目逆向+loop可控+结构化Plan机检。",
   "author": "kevinwanghd",
   "license": "MIT",
