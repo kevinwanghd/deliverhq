@@ -192,10 +192,24 @@ def _has_gate_cache(cr_path: Path, verb: str) -> bool:
         # 该动词链里任一 gate 有 fingerprint 就算命中缓存
         verb_steps = VERBS.get(verb, [])
         gate_modules = [VERB_GATE_STEPS.get(s) for s in verb_steps if s in VERB_GATE_STEPS]
+        if not isinstance(gates, dict):
+            return False
+
+        def _norm(name: str) -> str:
+            # 归一化：去掉 gate 后缀与下划线，令 'specgate'/'spec'、
+            # 'pre_dev_gate'/'predev' 等写法互相匹配。
+            n = (name or "").lower().replace("_", "")
+            if n.endswith("gate"):
+                n = n[:-4]
+            return n
+
         for gm in gate_modules:
-            # gates 字段以 skill type 或 gate 模块名为键，两种都查
-            if isinstance(gates, dict):
-                for key, info in gates.items():
+            if not gm:
+                continue
+            gm_norm = _norm(gm)
+            # 只检查匹配当前 gm 的 key（gates 键可能是 skill type 或 gate 模块名）
+            for key, info in gates.items():
+                if _norm(key) == gm_norm:
                     if isinstance(info, dict) and info.get("fingerprint"):
                         return True
         return False
@@ -495,14 +509,20 @@ class SkillOrchestrator:
             cmd = [sys.executable, str(script_path), args_value]
 
         # Run skill script
-        result = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            encoding='utf-8',
-            errors='replace',
-            env=SUBPROCESS_ENV,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                encoding='utf-8',
+                errors='replace',
+                env=SUBPROCESS_ENV,
+                timeout=600,
+            )
+        except subprocess.TimeoutExpired:
+            # Gate 可能跑真实 build/test，给 600s；超时视为失败并返回。
+            print(f"❌ Skill timed out after 600s: {skill_type}")
+            return False
 
         if result.returncode == 0:
             print(f"✅ Skill completed successfully")

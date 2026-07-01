@@ -7,10 +7,15 @@ moves code.
 """
 
 import argparse
+import sys
 from pathlib import Path
 from typing import List
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    print('需要 PyYAML：pip install PyYAML')
+    sys.exit(2)
 
 from runtime_support import configure_console
 
@@ -119,6 +124,12 @@ def main():
     args = parser.parse_args()
 
     project_root = Path(args.project_root).resolve()
+    if not project_root.exists():
+        print('扫描目录不存在: %s' % project_root)
+        sys.exit(1)
+    if not project_root.is_dir():
+        print('不是目录: %s' % project_root)
+        sys.exit(1)
     deliverhq_dir = project_root / "DeliverHQ"
     out_dir = Path(args.out).resolve() if args.out else deliverhq_dir / "docs" / "reports"
 

@@ -144,7 +144,8 @@ def parse_gate_report(report_path: str):
     return {
         'cr_id': cr_id,
         'gate_type': gate_type,
-        'failure_reason': failure_reason[:200] + "..."
+        # 仅在实际截断时加省略号，避免短原因被误加 "..." 造成"被截断"的假象
+        'failure_reason': failure_reason[:200] + ("..." if len(failure_reason) > 200 else "")
     }
 
 
