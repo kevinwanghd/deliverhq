@@ -26,7 +26,10 @@ import re
 import sys
 from pathlib import Path
 
+from runtime_support import configure_console
+
 ROOT = Path(__file__).resolve().parent.parent
+configure_console()
 
 # 每轮必读的入口链（对应 AGENTS.md "Read order" 1-6 的稳定常驻部分 + SKILL 入口）。
 # CAPABILITY-MATRIX.md 是 read-order #8 的"能力状态唯一真相源"——按需查的 lookup，
