@@ -33,7 +33,7 @@ GATE_SCRIPTS = {
     "spec": "specgate.py",
     "design": "designgate.py",
     "architecture": "architecturegate.py",
-    "predev": "predev_gate.py",
+    "predev": "pre_dev_gate.py",
     "review": "reviewgate.py",
     "quality": "qualitygate.py",
     "deploy": "deploygate.py",

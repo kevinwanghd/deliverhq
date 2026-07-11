@@ -25,6 +25,19 @@ from runtime_support import configure_console
 
 ROOT = Path(__file__).resolve().parent.parent
 configure_console()
+
+_subprocess_run = subprocess.run
+
+
+def _run_subprocess_utf8(*args, **kwargs):
+    """Default text subprocess pipes to UTF-8 on every host locale."""
+    if kwargs.get("text") or kwargs.get("universal_newlines"):
+        kwargs.setdefault("encoding", "utf-8")
+        kwargs.setdefault("errors", "replace")
+    return _subprocess_run(*args, **kwargs)
+
+
+subprocess.run = _run_subprocess_utf8
 positional_args = [a for a in sys.argv[1:] if not a.startswith("--")]
 if positional_args:
     ROOT = Path(positional_args[0]).resolve()
