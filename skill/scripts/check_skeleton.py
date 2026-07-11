@@ -12,6 +12,7 @@ REQUIRED_FILES = [
     # 入口层
     "CLAUDE.md",
     "AGENTS.md",
+    "attention.md",
     "dir-graph.yaml",
     "README.md",
     ".ai-instructions",  # AI 平台集成指令
@@ -25,6 +26,9 @@ REQUIRED_FILES = [
     "docs/decisions.md",
     "docs/mistake-book.md",
     "docs/verification.md",
+    "notes/_index.md",
+    "inbox/README.md",
+    "journal/README.md",
 
     # 扫描报告
     "docs/reports/code-health-report.md",
@@ -64,6 +68,7 @@ REQUIRED_FILES = [
     "scripts/pre_dev_gate.py",
     "scripts/check_skeleton.py",
     "scripts/init_cr.py",
+    "scripts/deliver.py",
     "scripts/specgate.py",
     "scripts/designgate.py",
     "scripts/architecturegate.py",
@@ -82,6 +87,9 @@ REQUIRED_FILES = [
 REQUIRED_DIRS = [
     "docs",
     "docs/reports",
+    "notes",
+    "inbox",
+    "journal",
     "change-requests",
     "change-requests/CR-TEMPLATE",
     "change-requests/CR-TEMPLATE/design",

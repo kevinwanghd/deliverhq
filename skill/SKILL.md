@@ -181,7 +181,7 @@ license: 见仓库
 ### 最常用命令（动词收口，记 5 个动词即可）
 
 ```bash
-python scripts/workflow_router.py "用户请求"                 # 0. 可选：低噪路由建议
+python scripts/deliver.py route "用户请求" --json             # 0. 判 quick/standard/strict/legacy
 python scripts/init_cr.py CR-001 "需求名称" "提出人"         # 1. 建 CR（动词未覆盖的前置步骤）
 python scripts/skill_orchestrator.py verb <动词> change-requests/CR-001  # 2. 推进：spec/design/dev/verify/archive
 python scripts/specgate.py change-requests/CR-001/acceptance-spec.md     # 3. 也可单独跑某个底层门禁（调试/CI）

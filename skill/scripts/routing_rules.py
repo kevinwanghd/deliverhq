@@ -41,6 +41,12 @@ TRIGGER_KEYWORDS = [
 ]
 
 
+REJECT_KEYWORDS.extend(["typo", "spelling", "readme only", "small copy change"])
+HIGH_RISK_KEYWORDS.extend(["payment", "auth", "security", "production", "data migration", "billing"])
+PROTECTED_KEYWORDS.extend(["production config"])
+WRITING_CODE_KEYWORDS.extend(["add", "implement", "build", "refactor", "fix", "feature"])
+
+
 def has_any(text: str, keywords) -> bool:
     return any(keyword in text for keyword in keywords)
 

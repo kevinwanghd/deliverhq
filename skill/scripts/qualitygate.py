@@ -128,10 +128,22 @@ def _resolve_lane(cr_path, lane_override=None):
     return ensure_state(Path(cr_path)).lane
 
 
+def normalize_verification_command(command: str) -> str:
+    """Make manifest commands portable across Windows/macOS/Linux."""
+    stripped = (command or "").strip()
+    for launcher in ("python3", "python"):
+        if stripped == launcher:
+            return f'"{sys.executable}"'
+        if stripped.startswith(launcher + " "):
+            return f'"{sys.executable}" {stripped[len(launcher) + 1:]}'
+    return command
+
+
 def execute_verification_command(command, working_dir='.', timeout=300):
     """执行验证命令"""
 
     try:
+        command = normalize_verification_command(command)
         result = subprocess.run(
             command,
             shell=True,

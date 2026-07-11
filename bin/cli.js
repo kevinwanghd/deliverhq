@@ -415,6 +415,42 @@ function cmdSelftest(flags) {
   if (!result.ok) process.exit(1);
 }
 
+function cmdRoute(argv, flags) {
+  console.log(C.b('=== DeliverHQ route ==='));
+  const resolved = resolveSkillDir(flags);
+  if (!resolved) {
+    console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
+    process.exit(1);
+  }
+  printSkillDir(resolved);
+
+  const py = requirePythonWithPyYAML();
+  const script = path.join(resolved.skillDir, 'scripts', 'deliver.py');
+  if (!fs.existsSync(script)) {
+    console.log(C.r(`✗ 缺少轻入口: ${script}`));
+    process.exit(1);
+  }
+
+  const prompt = argv.join(' ').trim();
+  const args = [script, 'route'];
+  if (prompt) args.push(prompt);
+  if (flags.json) args.push('--json');
+
+  try {
+    const out = execFileSync(py.cmd, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: SELFTEST_MAX_BUFFER,
+      env: SUBPROCESS_ENV,
+    }).toString();
+    if (out.trim()) console.log(out.trim());
+  } catch (e) {
+    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
+    console.log(C.r('✗ route 失败'));
+    if (out.trim()) console.log(out.trim());
+    process.exit(1);
+  }
+}
+
 function help() {
   console.log(`DeliverHQ — AI 交付防翻车治理框架（多 Agent 安装器）
 
@@ -441,6 +477,9 @@ function help() {
   npx deliverhq selftest [--path <核心目录>] [--routing-eval]
       直接运行 selftest 并完整透传输出
 
+  npx deliverhq route "user request" [--path <core dir>] [--json]
+      Light entry: route natural language to quick/standard/strict/legacy
+
   npx deliverhq --version
       输出 npm 包版本
 
@@ -450,6 +489,7 @@ function help() {
   npx deliverhq init --target codex       # 写 .deliverhq/ + AGENTS.md 指针
   npx deliverhq init --target generic     # 任意 agent
   npx deliverhq init-project --profile fullstack-web
+  npx deliverhq route "refactor payment callback" --json
   npx deliverhq selftest --path .claude/skills/deliverhq
 
 说明:
@@ -466,6 +506,7 @@ async function main() {
   if (cmd === 'init-project') return cmdInitProject(flags);
   if (cmd === 'doctor') return cmdDoctor(flags);
   if (cmd === 'selftest') return cmdSelftest(flags);
+  if (cmd === 'route' || cmd === 'deliver') return cmdRoute(_.slice(1), flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));
   help();

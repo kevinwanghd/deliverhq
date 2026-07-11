@@ -29,6 +29,9 @@ npx deliverhq init --target generic
 
 # 验证健康度（检测 Python/PyYAML + 跑 selftest）
 npx deliverhq doctor
+
+# 轻入口：先判断 quick / standard / strict / legacy
+npx deliverhq route "refactor payment callback" --json
 ```
 
 | target | 落位 | 入口机制 |

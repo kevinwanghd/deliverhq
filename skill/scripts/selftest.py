@@ -195,7 +195,7 @@ def check_template_residue():
 def check_entry_files():
     """验证入口文件存在且非空"""
     section("4. 入口文件验证")
-    entries = ["SKILL.md", "AGENTS.md", "dir-graph.yaml", "docs/CONTEXT.md"]
+    entries = ["SKILL.md", "AGENTS.md", "attention.md", "dir-graph.yaml", "docs/CONTEXT.md", "notes/_index.md", "inbox/README.md", "journal/README.md"]
     all_ok = True
     for entry in entries:
         path = ROOT / entry
@@ -207,6 +207,68 @@ def check_entry_files():
             all_ok = False
         else:
             print(f"  {PASS} {entry} ({path.stat().st_size} bytes)")
+    return all_ok
+
+
+def check_light_entry_contract():
+    """Validate the free-flow style light entry and lane routing contract."""
+    section("4b. Light Entry / Lane Contract")
+    script = ROOT / "scripts" / "deliver.py"
+    if not script.exists():
+        print(f"  {FAIL} scripts/deliver.py missing")
+        return False
+
+    cases = [
+        ("fix a typo in README only", "quick", False, "quick_direct"),
+        ("add an order export feature", "standard", True, "deliver-standard"),
+        ("refactor payment auth callback in production", "strict", True, "deliver-strict"),
+        ("scan this legacy codebase and turn code into requirements", "legacy", True, "deliver-legacy"),
+    ]
+    all_ok = True
+    for prompt, lane, required, entry in cases:
+        result = subprocess.run(
+            [sys.executable, str(script), "route", prompt, "--json"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            cwd=str(ROOT),
+            env=SUBPROCESS_ENV,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} deliver.py failed for {prompt!r}: {result.stderr[:160]}")
+            all_ok = False
+            continue
+        try:
+            data = json.loads(result.stdout)
+        except Exception as exc:
+            print(f"  {FAIL} deliver.py returned non-JSON for {prompt!r}: {exc}")
+            all_ok = False
+            continue
+        actual = (data.get("lane"), bool(data.get("deliverhq_required")), data.get("entry"))
+        expected = (lane, required, entry)
+        if actual == expected:
+            print(f"  {PASS} {prompt!r} -> lane={lane}, entry={entry}")
+        else:
+            print(f"  {FAIL} {prompt!r}: expected={expected}, actual={actual}")
+            all_ok = False
+
+    lane_result = subprocess.run(
+        [sys.executable, str(script), "lanes"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(ROOT),
+        env=SUBPROCESS_ENV,
+    )
+    if lane_result.returncode == 0 and all(name in lane_result.stdout for name in ("quick", "standard", "strict", "legacy")):
+        print(f"  {PASS} lanes command lists all governance lanes")
+    else:
+        print(f"  {FAIL} lanes command missing expected lanes")
+        all_ok = False
     return all_ok
 
 
@@ -2113,6 +2175,7 @@ def main():
         results["contamination"] = check_contamination()
         results["template_residue"] = check_template_residue()
         results["entry_files"] = check_entry_files()
+        results["light_entry_contract"] = check_light_entry_contract()
         results["scripts_syntax"] = check_scripts_runnable()
         results["gate_availability"] = check_cr_template_gates()
         results["cr_state"] = check_cr_state_files()
