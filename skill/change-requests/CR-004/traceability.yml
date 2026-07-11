@@ -1,0 +1,64 @@
+schema: deliverhq-traceability
+version: 1
+
+CR-004:
+  requirement: "Modularize DeliverHQ runtime while preserving public behavior"
+  priority: "P1"
+  acceptance_criteria:
+    - "Shared execution preserves UTF-8 output and exit status"
+    - "Timeout and non-zero exits return deterministic results"
+    - "Public orchestrator and selftest behavior remains compatible"
+    - "Module dependencies remain one-way and Gate composition unchanged"
+  implementation:
+    - file: "skill/scripts/execution_runtime.py"
+      functions: ["ExecutionResult", "run_script"]
+    - file: "skill/scripts/gate_wrapper.py"
+      functions: ["main"]
+    - file: "skill/scripts/orchestrator_core.py"
+      functions: ["SkillOrchestrator"]
+    - file: "skill/scripts/orchestrator_routing.py"
+      functions: ["estimate_cost", "has_gate_cache", "analyze_cr_size", "route_situation"]
+    - file: "skill/scripts/skill_orchestrator.py"
+      functions: ["main"]
+    - file: "skill/scripts/selftest.py"
+      functions: ["main"]
+    - file: "skill/scripts/selftest_contracts/__init__.py"
+      functions: ["ALL_CONTRACTS"]
+    - file: "skill/scripts/selftest_contracts/core.py"
+      functions: ["CONTRACTS"]
+    - file: "skill/scripts/selftest_contracts/workflow.py"
+      functions: ["CONTRACTS"]
+    - file: "skill/scripts/selftest_contracts/governance.py"
+      functions: ["CONTRACTS"]
+    - file: "skill/scripts/selftest_contracts/suite.py"
+      functions: ["main"]
+  tests:
+    - file: "tests/test_runtime_modules.py"
+      cases:
+        - name: "ExecutionRuntimeTests"
+          covers: "验收条件 #1, 验收条件 #2"
+          type: "unit"
+        - name: "RuntimeAdoptionTests"
+          covers: "验收条件 #3, 验收条件 #4"
+          type: "contract"
+    - file: "tests/test_entrypoints.py"
+      cases:
+        - name: "CliEntrypointTests"
+          covers: "验收条件 #3"
+          type: "integration"
+  impact:
+    changed_files:
+      - "skill/scripts/execution_runtime.py"
+      - "skill/scripts/gate_wrapper.py"
+      - "skill/scripts/orchestrator_core.py"
+      - "skill/scripts/orchestrator_routing.py"
+      - "skill/scripts/skill_orchestrator.py"
+      - "skill/scripts/selftest.py"
+      - "skill/scripts/selftest_contracts/__init__.py"
+      - "skill/scripts/selftest_contracts/core.py"
+      - "skill/scripts/selftest_contracts/workflow.py"
+      - "skill/scripts/selftest_contracts/governance.py"
+      - "skill/scripts/selftest_contracts/suite.py"
+      - "tests/test_runtime_modules.py"
+    affected_modules: ["execution-runtime", "orchestrator", "selftest"]
+    related_tests: ["tests/test_runtime_modules.py", "tests/test_entrypoints.py"]

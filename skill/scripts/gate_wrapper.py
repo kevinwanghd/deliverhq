@@ -15,7 +15,6 @@ Gate Wrapper — Gate 执行包装器，集成缓存机制
 
 import sys
 sys.dont_write_bytecode = True
-import subprocess
 from pathlib import Path
 import os
 
@@ -24,6 +23,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from gate_cache import should_skip_gate, update_gate_fingerprint, invalidate_downstream_gates
+from execution_runtime import run_script
 from runtime_support import configure_console
 
 configure_console()
@@ -125,20 +125,19 @@ def main():
     print(f"{Color.BLUE}=== {gate_name.capitalize()}Gate 执行（缓存未命中或已失效） ==={Color.END}")
 
     # 执行 Gate
-    try:
-        result = subprocess.run(
-            [sys.executable, str(gate_script)] + gate_args,
-            env=os.environ,
-            timeout=300,
-        )
-    except subprocess.TimeoutExpired:
+    result = run_script(gate_script, gate_args, env=os.environ, timeout=300)
+    if result.stdout:
+        print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
+    if result.stderr:
+        print(result.stderr, file=sys.stderr, end="" if result.stderr.endswith("\n") else "\n")
+
+    if result.timed_out:
         print(f"{Color.RED}❌ {gate_name} Gate 执行超时（>300s），已中止{Color.END}")
-        # 超时视为失败，使下游缓存失效
         invalidate_downstream_gates(cr_path, gate_name)
         sys.exit(1)
 
     # 更新缓存
-    if result.returncode == 0:
+    if result.ok:
         # Gate 通过，更新 fingerprint
         update_gate_fingerprint(cr_path, gate_name, 'passed')
         print(f"{Color.BLUE}ℹ️  已更新 {gate_name} Gate 缓存{Color.END}")
