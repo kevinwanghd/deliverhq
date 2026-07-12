@@ -2,6 +2,23 @@
 
 > 由 Context Agent 产出。滑动窗口机制：最多携带 2 个阶段全文，阶段切换时必须更新本摘要。
 
+## Handoff Evidence
+
+```yaml
+schema: deliverhq-context-handoff
+version: 1
+current_phase: "{{current_phase}}"
+previous_phase: "{{previous_phase}}"
+full_context_phases: ["{{previous_phase}}", "{{current_phase}}"]
+input_hashes:
+  acceptance-spec.md: "{{sha256}}"
+sources:
+  - path: acceptance-spec.md
+    sha256: "{{sha256}}"
+excluded_approaches: []
+next_action: "{{next_action}}"
+```
+
 ## Current Phase
 {{当前阶段，如 implementation / test / quality}}
 

@@ -1,9 +1,12 @@
 import importlib
+import hashlib
 import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+import yaml
 
 
 sys.dont_write_bytecode = True
@@ -115,6 +118,118 @@ class RuntimeAdoptionTests(unittest.TestCase):
         package = SCRIPTS / "selftest_contracts"
         for name in ("core.py", "workflow.py", "governance.py"):
             self.assertTrue((package / name).is_file(), name)
+
+
+class BrownfieldPlanEvidenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.checker = importlib.import_module("plan_checker")
+
+    def write_plan(self, task):
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-plan-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        (root / "acceptance-spec.md").write_text("### AC-1: evidence\n", encoding="utf-8")
+        data = {
+            "schema": "deliverhq-plan", "version": 1, "project_mode": "brownfield",
+            "tasks": [task],
+        }
+        (root / "plan.yml").write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+        return root
+
+    def valid_task(self):
+        return {
+            "task_id": "T1", "goal": "extend route", "files": ["route.py"],
+            "read_files": ["existing.py"], "write_files": ["route.py"],
+            "reuse_checks": [{"intent": "reuse", "command": "rg route .", "result": "existing.py"}],
+            "destructive_change": {"detected": False, "signals": [], "reason": "additive change"},
+            "depends_on": [], "covers": ["AC-1"], "verify": "python -m unittest", "done": "test exits 0",
+        }
+
+    def test_valid_brownfield_evidence_passes(self):
+        passed, blockers, _ = self.checker.check_plan(str(self.write_plan(self.valid_task())))
+        self.assertTrue(passed, blockers)
+
+    def test_missing_reuse_evidence_blocks(self):
+        task = self.valid_task()
+        task["reuse_checks"] = []
+        passed, blockers, _ = self.checker.check_plan(str(self.write_plan(task)))
+        self.assertFalse(passed)
+        self.assertTrue(any("reuse_checks" in item for item in blockers))
+
+    def test_destructive_change_requires_reference_scan_and_approval(self):
+        task = self.valid_task()
+        task["goal"] = "rename public interface"
+        task["destructive_change"] = {"detected": True, "affected_interfaces": ["route"]}
+        passed, blockers, _ = self.checker.check_plan(str(self.write_plan(task)))
+        self.assertFalse(passed)
+        self.assertTrue(any("reference_scan" in item for item in blockers))
+        self.assertTrue(any("human_decision" in item for item in blockers))
+
+    def test_protected_write_requires_explicit_signal(self):
+        task = self.valid_task()
+        task["write_files"] = ["package.json"]
+        passed, blockers, _ = self.checker.check_plan(str(self.write_plan(task)))
+        self.assertFalse(passed)
+        self.assertTrue(any("protected-path" in item for item in blockers))
+
+
+class ContextHandoffEvidenceTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.gate = importlib.import_module("context_window_check")
+
+    def fixture(self, phases=None, stale=False):
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-context-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        source = root / "acceptance-spec.md"
+        source.write_text("spec\n", encoding="utf-8")
+        digest = hashlib.sha256(source.read_bytes()).hexdigest()
+        if stale:
+            digest = "0" * 64
+        phases = phases or ["spec", "dev"]
+        text = """## Handoff Evidence
+```yaml
+schema: deliverhq-context-handoff
+version: 1
+current_phase: dev
+previous_phase: spec
+full_context_phases: %s
+input_hashes:
+  acceptance-spec.md: "%s"
+sources:
+  - path: acceptance-spec.md
+    sha256: "%s"
+excluded_approaches:
+  - approach: duplicate scanner
+    reason: reuse legacy scan
+next_action: implement tests
+```
+""" % (yaml.safe_dump(phases, default_flow_style=True).strip(), digest, digest)
+        return root, text
+
+    def test_current_handoff_evidence_passes(self):
+        root, text = self.fixture()
+        blockers, warnings = self.gate.validate_handoff_evidence(text, root)
+        self.assertEqual([], blockers)
+        self.assertEqual([], warnings)
+
+    def test_stale_hash_blocks(self):
+        root, text = self.fixture(stale=True)
+        blockers, _ = self.gate.validate_handoff_evidence(text, root)
+        self.assertTrue(any("hash stale" in item for item in blockers))
+
+    def test_more_than_two_full_phases_blocks(self):
+        root, text = self.fixture(phases=["spec", "design", "dev"])
+        blockers, _ = self.gate.validate_handoff_evidence(text, root)
+        self.assertTrue(any("最多 2" in item for item in blockers))
+
+
+    def test_phase_outside_window_blocks(self):
+        root, text = self.fixture(phases=["spec", "design"])
+        blockers, _ = self.gate.validate_handoff_evidence(text, root)
+        self.assertTrue(any("current_phase" in item for item in blockers))
 
 
 if __name__ == "__main__":

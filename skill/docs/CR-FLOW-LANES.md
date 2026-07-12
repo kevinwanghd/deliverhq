@@ -149,17 +149,14 @@ gates:
 
 ---
 
-## 实现方式
+## 实现状态
 
-### 1. init_cr.py 增加 --lane 参数
+- `init_cr.py --lane fast|standard|high-risk`：已实现。
+- `lane_advisor.py` 与 `pre_dev_gate.py --suggest-lane`：已实现，建议器不替代人工决定。
+- `deliverhq route --json`：已输出 required/skipped Gates、成本区间、影响因素与置信度。
+- 各 Gate 根据 lane 的深度差异仍以 Capability Matrix 的实际状态为准，不在本文重复承诺。
 
-### 2. pre_dev_gate.py 根据 Lane 决定检查项
-
-### 3. 各 Gate 支持 Lane 模式
-
-- SpecGate 增加 `--mode fast|standard|strict`
-- QualityGate 根据 Lane 调整覆盖率阈值
-- ReviewGate 根据 Lane 决定是否对抗式审查
+路由估算只用于选择治理成本；是否放行仍由确定性 Gate 和人工高风险确认决定。
 
 ---
 
@@ -172,5 +169,4 @@ gates:
 
 ---
 
-**状态**: ✅ 设计完成  
-**下一步**: 实现 init_cr.py 的 --lane 参数和 metadata.yml 支持
+**状态**: ✅ Lane 初始化、建议与轻路由已实现；细粒度 Gate 深度按能力矩阵持续演进。

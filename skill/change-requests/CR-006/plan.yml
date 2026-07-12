@@ -1,0 +1,92 @@
+schema: deliverhq-plan
+version: 1
+cr_id: CR-006
+goal: 深化现有 Legacy Scan，交付证据化 Bootstrap、可解释轻路由、Brownfield 计划证据与可恢复 Context Handoff
+project_mode: brownfield
+
+tasks:
+  - task_id: T1
+    goal: 组合现有 Legacy Scan 并暴露默认只读的 bootstrap CLI
+    files:
+      - skill/scripts/bootstrap_project.py
+      - bin/cli.js
+      - tests/test_entrypoints.py
+      - tests/test_runtime_modules.py
+    read_files: [skill/scripts/scan_legacy.py, skill/scripts/scan_legacy_structure.py, bin/cli.js, tests/test_entrypoints.py]
+    write_files: [skill/scripts/bootstrap_project.py, bin/cli.js, tests/test_entrypoints.py, tests/test_runtime_modules.py]
+    reuse_checks:
+      - {intent: 复用现有 Legacy Scan, command: "rg 'def (detect_tech_stack|collect_findings)' skill/scripts/scan_legacy*.py", result: "detect_tech_stack 与 collect_findings 可直接复用"}
+    destructive_change: {detected: false, signals: [], reason: 新增 additive CLI 与 Facade, affected_interfaces: [], reference_scan: [], human_decision: {status: not-required}}
+    depends_on: []
+    covers: [AC-1, AC-2]
+    verify: python -m unittest tests.test_entrypoints tests.test_runtime_modules
+    done: bootstrap 报告可复现且 apply 不覆盖已有人工文件
+
+  - task_id: T2
+    goal: 扩展现有路由决定，返回 Gate 计划、成本区间和置信度
+    files:
+      - skill/scripts/deliver.py
+      - tests/test_runtime_modules.py
+    read_files: [skill/deliverhq/routing.py, skill/scripts/deliver.py, skill/scripts/routing_rules.py]
+    write_files: [skill/scripts/deliver.py, tests/test_runtime_modules.py]
+    reuse_checks:
+      - {intent: 复用现有 lane classifier, command: "rg 'route_request|normalize_lane' skill", result: "扩展 deliver.py build_decision，不另建路由器"}
+    destructive_change: {detected: false, signals: [], reason: JSON additive fields, affected_interfaces: [], reference_scan: [], human_decision: {status: not-required}}
+    depends_on: [T1]
+    covers: [AC-3]
+    verify: python -m unittest tests.test_runtime_modules
+    done: 三类 lane 输出完整成本和 Gate 计划且旧字段兼容
+
+  - task_id: T3
+    goal: 为计划任务增加读写范围、复用搜索和破坏性变更证据校验
+    files:
+      - skill/scripts/plan_checker.py
+      - skill/change-requests/CR-TEMPLATE/plan.yml
+      - tests/test_runtime_modules.py
+    read_files: [skill/scripts/plan_checker.py, skill/change-requests/CR-TEMPLATE/plan.yml, skill/dir-graph.yaml]
+    write_files: [skill/scripts/plan_checker.py, skill/change-requests/CR-TEMPLATE/plan.yml, tests/test_runtime_modules.py]
+    reuse_checks:
+      - {intent: 复用 PlanChecker seam, command: "rg 'def check_plan' skill/scripts/plan_checker.py", result: "在既有 checker 增加 brownfield evidence section"}
+    destructive_change: {detected: false, signals: [], reason: 仅扩展 plan schema 校验，不删除或修改公共 runtime interface, affected_interfaces: [], reference_scan: [], human_decision: {status: not-required}}
+    depends_on: [T2]
+    covers: [AC-4, AC-5]
+    verify: python -m unittest tests.test_runtime_modules
+    done: Brownfield 和破坏性变更正反例具有确定性退出结果
+
+  - task_id: T4
+    goal: 为 Context Handoff 增加来源哈希、两阶段窗口和恢复信息校验
+    files:
+      - skill/scripts/context_window_check.py
+      - skill/change-requests/CR-TEMPLATE/context-summary.md
+      - tests/test_runtime_modules.py
+    read_files: [skill/scripts/context_window_check.py, skill/change-requests/CR-TEMPLATE/context-summary.md, skill/scripts/runtime_support.py]
+    write_files: [skill/scripts/context_window_check.py, skill/change-requests/CR-TEMPLATE/context-summary.md, tests/test_runtime_modules.py]
+    reuse_checks:
+      - {intent: 复用 ContextWindowGate, command: "rg 'def check_context_window' skill/scripts/context_window_check.py", result: "在现有 Gate 增加 YAML evidence block"}
+    destructive_change: {detected: false, signals: [], reason: 向后兼容扩展 Gate schema, affected_interfaces: [], reference_scan: [], human_decision: {status: not-required}}
+    depends_on: [T3]
+    covers: [AC-6]
+    verify: python -m unittest tests.test_runtime_modules
+    done: 正常、哈希漂移和阶段超窗 fixture 均返回预期结果
+
+  - task_id: T5
+    goal: 同步用户文档、能力状态、CR 证据并执行全量验收
+    files:
+      - README.md
+      - skill/CAPABILITY-MATRIX.md
+      - skill/capabilities.yml
+      - skill/docs/CR-FLOW-LANES.md
+      - skill/change-requests/CR-006
+      - CHANGELOG.md
+      - package.json
+      - skill/docs/PRD.md
+      - skill/docs/CONTEXT.md
+    read_files: [README.md, skill/CAPABILITY-MATRIX.md, skill/capabilities.yml, skill/docs/CR-FLOW-LANES.md]
+    write_files: [README.md, skill/CAPABILITY-MATRIX.md, skill/capabilities.yml, skill/docs/CR-FLOW-LANES.md, skill/docs/PRD.md, skill/docs/CONTEXT.md, skill/change-requests/CR-006, CHANGELOG.md, package.json]
+    reuse_checks:
+      - {intent: 复用能力矩阵生成机制, command: "rg 'BEGIN GENERATED CAPABILITIES' skill/CAPABILITY-MATRIX.md", result: "更新 capabilities.yml 后用现有生成流程同步"}
+    destructive_change: {detected: false, signals: [protected-path], reason: 文档、CR 证据与 npm 发布清单显式化；不删除仓库文件或公共接口, affected_interfaces: [], reference_scan: [], human_decision: {status: approved, by: Kevin, date: 2026-07-12}}
+    depends_on: [T4]
+    covers: [AC-1, AC-2, AC-3, AC-4, AC-5, AC-6]
+    verify: python skill/scripts/selftest.py skill
+    done: 文档与能力矩阵一致且全量测试、Gate、打包检查通过

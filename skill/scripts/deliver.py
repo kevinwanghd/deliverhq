@@ -37,6 +37,55 @@ LEGACY_HINTS = (
     "lao xiang mu",
 )
 
+GATE_PLANS = {
+    "quick": {
+        "required": ["specgate", "qualitygate"],
+        "skipped": ["designgate", "architecturegate", "permissiongate", "deploygate", "writebackgate"],
+        "minutes": (5, 15), "tokens": (4000, 12000),
+    },
+    "standard": {
+        "required": ["specgate", "architecturegate", "predevgate", "reviewgate", "qualitygate", "writebackgate"],
+        "skipped": ["permissiongate"],
+        "minutes": (20, 60), "tokens": (15000, 45000),
+    },
+    "strict": {
+        "required": ["specgate", "designgate", "architecturegate", "predevgate", "permissiongate", "reviewgate", "qualitygate", "deploygate", "writebackgate"],
+        "skipped": [],
+        "minutes": (45, 120), "tokens": (35000, 90000),
+    },
+    "legacy": {
+        "required": ["reversespecgate", "specgate", "architecturegate", "reviewgate", "qualitygate", "writebackgate"],
+        "skipped": [],
+        "minutes": (30, 90), "tokens": (25000, 70000),
+    },
+}
+
+
+def route_execution_plan(lane, prompt):
+    plan = GATE_PLANS.get(lane, GATE_PLANS["standard"])
+    lower = prompt.lower()
+    factors = [f"lane:{lane}"]
+    multiplier = 1.0
+    if any(term in lower for term in ("ui", "页面", "前端", "mobile", "design")):
+        multiplier += 0.2
+        factors.append("user-visible-ui:+20%")
+    if any(term in lower for term in ("schema", "migration", "数据库", "迁移")):
+        multiplier += 0.1
+        factors.append("schema-change:+10%")
+    minutes = [round(value * multiplier) for value in plan["minutes"]]
+    tokens = [round(value * multiplier) for value in plan["tokens"]]
+    return {
+        "required_gates": list(plan["required"]),
+        "skipped_gates": list(plan["skipped"]),
+        "estimated_cost": {
+            "time_minutes": minutes,
+            "token_range": tokens,
+            "confidence": "medium",
+            "factors": factors,
+            "note": "Heuristic range; calibrate with observed runs.",
+        },
+    }
+
 
 def normalize_lane(decision, prompt):
     lower = prompt.lower()
@@ -106,9 +155,16 @@ def build_decision(prompt):
         base["next_action"] = "scan_legacy"
         base["reason"] = "Legacy/code-to-spec request; scan existing code before trusting requirements."
     entry = recommend_entry(base, lane)
+    execution = route_execution_plan(lane, prompt)
+    governance_lane = {
+        "quick": "fast", "standard": "standard",
+        "strict": "high-risk", "legacy": "legacy",
+    }[lane]
     return {
         "prompt": prompt,
         "lane": lane,
+        "governance_lane": governance_lane,
+        "confidence": execution["estimated_cost"]["confidence"],
         "deliverhq_required": bool(base.get("deliverhq_required")),
         "workflow_type": base.get("workflow_type"),
         "adversarial_required": bool(base.get("adversarial_required") or lane == "strict"),
@@ -118,6 +174,7 @@ def build_decision(prompt):
         "entry": entry["entry"],
         "recommended_command": entry["command"],
         "summary": entry["summary"],
+        **execution,
         "read_first": [
             "DeliverHQ/attention.md",
             "DeliverHQ/REPO_MAP.md",
@@ -140,6 +197,11 @@ def print_human(decision):
     print(f"  adversarial review: {decision['adversarial_required']}")
     print(f"  reason: {decision['reason']}")
     print(f"  next: {decision['summary']}")
+    estimate = decision["estimated_cost"]
+    print(f"  gates: {', '.join(decision['required_gates']) or 'none'}")
+    print(f"  estimate: {estimate['time_minutes'][0]}-{estimate['time_minutes'][1]} min, "
+          f"{estimate['token_range'][0]/1000:.0f}k-{estimate['token_range'][1]/1000:.0f}k tokens "
+          f"({estimate['confidence']} confidence)")
     if decision["recommended_command"]:
         print(f"  command: {decision['recommended_command']}")
 

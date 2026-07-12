@@ -1,0 +1,27 @@
+# sub-crs.yml — Epic 子任务清单
+#
+# 由 create_sub_cr.py 自动维护。
+# 人工可修改 title/depends_on，不要手动修改 id 和 status。
+#
+# 用法：
+#   python3 scripts/create_sub_cr.py CR-006 --title "子任务名称"
+#   python3 scripts/create_sub_cr.py CR-006 --list
+#   python3 scripts/create_sub_cr.py CR-006 --status
+
+epic: "CR-006"
+title: "Bootstrap、Lane 成本提示与 Context 证据强化"
+created_at: "{{DATE}}"
+
+sub_crs: []
+  # 示例（由 create_sub_cr.py 自动添加）：
+  # - id: CR-006-01
+  #   title: "子任务 1"
+  #   status: pending       # pending / in_progress / completed
+  #   depends_on: []
+  #   created_at: "..."
+  #
+  # - id: CR-006-02
+  #   title: "子任务 2"
+  #   status: pending
+  #   depends_on: [CR-006-01]
+  #   created_at: "..."

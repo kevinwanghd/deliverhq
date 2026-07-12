@@ -34,6 +34,20 @@ npx deliverhq doctor
 npx deliverhq route "refactor payment callback" --json
 ```
 
+### 老项目首次入场
+
+先做只读 Bootstrap。它复用 DeliverHQ 现有 Legacy Scan，发现 AGENTS/CLAUDE/架构文档、技术栈、项目命令和既有抽象；每条 confirmed 发现都带路径与 SHA-256 证据。
+
+```bash
+# 默认 report-only，不写宿主仓库
+npx deliverhq bootstrap --path . --json
+
+# 人工审查后生成 DeliverHQ/*.candidate 文件；绝不覆盖已有人工文件
+npx deliverhq bootstrap --path . --apply
+```
+
+`route --json` 同时返回推荐 lane、required/skipped Gates、时间与 token 区间、估算因素和置信度。估算是可解释区间，不是假装精确的账单。
+
 | target | 落位 | 入口机制 |
 |--------|------|---------|
 | `claude` | `.claude/skills/deliverhq/` | SKILL.md frontmatter 自动发现 |

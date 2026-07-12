@@ -1,0 +1,21 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "context",
+  "result": "pass",
+  "timestamp": "2026-07-12T23:06:35.708678",
+  "blocking_items": [],
+  "warnings": [
+    "滑动窗口建议最多 2 个阶段全文"
+  ],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "进入 PreDevGate",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "dev",
+    "current_phase": "context",
+    "current_owner": "context-agent",
+    "requires_human": true,
+    "worktree_path": null
+  }
+}

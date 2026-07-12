@@ -1,0 +1,35 @@
+cr_id: CR-006
+title: Bootstrap、Lane 成本提示与 Context 证据强化
+lane: high-risk
+current_state: archived
+current_phase: writeback
+current_owner: writeback-agent
+goal: 交付证据优先的 brownfield bootstrap、可解释路由、计划证据与可恢复 Context Handoff
+current_plan: plan.yml
+completed_steps:
+- T1
+- T2
+- T3
+- T4
+- T5
+blocking_reason: null
+blocked_by: []
+last_gate: writeback
+next_gate: null
+next_required_gate: null
+requires_human: true
+worktree_path: null
+gate_status:
+  spec: pass
+  architecture: pass
+  context: pass
+  permission: pass
+  pre_dev: pass
+  review: pass
+  quality: pass
+  writeback: pass
+created_at: '2026-07-12T22:30:15.616243'
+updated_at: '2026-07-12T23:13:42.386352'
+started_at: '2026-07-12T22:30:15.616264'
+completed_at: '2026-07-12T23:13:42.386352'
+transitions: []

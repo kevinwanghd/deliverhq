@@ -1,0 +1,48 @@
+schema: deliverhq-goal-contract
+version: 1
+cr_id: CR-006
+goal: 交付证据优先的 brownfield bootstrap、可解释治理路由、计划证据校验与可恢复 Context Handoff
+success_criteria:
+  metrics:
+    - {id: tests_pass, command: "python -m unittest discover -s ../tests", expect: exit_zero}
+    - {id: selftest_ok, command: "python scripts/selftest.py", expect: exit_zero}
+  invariants:
+    - tests_not_reduced
+    - coverage_threshold_not_lowered
+    - gate_scripts_unmodified
+    - no_disabled_assertions
+verification_commands:
+  - "python scripts/reviewgate.py change-requests/CR-006"
+  - "python scripts/qualitygate.py change-requests/CR-006 --mode hybrid --lane high-risk"
+boundaries:
+  allowed_paths:
+    - "CHANGELOG.md"
+    - "README.md"
+    - "bin/cli.js"
+    - "package.json"
+    - "skill/CAPABILITY-MATRIX.md"
+    - "skill/capabilities.yml"
+    - "skill/change-requests/CR-006/**"
+    - "skill/change-requests/CR-TEMPLATE/context-summary.md"
+    - "skill/change-requests/CR-TEMPLATE/plan.yml"
+    - "skill/docs/CONTEXT.md"
+    - "skill/docs/CR-FLOW-LANES.md"
+    - "skill/docs/PRD.md"
+    - "skill/scripts/bootstrap_project.py"
+    - "skill/scripts/context_window_check.py"
+    - "skill/scripts/deliver.py"
+    - "skill/scripts/plan_checker.py"
+    - "tests/test_entrypoints.py"
+    - "tests/test_runtime_modules.py"
+  forbidden_actions:
+    - 删除或跳过测试以制造通过
+    - 降低质量阈值
+    - 覆盖已有人工 CONTEXT.md
+    - 将未带路径和哈希的推断标记为 confirmed
+on_failure:
+  max_retries: 3
+  retry_requires_new_hypothesis: true
+  on_exhausted: needs_human
+escalate_to_human_when:
+  - 反钻空子不变量被破坏
+  - high-risk 受保护路径未经批准

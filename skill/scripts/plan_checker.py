@@ -54,6 +54,14 @@ SUBJECTIVE_TERMS = [
     "looks correct", "looks good", "looks right", "seems to work", "should work",
     "works as expected", "看起来", "应该没问题", "差不多", "大概率", "感觉",
 ]
+DESTRUCTIVE_TERMS = (
+    "delete", "remove", "rename", "migration", "schema", "public api", "public interface",
+    "删除", "移除", "重命名", "迁移", "公共接口", "公开接口",
+)
+PROTECTED_WRITE_NAMES = {
+    "package.json", "pyproject.toml", "requirements.txt", ".env",
+    "schema.sql", "openapi.yml", "openapi.yaml",
+}
 
 
 def _is_noop_verify(verify):
@@ -182,6 +190,7 @@ def check_plan(arg):
         return False, [error], None
 
     tasks = data.get("tasks", []) or []
+    project_mode = str(data.get("project_mode", "unspecified")).lower()
     blockers = []
     warnings = []
 
@@ -210,6 +219,60 @@ def check_plan(arg):
             print("%s  ✗ %s%s" % (Color.RED, b, Color.END))
 
     tasks_by_id = {t.get("task_id"): t for t in tasks if t.get("task_id")}
+
+    # 1a. Brownfield 证据：阅读计划、修改边界、复用搜索、破坏性变更声明。
+    print("\n%s[1a. Brownfield 证据]%s" % (Color.BLUE, Color.END))
+    evidence_issues = []
+    if project_mode == "brownfield":
+        for t in tasks:
+            tid = t.get("task_id") or "(无ID)"
+            read_files = t.get("read_files") or []
+            write_files = t.get("write_files") or t.get("files") or []
+            if not read_files:
+                evidence_issues.append("%s 缺 read_files 阅读计划" % tid)
+            if not write_files:
+                evidence_issues.append("%s 缺 write_files 修改边界" % tid)
+            checks = t.get("reuse_checks") or []
+            if not checks:
+                evidence_issues.append("%s 缺 reuse_checks 既有抽象搜索证据" % tid)
+            else:
+                for check in checks:
+                    if not isinstance(check, dict) or not all(check.get(key) for key in ("intent", "command", "result")):
+                        evidence_issues.append("%s 的 reuse_checks 必须含 intent/command/result" % tid)
+            destructive = t.get("destructive_change")
+            if not isinstance(destructive, dict) or not isinstance(destructive.get("detected"), bool):
+                evidence_issues.append("%s 缺 destructive_change.detected 布尔声明" % tid)
+                continue
+            text = " ".join(str(t.get(key, "")) for key in ("goal", "action")).lower()
+            semantic_risk = any(term in text for term in DESTRUCTIVE_TERMS)
+            protected_writes = [
+                path for path in write_files
+                if Path(str(path)).name.lower() in PROTECTED_WRITE_NAMES
+            ]
+            signals = destructive.get("signals") or []
+            if protected_writes and "protected-path" not in signals:
+                evidence_issues.append(
+                    "%s writes protected paths but lacks destructive_change.signals protected-path: %s"
+                    % (tid, ", ".join(protected_writes))
+                )
+            if semantic_risk and not destructive.get("detected") and not destructive.get("reason"):
+                evidence_issues.append("%s 含破坏性语义但 detected=false 且缺 reason" % tid)
+            if destructive.get("detected"):
+                if not destructive.get("affected_interfaces"):
+                    evidence_issues.append("%s 破坏性变更缺 affected_interfaces" % tid)
+                if not destructive.get("reference_scan"):
+                    evidence_issues.append("%s 破坏性变更缺 reference_scan" % tid)
+                decision = destructive.get("human_decision") or {}
+                if decision.get("status") != "approved":
+                    evidence_issues.append("%s 破坏性变更缺 approved human_decision" % tid)
+    if evidence_issues:
+        for issue in evidence_issues:
+            print("%s  ✗ %s%s" % (Color.RED, issue, Color.END))
+        blockers.extend(evidence_issues)
+    elif project_mode == "brownfield":
+        print("%s  ✓ read/write、复用搜索和破坏性变更证据完整%s" % (Color.GREEN, Color.END))
+    else:
+        print("%s  ✓ 非 brownfield plan，跳过专项证据%s" % (Color.GREEN, Color.END))
 
     # 1b. GSD 写作约束：verify 可判定 / done 无主观语言 / goal·action 不内嵌大段代码
     print("\n%s[1b. 写作约束 (GSD)]%s" % (Color.BLUE, Color.END))
@@ -269,7 +332,7 @@ def check_plan(arg):
     cache = {}
     file_map = {}
     for t in tasks:
-        for f in (t.get("files", []) or []):
+        for f in (t.get("write_files") or t.get("files") or []):
             file_map.setdefault(f, []).append(t.get("task_id"))
     conflict = False
     for f, owners in file_map.items():
@@ -290,7 +353,7 @@ def check_plan(arg):
 
     # 5. 粒度告警
     for t in tasks:
-        nf = len(t.get("files", []) or [])
+        nf = len(t.get("write_files") or t.get("files") or [])
         if nf > GRANULARITY_FILE_LIMIT:
             warnings.append("%s 改 %d 个文件，建议拆细" % (t.get("task_id"), nf))
 

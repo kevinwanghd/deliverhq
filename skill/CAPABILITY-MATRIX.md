@@ -21,7 +21,7 @@
 | CR 状态机 | scripts/cr_state.py | stable | integrated | true | true | 管理 lane/phase/next_required_gate/evidence |
 | SpecGate | scripts/specgate.py | stable | integrated | true | true | 验收规格 fail-closed 检查 |
 | DesignGate | scripts/designgate.py | experimental | integrated | true | true | UI/设计产物检查，后端项目需 metadata 声明跳过 |
-| ContextWindowGate | scripts/context_window_check.py | experimental | integrated | true | true | 当前主要检查摘要存在和上下文纪律，schema 化仍是后续项 |
+| ContextWindowGate | scripts/context_window_check.py | experimental | integrated | true | true | 校验 context-summary 结构、最多两阶段全文、来源 SHA-256、已排除方案与 next_action；旧摘要 warning-first |
 | PermissionGate | scripts/permissiongate.py | experimental | integrated | false | true | 最小权限边界检查；依赖 git status/protected_paths/人工例外，不能视为深度自动化安全能力 |
 | PreDevGate | scripts/pre_dev_gate.py | stable | integrated | true | true | 开发前真实门禁；通过后进入 DevPhase，不直接进入 Review；`--suggest-lane` 调 lane_advisor 给客观规模建议 |
 | DevPhase Handoff | scripts/dev_phase.py | stable | integrated | true | true | 运行/确认 PreDevGate、检查 worktree、输出开发上下文；不自动写代码 |
@@ -46,15 +46,15 @@
 | Goal Contract（loop 目标契约） | scripts/goal_contract.py | experimental | integrated | false | true | 五段式目标契约校验；完成标准=指标+不变量双轨，缺 invariants→BLOCK（防 Goodhart）；selftest 有契约（loop_control_contract） |
 | 反钻空子检查（Anti-Gaming） | scripts/anti_gaming_check.py | experimental | integrated | false | true | 从 git diff 客观检测：删测试/禁用断言/降阈值/改门禁脚本/超范围 → BLOCK；不询问 Agent 自评 |
 | 重试守卫（Retry Guard） | scripts/retry_guard.py | experimental | integrated | false | false | 同类失败（复用 failure_attribution 归因）达 max_retries → needs_human；拒绝原地重复假设 |
-| PlanChecker（执行层） | scripts/plan_checker.py | experimental | integrated | false | true | 机检 plan.yml：task 粒度/verify/done/依赖/文件冲突/AC 覆盖；派生 wave；selftest 有契约。Worker=Dev Agent、Verifier=ReviewGate（不新增角色） |
+| PlanChecker（执行层） | scripts/plan_checker.py | experimental | integrated | false | true | 机检 plan.yml：task 粒度/依赖/文件冲突/AC 覆盖；brownfield 强制 read/write、复用搜索和破坏性变更证据；派生 wave |
 | 证据补全 Loop（执行层） | scripts/evidence_loop.py | experimental | integrated | false | true | 可恢复 loop：扫 CR 缺哪些 evidence(spec/traceability/changed-files/manifest/test-plan)→列 gaps+next_action→写回 needs_human。复用 cr_state/reviewgate口径/write_gate_evidence，不新增 Agent；selftest 有契约 |
 | Gate JSON Output | scripts/gate_json_output.py + scripts/runtime_support.py | experimental | integrated | false | false | 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer |
 | Dynamic Workflows / Tournament / Fan-out | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 不得在入口文档承诺为可用能力 |
-| Scout / Repo Harness | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 规划项 |
+| Scout / Repo Harness | scripts/bootstrap_project.py + scripts/scan_legacy.py + scripts/scan_legacy_structure.py | experimental | integrated | false | false | deliverhq bootstrap 组合现有 Legacy Scan，发现已有上下文、命令和抽象并附 path/hash 证据；默认只读，apply 只建候选文件 |
 | PRD 层（产品意图唯一来源） | docs/PRD.md | experimental | integrated | true | false | 产品意图唯一来源，薄/给人看/仅人工维护；功能锚点 `[PRD-XXX]` 是 CR 挂载点；CR 用 derived_from 回指 |
 | PRD↔CR 对账（DriftCheck） | scripts/drift_check.py | experimental | integrated | true | true | 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate 检查9 复用同逻辑，warning-first |
 | Project Structure Governance | scripts/init_project_structure.py + scripts/structuregate.py + structure-profiles/fullstack-web.yml | experimental | integrated | false | false | opt-in 初始化 AI 友好/人类易复查目录契约；默认不生成业务代码，不进入默认阻断链路 |
-| Lane Advisor（客观规模分档） | scripts/lane_advisor.py | experimental | integrated | false | false | 借 GSD 客观阈值 + BMAD Quick Flow；按 changed_files/ac_count/敏感域给 lane 建议（fast/standard/high-risk）或建议拆 CR；建议器非 Gate，pre_dev_gate --suggest-lane 调用，最终 lane 仍由 state.yml 决定 |
+| Lane Advisor（客观规模分档） | scripts/lane_advisor.py | experimental | integrated | false | false | 按 changed_files/ac_count/敏感域给 lane 建议；轻入口同时返回 required/skipped Gates、时间/token 区间、因素与置信度 |
 | STATE 指针（借 Pocock /handoff） | scripts/handoff_state.py | experimental | integrated | false | false | 从各 CR 的 state.yml 汇总刷新极小 `STATE.md`（每轮必读），长会话/compaction 后重建治理上下文；agent 无关、零 hook，替代 SessionStart hook（避免 per-harness shim 膨胀） |
 | Legacy Structure Scan | scripts/scan_legacy_structure.py | experimental | integrated | false | false | 只读扫描老项目目录结构，生成 structure-assessment-report.md 与 STRUCTURE-PROFILE.candidate.yml；不搬目录不改源码 |
 | ArchitectureGate（架构确认门禁） | scripts/architecturegate.py | experimental | integrated | true | true | 第二道人工门禁；编码前必须有 architecture-design.md 并人工确认；缺章节或残留 {{}} → BLOCKED |

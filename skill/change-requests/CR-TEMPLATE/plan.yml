@@ -20,11 +20,22 @@ version: 1
 
 cr_id: "{{CR-ID}}"
 goal: "{{这个 CR 的总目标，与 goal-contract.yml 的 goal 一致}}"
+project_mode: greenfield  # greenfield | brownfield
 
 tasks:
   - task_id: "T1"
     goal: "{{该任务要达成什么，单个 Agent 可独立完成的粒度}}"
     files: []                 # 该任务将修改的文件（用于文件冲突检测）
+    read_files: []            # brownfield 阅读计划；超出时记录理由
+    write_files: []           # 硬修改边界；实际 diff 不得越界
+    reuse_checks: []          # brownfield: [{intent, command, result}]
+    destructive_change:
+      detected: false
+      signals: []
+      reason: ""
+      affected_interfaces: []
+      reference_scan: []
+      human_decision: {status: not-required}
     depends_on: []             # 依赖的 task_id 列表，无依赖留空
     covers: []                 # 覆盖的验收条件 ID，如 ["AC-1", "AC-2"]
     verify: ""                 # 验收命令，如 "pytest tests/test_todos.py::test_create"
