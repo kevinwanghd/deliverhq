@@ -23,42 +23,35 @@ capability_tiers.py —— 能力调用分层（借 Matt Pocock 双轴调用模�
 
 import argparse
 import json
-import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MATRIX = ROOT / "CAPABILITY-MATRIX.md"
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from deliverhq.capabilities import RegistryError, load_registry  # noqa: E402
 
 
 def parse_matrix(text=None):
-    """解析 CAPABILITY-MATRIX.md 的能力表，返回 [{name,status,default_enabled,...}]。"""
-    if text is None:
-        text = MATRIX.read_text(encoding="utf-8")
-    rows = []
-    for line in text.splitlines():
-        s = line.strip()
-        if not s.startswith("|"):
-            continue
-        cells = [c.strip() for c in s.strip("|").split("|")]
-        if len(cells) < 6:
-            continue
-        name = cells[0]
-        # 跳过表头与分隔行
-        if name in ("能力", "") or set(name) <= {"-", ":"}:
-            continue
-        status = cells[2]
-        if status not in ("stable", "experimental", "placeholder", "roadmap"):
-            continue  # 非能力行
-        rows.append({
-            "name": name,
-            "script": cells[1],
-            "status": status,
-            "integrated": cells[3],
-            "default_enabled": cells[4].lower() == "true",
-            "allowed_in_pipeline": cells[5].lower() == "true",
-        })
-    return rows
+    """Return capability rows from the YAML registry.
+
+    The optional ``text`` parameter is kept for backward-compatible callers,
+    but Markdown is no longer parsed as a data source.
+    """
+    return [
+        {
+            "id": record.id,
+            "name": record.name,
+            "script": record.script,
+            "status": record.status,
+            "integrated": record.integrated,
+            "default_enabled": record.default_enabled,
+            "allowed_in_pipeline": record.allowed_in_pipeline,
+            "description": record.description,
+        }
+        for record in load_registry()
+    ]
 
 
 def classify(rows):
@@ -77,11 +70,11 @@ def main():
     parser.add_argument("--json", action="store_true", help="机器可读")
     args = parser.parse_args()
 
-    if not MATRIX.exists():
-        print("CAPABILITY-MATRIX.md 不存在")
+    try:
+        rows = parse_matrix()
+    except RegistryError as exc:
+        print(f"capabilities.yml 无效: {exc}")
         sys.exit(1)
-
-    rows = parse_matrix()
     core, on_demand = classify(rows)
 
     if args.json:

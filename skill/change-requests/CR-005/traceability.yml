@@ -1,0 +1,38 @@
+CR-005:
+  acceptance_criteria:
+    - capability registry is the single source of truth
+    - capability tiers read YAML registry instead of Markdown
+    - npm package is slim and excludes internal working material
+    - formal Python package keeps script compatibility
+  implementation:
+    - file: CHANGELOG.md
+    - file: package.json
+    - file: .npmignore
+    - file: skill/CAPABILITY-MATRIX.md
+    - file: skill/README.md
+    - file: skill/SKILL.md
+    - file: skill/VERSION.yml
+    - file: skill/capabilities.yml
+    - file: skill/deliverhq/__init__.py
+    - file: skill/deliverhq/capabilities.py
+    - file: skill/deliverhq/routing.py
+    - file: skill/deliverhq/runtime.py
+    - file: skill/scripts/capability_registry.py
+    - file: skill/scripts/capability_tiers.py
+    - file: skill/scripts/execution_runtime.py
+    - file: skill/scripts/orchestrator_routing.py
+    - file: skill/change-requests/CR-005/
+  tests:
+    - file: tests/test_capability_registry.py
+      cases:
+        - covers: "#1"
+        - covers: "#2"
+    - file: tests/test_packaging.py
+      cases:
+        - covers: "#3"
+    - file: tests/test_runtime_modules.py
+      cases:
+        - covers: "#4"
+    - file: tests/test_entrypoints.py
+      cases:
+        - covers: "#4"

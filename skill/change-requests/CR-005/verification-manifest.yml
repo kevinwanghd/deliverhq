@@ -1,0 +1,51 @@
+project:
+  name: DeliverHQ
+  type: python-node
+
+build:
+  enabled: true
+  command: "node --check ../bin/cli.js"
+  working_dir: "."
+  timeout: 60
+
+test:
+  unit:
+    enabled: true
+    command: "python -m unittest discover -s ../tests -v"
+    working_dir: "."
+    timeout: 180
+    coverage_enabled: false
+
+lint:
+  enabled: true
+  tools:
+    - name: selftest
+      enabled: true
+      command: "python scripts/selftest.py"
+      working_dir: "."
+      timeout: 300
+      severity: error
+    - name: npm-pack-dry-run
+      enabled: true
+      command: "npm pack --dry-run --json"
+      working_dir: ".."
+      timeout: 120
+      severity: error
+
+qualitygate:
+  mode: hybrid
+  must_haves:
+    - key: registry_source
+      files:
+        - skill/capabilities.yml
+        - skill/deliverhq/capabilities.py
+        - skill/scripts/capability_registry.py
+    - key: package_compatibility
+      files:
+        - skill/deliverhq/runtime.py
+        - skill/deliverhq/routing.py
+        - skill/scripts/execution_runtime.py
+        - skill/scripts/orchestrator_routing.py
+    - key: package_budget_test
+      files:
+        - tests/test_packaging.py

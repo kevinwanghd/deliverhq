@@ -1,0 +1,19 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "spec",
+  "result": "pass",
+  "timestamp": "2026-07-12T09:51:45.283329",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [],
+  "next_action": "Run design",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "spec_review",
+    "current_phase": "spec",
+    "current_owner": "spec-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

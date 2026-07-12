@@ -1,12 +1,12 @@
-# DeliverHQ 版本权威来源（Single Source of Truth）
-# 所有文档/脚本的版本号必须与此文件一致，由 selftest 的 version_consistency 检查强制对齐。
+﻿# DeliverHQ 鐗堟湰鏉冨▉鏉ユ簮锛圫ingle Source of Truth锛?
+# 鎵€鏈夋枃妗?鑴氭湰鐨勭増鏈彿蹇呴』涓庢鏂囦欢涓€鑷达紝鐢?selftest 鐨?version_consistency 妫€鏌ュ己鍒跺榻愩€?
 name: DeliverHQ
-version: 5.16.0
-release_date: 2026-06-30
+version: 5.17.0
+release_date: 2026-07-12
 schema_version: 1
 
-# 版本号出现的位置（用于一致性校验）
-version_string: "v5.16.0"
+# 鐗堟湰鍙峰嚭鐜扮殑浣嶇疆锛堢敤浜庝竴鑷存€ф牎楠岋級
+version_string: "v5.17.0"
 
 source_of_truth:
   skill: SKILL.md
@@ -14,3 +14,4 @@ source_of_truth:
   agent_rules: AGENTS.md
   roadmap: docs/ROADMAP-v4.8.md
   selftest: scripts/selftest.py
+

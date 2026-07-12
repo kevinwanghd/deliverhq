@@ -1,0 +1,28 @@
+cr_id: CR-005
+title: CR-005
+lane: standard
+current_state: testing
+current_phase: quality
+current_owner: quality-agent
+goal: ''
+current_plan: null
+completed_steps: []
+blocking_reason: null
+blocked_by: []
+last_gate: quality
+next_gate: writeback
+next_required_gate: writeback
+requires_human: false
+worktree_path: null
+gate_status:
+  architecture: pass
+  spec: pass
+  permission: pass
+  pre_dev: pass
+  review: pass
+  quality: pass
+created_at: '2026-07-12T09:51:45.114640'
+updated_at: '2026-07-12T17:34:22.691273'
+started_at: '2026-07-12T09:51:45.114687'
+completed_at: null
+transitions: []

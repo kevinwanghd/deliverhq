@@ -1,0 +1,433 @@
+schema: deliverhq-capabilities
+version: 1
+capabilities:
+- id: cap-001
+  name: CR 初始化
+  script: scripts/init_cr.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: 创建 CR、state.yml、运行时目录；worktree 创建失败只警告
+- id: cap-002
+  name: CR 状态机
+  script: scripts/cr_state.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 管理 lane/phase/next_required_gate/evidence
+- id: cap-003
+  name: SpecGate
+  script: scripts/specgate.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 验收规格 fail-closed 检查
+- id: cap-004
+  name: DesignGate
+  script: scripts/designgate.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: UI/设计产物检查，后端项目需 metadata 声明跳过
+- id: cap-005
+  name: ContextWindowGate
+  script: scripts/context_window_check.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 当前主要检查摘要存在和上下文纪律，schema 化仍是后续项
+- id: cap-006
+  name: PermissionGate
+  script: scripts/permissiongate.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 最小权限边界检查；依赖 git status/protected_paths/人工例外，不能视为深度自动化安全能力
+- id: cap-007
+  name: PreDevGate
+  script: scripts/pre_dev_gate.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 开发前真实门禁；通过后进入 DevPhase，不直接进入 Review；`--suggest-lane` 调 lane_advisor
+    给客观规模建议
+- id: cap-008
+  name: DevPhase Handoff
+  script: scripts/dev_phase.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 运行/确认 PreDevGate、检查 worktree、输出开发上下文；不自动写代码
+- id: cap-009
+  name: Worktree Manager
+  script: scripts/worktree_manager.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 仅通过 init_cr/dev_phase 调用，不作为 Dev Agent 直接进 pipeline
+- id: cap-010
+  name: ReviewGate
+  script: scripts/reviewgate.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 代码实现后手动/状态机运行，默认 pipeline 不跨过人工开发点
+- id: cap-011
+  name: QualityGate
+  script: scripts/qualitygate.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 默认 hybrid；必须有 verification-manifest.yml，parse_only 仅 demo/兼容；可选 must_haves
+    谓词（见下）
+- id: cap-012
+  name: must_haves 谓词（借 GSD 判据语法）
+  script: scripts/must_haves_check.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 确定性校验 verification-manifest 的 must_haves 段（key_links/artifacts/min_lines/exports/contains/反
+    stub）；断言"建出来的=计划的"；QualityGate 调用，无此段则跳过（向后兼容）。非向 GSD agent-verifier 收敛，是给已有确定性门禁补判据语法
+- id: cap-013
+  name: DeployGate
+  script: scripts/deploygate.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 部署就绪检查，不做真实部署
+- id: cap-014
+  name: WritebackGate
+  script: scripts/writeback_gate.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 交付后知识沉淀检查
+- id: cap-015
+  name: Gate Contract Check
+  script: scripts/gate_contract_check.py
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: 验证脚本存在、正反例与参数契约
+- id: cap-016
+  name: Orchestrator
+  script: scripts/skill_orchestrator.py + scripts/orchestrator_core.py + scripts/orchestrator_routing.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 薄 CLI + 编排 core + 纯路由/成本模块；默认 pipeline 停在 dev handoff
+- id: cap-017
+  name: Execution Runtime
+  script: scripts/execution_runtime.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 统一无 shell Python 脚本执行、UTF-8、超时和结构化结果；Gate wrapper 与 orchestrator 共用
+- id: cap-018
+  name: Selftest Contract Suite
+  script: scripts/selftest.py + scripts/selftest_contracts/*
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: 薄入口；37 项契约按 core/workflow/governance 三域注册，保持原汇总接口
+- id: cap-019
+  name: Failure Attribution
+  script: scripts/failure_attribution.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: 已接入 gate evidence 输出结构化归因
+- id: cap-020
+  name: Mistake Book Dedup
+  script: scripts/update_mistake_book.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: CR+Gate+failure_hash 去重，重复 3 次标记 rules_candidate
+- id: cap-021
+  name: Routing Eval
+  script: scripts/eval_routing.py + evals/*routing-cases.md
+  status: stable
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: selftest 真实执行，禁止 total=0 通过
+- id: cap-022
+  name: Workflow Router
+  script: scripts/workflow_router.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 规则版低噪路由，输出可解释 JSON；不替代人工判断
+- id: cap-023
+  name: Legacy Scan（逆向，目标2）
+  script: scripts/scan_legacy.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 客观扫描老项目：技术栈/测试覆盖/复杂度/敏感域；review_required 由客观信号推导，AI 无权降级。文件按相对路径确定性排序，并产出
+    reverse-input-flatten.yml（借 BMAD flatten：每文件 sha256 + 整体 input_hash），同一份代码必产同一候选集（flatten_reproducible_contract）
+- id: cap-024
+  name: ReverseSpecGate（逆向）
+  script: scripts/reverse_spec_gate.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 未裁决高风险逆向需求 → BLOCK；selftest 有正反例契约（reverse_spec_contract）
+- id: cap-025
+  name: Reverse Confirm（逆向）
+  script: scripts/confirm_reverse_spec.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 人工逐条裁决候选：confirm/modify/reject/defer + is_real_requirement
+- id: cap-026
+  name: Reverse → Spec（逆向）
+  script: scripts/reverse_to_spec.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 已确认条目 → acceptance-spec.md + traceability.yml；产物须过 SpecGate 才进正向链路
+- id: cap-027
+  name: Goal Contract（loop 目标契约）
+  script: scripts/goal_contract.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 五段式目标契约校验；完成标准=指标+不变量双轨，缺 invariants→BLOCK（防 Goodhart）；selftest 有契约（loop_control_contract）
+- id: cap-028
+  name: 反钻空子检查（Anti-Gaming）
+  script: scripts/anti_gaming_check.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 从 git diff 客观检测：删测试/禁用断言/降阈值/改门禁脚本/超范围 → BLOCK；不询问 Agent 自评
+- id: cap-029
+  name: 重试守卫（Retry Guard）
+  script: scripts/retry_guard.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 同类失败（复用 failure_attribution 归因）达 max_retries → needs_human；拒绝原地重复假设
+- id: cap-030
+  name: PlanChecker（执行层）
+  script: scripts/plan_checker.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 机检 plan.yml：task 粒度/verify/done/依赖/文件冲突/AC 覆盖；派生 wave；selftest 有契约。Worker=Dev
+    Agent、Verifier=ReviewGate（不新增角色）
+- id: cap-031
+  name: 证据补全 Loop（执行层）
+  script: scripts/evidence_loop.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 可恢复 loop：扫 CR 缺哪些 evidence(spec/traceability/changed-files/manifest/test-plan)→列
+    gaps+next_action→写回 needs_human。复用 cr_state/reviewgate口径/write_gate_evidence，不新增
+    Agent；selftest 有契约
+- id: cap-032
+  name: Gate JSON Output
+  script: scripts/gate_json_output.py + scripts/runtime_support.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer
+- id: cap-033
+  name: Dynamic Workflows / Tournament / Fan-out
+  script: docs/ROADMAP-v4.8.md
+  status: roadmap
+  integrated: not_integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 不得在入口文档承诺为可用能力
+- id: cap-034
+  name: Scout / Repo Harness
+  script: docs/ROADMAP-v4.8.md
+  status: roadmap
+  integrated: not_integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 规划项
+- id: cap-035
+  name: PRD 层（产品意图唯一来源）
+  script: docs/PRD.md
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: 产品意图唯一来源，薄/给人看/仅人工维护；功能锚点 `[PRD-XXX]` 是 CR 挂载点；CR 用 derived_from 回指
+- id: cap-036
+  name: PRD↔CR 对账（DriftCheck）
+  script: scripts/drift_check.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate
+    检查9 复用同逻辑，warning-first
+- id: cap-037
+  name: Project Structure Governance
+  script: scripts/init_project_structure.py + scripts/structuregate.py + structure-profiles/fullstack-web.yml
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: opt-in 初始化 AI 友好/人类易复查目录契约；默认不生成业务代码，不进入默认阻断链路
+- id: cap-038
+  name: Lane Advisor（客观规模分档）
+  script: scripts/lane_advisor.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 借 GSD 客观阈值 + BMAD Quick Flow；按 changed_files/ac_count/敏感域给 lane 建议（fast/standard/high-risk）或建议拆
+    CR；建议器非 Gate，pre_dev_gate --suggest-lane 调用，最终 lane 仍由 state.yml 决定
+- id: cap-039
+  name: STATE 指针（借 Pocock /handoff）
+  script: scripts/handoff_state.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 从各 CR 的 state.yml 汇总刷新极小 `STATE.md`（每轮必读），长会话/compaction 后重建治理上下文；agent
+    无关、零 hook，替代 SessionStart hook（避免 per-harness shim 膨胀）
+- id: cap-040
+  name: Legacy Structure Scan
+  script: scripts/scan_legacy_structure.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 只读扫描老项目目录结构，生成 structure-assessment-report.md 与 STRUCTURE-PROFILE.candidate.yml；不搬目录不改源码
+- id: cap-041
+  name: ArchitectureGate（架构确认门禁）
+  script: scripts/architecturegate.py
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 第二道人工门禁；编码前必须有 architecture-design.md 并人工确认；缺章节或残留 {{}} → BLOCKED
+- id: cap-042
+  name: 证据驱动编码 + 架构对齐报告
+  script: change-requests/CR-TEMPLATE/architecture-alignment-report.md
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: false
+  description: Dev Agent 按架构实施 + 产对齐报告；缺证据 block 而非硬写；missing 最多回流 5 轮
+- id: cap-043
+  name: 直读审计 direct-read-audit
+  script: change-requests/CR-TEMPLATE/design/direct-read-audit.md
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: UI 编码前四元组追溯（node_id→属性→原始值→代码映射）；designgate C 端 warning-first
+- id: cap-044
+  name: 视觉还原审计 visual-auditor
+  script: change-requests/CR-TEMPLATE/design/visual-audit-report.md
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 对照设计源查还原度，偏差清单回流 code-generator 修复（遵守 direct-read-audit）
+- id: cap-045
+  name: 移动端高保真门禁强化
+  script: scripts/designgate.py + dir-graph design_gate
+  status: experimental
+  integrated: integrated
+  default_enabled: true
+  allowed_in_pipeline: true
+  description: 识别 Android/iOS/Flutter/RN/鸿蒙/小程序 → 强制 C 端高保真；专项校验平台规范/多机型/深色模式/交互状态
+- id: cap-046
+  name: 编译验证多平台 bundle
+  script: verification-manifest.yml (platform_bundles)
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: true
+  description: 复用 QualityGate + 可选 iOS/Android/Harmony/RN bundle；编译失败自动定位修复
+- id: cap-047
+  name: RN/Figma 可选适配指南
+  script: RN-FIGMA-ADAPTER-GUIDE.md
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 可选适配层；核心门禁工具无关，可整体替换为其他技术栈
+- id: cap-048
+  name: Gate 缓存（Fingerprint）
+  script: scripts/gate_cache.py + scripts/gate_wrapper.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 依赖文件 SHA256 fingerprint 缓存：gate 已通过且依赖未变→跳过执行；实测 token 消耗 -50~73%；`DELIVERHQ_GATE_CACHE=0`
+    禁用。详见 references/gate-cache-guide.md
+- id: cap-049
+  name: 子 CR 拆解（Epic→Story）
+  script: scripts/create_sub_cr.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 大需求拆分为多个子 CR（数字后缀 CR-001-01/02/03）；每个子 CR 独立走完整 Gate 链，上下文天然隔离；Epic
+    只走轻量 spec；自动维护 sub-crs.yml。详见 references/sub-cr.md
+- id: cap-050
+  name: CR 规模分析（Decompose）
+  script: scripts/skill_orchestrator.py decompose
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 分析 CR 规模（token 估算 + criteria 数量）；超阈值（criteria>10 或 tokens>5000）给出拆解建议；建议器非
+    Gate，不强制阻断
+- id: cap-051
+  name: 动词路由器（Route）
+  script: scripts/skill_orchestrator.py route
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 根据场景（新需求/bug/重构/legacy/已有spec）推荐动词流；支持关键词匹配或交互式问答。借鉴 Pocock ask-matt
+- id: cap-052
+  name: grill（需求澄清拷问）
+  script: scripts/grill.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 生成 acceptance-spec 之前逐条拷问需求（一次一问+推荐答案），产出 request-clarifications.md；条件步，缺
+    request.md 则跳过。借鉴 Pocock grilling

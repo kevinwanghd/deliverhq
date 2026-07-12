@@ -1,0 +1,138 @@
+{
+  "timestamp": "2026-07-12T17:34:20.507172",
+  "commit_hash": "56ed9e254694c8d6f12c795875d4c726de3c0047",
+  "commands_run": [
+    "node --check ../bin/cli.js",
+    "python -m unittest discover -s ../tests -v",
+    "python scripts/selftest.py",
+    "npm pack --dry-run --json"
+  ],
+  "build_passed": false,
+  "build_errors": [
+    "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0"
+  ],
+  "tests_total": 1,
+  "tests_passed": 0,
+  "tests_failed": 1,
+  "failing_tests": [],
+  "lint_errors": 1,
+  "lint_warnings": 0,
+  "type_errors": 0,
+  "coverage_percent": null,
+  "command_config": {
+    "project": {
+      "name": "DeliverHQ",
+      "type": "python-node"
+    },
+    "build": {
+      "enabled": true,
+      "command": "node --check ../bin/cli.js",
+      "working_dir": ".",
+      "timeout": 60
+    },
+    "test": {
+      "unit": {
+        "enabled": true,
+        "command": "python -m unittest discover -s ../tests -v",
+        "working_dir": ".",
+        "timeout": 180,
+        "coverage_enabled": false
+      }
+    },
+    "lint": {
+      "enabled": true,
+      "tools": [
+        {
+          "name": "selftest",
+          "enabled": true,
+          "command": "python scripts/selftest.py",
+          "working_dir": ".",
+          "timeout": 300,
+          "severity": "error"
+        },
+        {
+          "name": "npm-pack-dry-run",
+          "enabled": true,
+          "command": "npm pack --dry-run --json",
+          "working_dir": "..",
+          "timeout": 120,
+          "severity": "error"
+        }
+      ]
+    },
+    "qualitygate": {
+      "mode": "hybrid",
+      "must_haves": [
+        {
+          "key": "registry_source",
+          "files": [
+            "skill/capabilities.yml",
+            "skill/deliverhq/capabilities.py",
+            "skill/scripts/capability_registry.py"
+          ]
+        },
+        {
+          "key": "package_compatibility",
+          "files": [
+            "skill/deliverhq/runtime.py",
+            "skill/deliverhq/routing.py",
+            "skill/scripts/execution_runtime.py",
+            "skill/scripts/orchestrator_routing.py"
+          ]
+        },
+        {
+          "key": "package_budget_test",
+          "files": [
+            "tests/test_packaging.py"
+          ]
+        }
+      ]
+    }
+  },
+  "command_results": [
+    {
+      "name": "build",
+      "category": "build",
+      "command": "node --check ../bin/cli.js",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 60,
+      "success": false,
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0\n"
+    },
+    {
+      "name": "test-unit",
+      "category": "test",
+      "command": "python -m unittest discover -s ../tests -v",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 180,
+      "success": false,
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\__main__.py\", line 18, in <module>\n    main(module=None)\n    ~~~~^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 103, in __init__\n    self.parseArgs(argv)\n    ~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 119, in parseArgs\n    self._do_discovery(argv[2:])\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 242, in _do_discovery\n    self.createTests(from_discovery=True, Loader=Loader)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 149, in createTests\n    self.test = loader.discover(self.start, self.pattern, self.top)\n                ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\loader.py\", line 308, in discover\n    raise ImportError('Start directory is not importable: %r' % start_dir)\nImportError: Start directory is not importable: '../tests'\n"
+    },
+    {
+      "name": "selftest",
+      "category": "lint",
+      "command": "python scripts/selftest.py",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 300,
+      "success": false,
+      "returncode": 2,
+      "stdout": "",
+      "stderr": "python: can't open file 'D:\\\\Code\\\\DeliverHQ\\\\scripts\\\\selftest.py': [Errno 2] No such file or directory\n"
+    },
+    {
+      "name": "npm-pack-dry-run",
+      "category": "lint",
+      "command": "npm pack --dry-run --json",
+      "working_dir": "D:\\Code",
+      "timeout": 120,
+      "success": false,
+      "returncode": 4294963238,
+      "stdout": "{\n  \"error\": {\n    \"code\": \"ENOENT\",\n    \"summary\": \"Could not read package.json: Error: ENOENT: no such file or directory, open 'D:\\\\Code\\\\package.json'\",\n    \"detail\": \"This is related to npm not being able to find a file.\"\n  }\n}\n",
+      "stderr": "npm error code ENOENT\nnpm error syscall open\nnpm error path D:\\Code\\package.json\nnpm error errno -4058\nnpm error enoent Could not read package.json: Error: ENOENT: no such file or directory, open 'D:\\Code\\package.json'\nnpm error enoent This is related to npm not being able to find a file.\nnpm error enoent\nnpm error A complete log of this run can be found in: C:\\Users\\kevin\\AppData\\Local\\npm-cache\\_logs\\2026-07-12T09_34_21_614Z-debug-0.log\n"
+    }
+  ]
+}
