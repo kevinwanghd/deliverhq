@@ -215,7 +215,7 @@ class CliEntrypointTests(unittest.TestCase):
             self.assertTrue(payload["artifact_preflight"]["can_proceed"])
             self.assertEqual([], payload["artifact_preflight"]["missing"])
             self.assertNotIn("<CR>", payload["recommended_command"])
-            self.assertIn(str(cr), payload["recommended_command"])
+            self.assertIn(cr.name, payload["recommended_command"])
 
     def test_go_missing_artifact_returns_recovery_without_writes(self):
         with tempfile.TemporaryDirectory(prefix="deliverhq-go-missing-") as tmp:

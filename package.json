@@ -36,6 +36,7 @@
     "!skill/docs/OPTIMIZATION_*.md",
     "!skill/docs/skill-prompts.md",
     "!skill/docs/skill-builder-guide.md",
+    "!skill/docs/skill-definition.md",
     "!skill/examples/self-development/",
     "!skill/doc-audit-*.md",
     "!skill/.claude/",
