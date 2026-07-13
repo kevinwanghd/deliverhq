@@ -1,0 +1,30 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "review",
+  "result": "pass",
+  "timestamp": "2026-07-12T17:33:44.048446",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "review-report.md parse",
+    "traceability.yml check",
+    "git status --porcelain"
+  ],
+  "artifacts": [
+    "review-report.md",
+    "traceability.yml",
+    "test-plan.md",
+    "acceptance-spec.md",
+    "evidence/changed-files.json",
+    "verification-manifest.yml"
+  ],
+  "next_action": "进入 QualityGate",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "code_review",
+    "current_phase": "review",
+    "current_owner": "review-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}
