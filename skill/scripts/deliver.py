@@ -16,6 +16,11 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
 
+SKILL_ROOT = Path(__file__).resolve().parent.parent
+if str(SKILL_ROOT) not in sys.path:
+    sys.path.insert(0, str(SKILL_ROOT))
+
+from deliverhq.go import build_go_decision
 from routing_rules import route_request
 from runtime_support import configure_console
 
@@ -223,13 +228,19 @@ def main():
     route.add_argument("prompt", nargs="*", help="request text; stdin is used when omitted")
     route.add_argument("--json", action="store_true", help="emit JSON")
 
+    go = sub.add_parser("go", help="Resolve project state and preflight the next safe action")
+    go.add_argument("prompt", nargs="*", help="request text; stdin is used when omitted")
+    go.add_argument("--project-root", default=".", help="host project root")
+    go.add_argument("--home", help="explicit DeliverHQ home")
+    go.add_argument("--json", action="store_true", help="emit JSON")
+
     sub.add_parser("lanes", help="Describe available governance lanes")
 
     args = parser.parse_args()
     if args.command == "lanes":
         print_lanes()
         return
-    if args.command != "route":
+    if args.command not in {"route", "go"}:
         parser.print_help()
         sys.exit(1)
 
@@ -239,6 +250,14 @@ def main():
         sys.exit(1)
 
     decision = build_decision(prompt)
+    if args.command == "go":
+        decision = build_go_decision(
+            decision,
+            prompt,
+            Path(args.project_root),
+            SKILL_ROOT,
+            Path(args.home) if args.home else None,
+        )
     if args.json:
         print(json.dumps(decision, ensure_ascii=False, indent=2))
     else:

@@ -1,0 +1,47 @@
+project:
+  name: DeliverHQ
+  type: python-node
+
+build:
+  enabled: true
+  command: node --check bin/cli.js
+  working_dir: .
+  timeout: 60
+  success_pattern: ''
+
+test:
+  unit:
+    enabled: true
+    command: python -m pytest -q
+    working_dir: .
+    timeout: 180
+    coverage_enabled: false
+    coverage_threshold: 0
+  integration:
+    enabled: true
+    command: python skill/scripts/selftest.py
+    working_dir: .
+    timeout: 180
+
+lint:
+  enabled: true
+  tools:
+    - name: python-compile
+      command: python -m compileall -q skill tests
+      severity: error
+
+security:
+  enabled: false
+
+benchmark:
+  enabled: false
+
+custom:
+  - name: package-manifest
+    command: npm pack --dry-run --json
+    enabled: true
+
+qualitygate:
+  mode: hybrid
+  fail_fast: true
+  auto_fix: false

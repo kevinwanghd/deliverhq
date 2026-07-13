@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import yaml
 
@@ -76,6 +77,25 @@ class ExecutionRuntimeTests(unittest.TestCase):
 
 
 class RuntimeAdoptionTests(unittest.TestCase):
+    def test_anti_gaming_git_diff_decodes_utf8_explicitly(self):
+        anti_gaming = importlib.import_module("anti_gaming_check")
+        completed = type("Completed", (), {"returncode": 0, "stdout": "中文差异", "stderr": ""})()
+        with patch.object(anti_gaming.subprocess, "run", return_value=completed) as run:
+            code, output, error = anti_gaming._git(["diff", "HEAD"], ROOT)
+
+        self.assertEqual((0, "中文差异", ""), (code, output, error))
+        self.assertEqual("utf-8", run.call_args.kwargs["encoding"])
+        self.assertEqual("replace", run.call_args.kwargs["errors"])
+
+    def test_reviewgate_ignores_framework_self_development_cr_artifacts(self):
+        reviewgate = importlib.import_module("reviewgate")
+        changed = [
+            "skill/change-requests/CR-007/acceptance-spec.md",
+            "skill/deliverhq/go.py",
+        ]
+
+        self.assertEqual(["skill/deliverhq/go.py"], reviewgate._relevant_changed_files(changed))
+
     def test_gate_wrapper_uses_shared_execution_runtime(self):
         gate_wrapper = importlib.import_module("gate_wrapper")
         runtime = importlib.import_module("execution_runtime")
@@ -118,6 +138,20 @@ class RuntimeAdoptionTests(unittest.TestCase):
         package = SCRIPTS / "selftest_contracts"
         for name in ("core.py", "workflow.py", "governance.py"):
             self.assertTrue((package / name).is_file(), name)
+
+    def test_packaging_hygiene_ignores_runtime_python_cache(self):
+        suite = importlib.import_module("selftest_contracts.suite")
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-package-hygiene-")
+        self.addCleanup(temp.cleanup)
+        root = Path(temp.name)
+        cache = root / "scripts" / "__pycache__"
+        cache.mkdir(parents=True)
+        (cache / "module.cpython-313.pyc").write_bytes(b"cache")
+        original_root = suite.ROOT
+        self.addCleanup(setattr, suite, "ROOT", original_root)
+        suite.ROOT = root
+
+        self.assertTrue(suite.check_packaging_hygiene())
 
 
 class BrownfieldPlanEvidenceTests(unittest.TestCase):

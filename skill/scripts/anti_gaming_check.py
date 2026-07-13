@@ -63,7 +63,7 @@ def _git(args, cwd):
     try:
         r = subprocess.run(["git"] + args, cwd=str(cwd),
                            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                           universal_newlines=True, timeout=20)
+                           text=True, encoding="utf-8", errors="replace", timeout=20)
         return r.returncode, r.stdout, r.stderr
     except Exception as e:
         return 1, "", str(e)

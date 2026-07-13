@@ -1,0 +1,156 @@
+schema: deliverhq-plan
+version: 1
+cr_id: CR-007
+goal: 提供统一只读 go 入口，修复框架验证闭环，并建立可演进的 lesson 生命周期基础
+project_mode: brownfield
+
+tasks:
+  - task_id: T1
+    goal: 修复测试、自检和跨平台初始化可靠性
+    files:
+      - skill/scripts/init_cr.py
+      - skill/scripts/anti_gaming_check.py
+      - skill/scripts/reviewgate.py
+      - skill/scripts/plan_checker.py
+      - skill/scripts/worktree_manager.py
+      - skill/scripts/worktree_manager_manual_check.py
+      - skill/scripts/selftest_contracts/suite.py
+      - tests/test_runtime_modules.py
+      - tests/test_worktree_manager.py
+      - .npmignore
+    read_files:
+      - skill/scripts/runtime_support.py
+      - skill/scripts/init_cr.py
+      - skill/scripts/anti_gaming_check.py
+      - skill/scripts/reviewgate.py
+      - skill/scripts/plan_checker.py
+      - skill/scripts/worktree_manager.py
+      - skill/scripts/worktree_manager_manual_check.py
+      - skill/scripts/selftest_contracts/suite.py
+      - tests/*
+    write_files:
+      - skill/scripts/init_cr.py
+      - skill/scripts/anti_gaming_check.py
+      - skill/scripts/reviewgate.py
+      - skill/scripts/plan_checker.py
+      - skill/scripts/worktree_manager.py
+      - skill/scripts/selftest_contracts/suite.py
+      - tests/test_runtime_modules.py
+      - tests/test_worktree_manager.py
+      - .npmignore
+    reuse_checks:
+      - intent: 复用现有 UTF-8 stdio 配置
+        command: rg configure_utf8_stdio skill/scripts
+        result: runtime_support.py 已提供统一函数
+    destructive_change:
+      detected: false
+      signals: []
+      reason: ''
+      affected_interfaces: []
+      reference_scan: []
+      human_decision: {status: not-required}
+    depends_on: []
+    covers: [AC-3, AC-5]
+    verify: python -m pytest -q tests/test_runtime_modules.py tests/test_worktree_manager.py
+    done: 非 main 默认分支、非法 CR-ID、Windows 输出和缓存卫生回归测试全部通过
+
+  - task_id: T2
+    goal: 实现统一 go 决策与 Artifact Preflight
+    files:
+      - bin/cli.js
+      - skill/deliverhq/go.py
+      - skill/scripts/deliver.py
+      - tests/test_entrypoints.py
+      - tests/test_runtime_modules.py
+    read_files:
+      - bin/cli.js
+      - skill/deliverhq/*
+      - skill/scripts/deliver.py
+      - skill/scripts/routing_rules.py
+      - skill/scripts/cr_state.py
+      - tests/test_entrypoints.py
+      - tests/test_runtime_modules.py
+    write_files:
+      - bin/cli.js
+      - skill/deliverhq/go.py
+      - skill/scripts/deliver.py
+      - tests/test_entrypoints.py
+      - tests/test_runtime_modules.py
+    reuse_checks:
+      - intent: 复用现有风险路由
+        command: rg decide_route skill/scripts/routing_rules.py skill/scripts/deliver.py
+        result: deliver.py 已通过 decide_route 构建 route payload
+    destructive_change:
+      detected: false
+      signals: []
+      reason: ''
+      affected_interfaces: []
+      reference_scan: []
+      human_decision: {status: not-required}
+    depends_on: [T1]
+    covers: [AC-1, AC-2, AC-5]
+    verify: python -m pytest -q tests/test_entrypoints.py tests/test_runtime_modules.py
+    done: go 返回无占位符的确定性 JSON，缺工件时安全回退且旧入口不回归
+
+  - task_id: T3
+    goal: 建立向后兼容的 lesson 去重和生命周期字段
+    files:
+      - skill/scripts/memory_store.py
+      - tests/test_memory_store.py
+    read_files:
+      - skill/scripts/memory_store.py
+      - skill/docs/mistake-book.md
+      - skill/docs/rules-candidates.md
+      - tests/test_memory_store.py
+    write_files:
+      - skill/scripts/memory_store.py
+      - tests/test_memory_store.py
+    reuse_checks:
+      - intent: 复用现有 MemoryStore JSON 索引
+        command: rg MemoryStore skill/scripts tests
+        result: 保留 index.json 与现有 CLI，只演进条目 schema
+    destructive_change:
+      detected: false
+      signals: []
+      reason: ''
+      affected_interfaces: []
+      reference_scan: []
+      human_decision: {status: not-required}
+    depends_on: [T1]
+    covers: [AC-4, AC-5]
+    verify: python -m pytest -q tests/test_memory_store.py
+    done: 相同语义 lesson 合并计数，生命周期可变更且旧索引可加载
+
+  - task_id: T4
+    goal: 完成全量验证、审查和证据回写
+    files:
+      - skill/change-requests/CR-007/*
+      - CHANGELOG.md
+      - README.md
+      - skill/SKILL.md
+    read_files:
+      - skill/change-requests/CR-007/*
+      - CHANGELOG.md
+      - README.md
+      - skill/SKILL.md
+      - package.json
+    write_files:
+      - skill/change-requests/CR-007/*
+      - CHANGELOG.md
+      - README.md
+      - skill/SKILL.md
+    reuse_checks:
+      - intent: 复用现有 Gate 与 selftest
+        command: python skill/scripts/selftest.py
+        result: 使用现有证据链完成最终验收
+    destructive_change:
+      detected: false
+      signals: []
+      reason: ''
+      affected_interfaces: []
+      reference_scan: []
+      human_decision: {status: not-required}
+    depends_on: [T2, T3]
+    covers: [AC-1, AC-2, AC-3, AC-4, AC-5]
+    verify: python -m pytest -q
+    done: 全量测试、自检、包清单和 ReviewGate 均通过并记录真实证据

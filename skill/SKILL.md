@@ -181,11 +181,14 @@ license: 见仓库
 ### 最常用命令（动词收口，记 5 个动词即可）
 
 ```bash
+python scripts/deliver.py go "继续当前任务" --project-root . --json  # 首选：结合活跃 CR 与工件预检给下一步
 python scripts/deliver.py route "用户请求" --json             # 0. 判 quick/standard/strict/legacy
 python scripts/init_cr.py CR-001 "需求名称" "提出人"         # 1. 建 CR（动词未覆盖的前置步骤）
 python scripts/skill_orchestrator.py verb <动词> change-requests/CR-001  # 2. 推进：spec/design/dev/verify/archive
 python scripts/specgate.py change-requests/CR-001/acceptance-spec.md     # 3. 也可单独跑某个底层门禁（调试/CI）
 ```
+> `go` 默认只读，且项目治理事实只从 `<项目根>/DeliverHQ/` 读取；缺工件、多个活跃 CR 或人工审批未完成时返回恢复动作，不自动执行 Gate。
+
 > 动词→链路与纪律见 `references/verbs.md`；`skill_orchestrator.py verbs` 列出全部链路。
 
 ---

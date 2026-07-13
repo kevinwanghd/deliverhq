@@ -1,0 +1,25 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "writeback",
+  "result": "pass",
+  "timestamp": "2026-07-13T18:55:33.416503",
+  "blocking_items": [],
+  "warnings": [
+    "存在未提交文件，确认是否已归档",
+    "完成后需归档到 delivery/YYYY-MM/"
+  ],
+  "commands_run": [],
+  "artifacts": [
+    "writeback-report.md",
+    "docs/rules-candidates.md"
+  ],
+  "next_action": "进入归档流程",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "archived",
+    "current_phase": "writeback",
+    "current_owner": "writeback-agent",
+    "requires_human": true,
+    "worktree_path": null
+  }
+}

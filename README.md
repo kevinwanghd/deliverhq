@@ -32,6 +32,9 @@ npx deliverhq doctor
 
 # 轻入口：先判断 quick / standard / strict / legacy
 npx deliverhq route "refactor payment callback" --json
+
+# 统一只读入口：结合项目中的活跃 CR、下一阶段和工件完整性给出具体命令
+npx deliverhq go "继续当前任务" --path . --json
 ```
 
 ### 老项目首次入场
@@ -45,6 +48,8 @@ npx deliverhq bootstrap --path . --json
 # 人工审查后生成 DeliverHQ/*.candidate 文件；绝不覆盖已有人工文件
 npx deliverhq bootstrap --path . --apply
 ```
+
+`route --json` 只做请求分流；`go --json` 进一步读取项目内 `DeliverHQ/change-requests/`，返回活跃 CR、目标阶段、工件预检和可执行的下一条命令。`go` 默认只读；多个活跃 CR 或需要人工审批时不会擅自推进。
 
 `route --json` 同时返回推荐 lane、required/skipped Gates、时间与 token 区间、估算因素和置信度。估算是可解释区间，不是假装精确的账单。
 
