@@ -7,6 +7,8 @@ ContextWindowGate - 上下文窗口纪律检查
 import sys
 from pathlib import Path
 import re
+import hashlib
+import yaml
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
@@ -25,6 +27,63 @@ def get_file_size_kb(path):
     if not Path(path).exists():
         return 0
     return Path(path).stat().st_size / 1024
+
+
+def _handoff_evidence(content):
+    match = re.search(r"## Handoff Evidence\s*```yaml\s*(.*?)```", content, re.S)
+    if not match:
+        return None
+    try:
+        return yaml.safe_load(match.group(1)) or {}
+    except yaml.YAMLError:
+        return {"_invalid_yaml": True}
+
+
+def validate_handoff_evidence(content, cr_dir):
+    data = _handoff_evidence(content)
+    if data is None:
+        return [], ["legacy context summary: missing Handoff Evidence schema"]
+    blockers = []
+    if data.get("_invalid_yaml"):
+        return ["Handoff Evidence YAML 无效"], []
+    for field in ("current_phase", "previous_phase", "sources", "input_hashes", "full_context_phases", "excluded_approaches", "next_action"):
+        if field not in data:
+            blockers.append("Handoff Evidence 缺字段: %s" % field)
+    phases = data.get("full_context_phases") or []
+    if not isinstance(phases, list) or len(phases) > 2:
+        blockers.append("full_context_phases 必须是最多 2 个阶段")
+    if isinstance(phases, list) and len(phases) <= 2:
+        for phase_field in ("current_phase", "previous_phase"):
+            if data.get(phase_field) not in phases:
+                blockers.append("%s must belong to full_context_phases" % phase_field)
+    sources = data.get("sources") or []
+    input_hashes = data.get("input_hashes") or {}
+    if not isinstance(sources, list) or not sources:
+        blockers.append("Handoff Evidence sources 不能为空")
+    else:
+        for source in sources:
+            if not isinstance(source, dict) or not source.get("path") or not source.get("sha256"):
+                blockers.append("每个 source 必须含 path/sha256")
+                continue
+            path = (Path(cr_dir) / source["path"]).resolve()
+            if not path.is_file():
+                blockers.append("context source 不存在: %s" % source["path"])
+                continue
+            actual = hashlib.sha256(path.read_bytes()).hexdigest()
+            if actual != str(source["sha256"]):
+                blockers.append("context source hash stale: %s" % source["path"])
+            if not isinstance(input_hashes, dict) or input_hashes.get(source["path"]) != str(source["sha256"]):
+                blockers.append("input_hashes mismatch: %s" % source["path"])
+    if not isinstance(data.get("excluded_approaches", []), list):
+        blockers.append("excluded_approaches 必须是列表")
+    excluded = data.get("excluded_approaches", [])
+    if isinstance(excluded, list):
+        for item in excluded:
+            if not isinstance(item, dict) or not item.get("approach") or not item.get("reason"):
+                blockers.append("excluded_approaches items require approach/reason")
+    if not str(data.get("next_action", "")).strip():
+        blockers.append("next_action 不能为空")
+    return blockers, []
 
 def check_context_window(cr_path):
     """检查上下文窗口纪律"""
@@ -97,6 +156,18 @@ def check_context_window(cr_path):
         blockers.append("包含模板变量，未填充实际内容")
     else:
         print(f"{Color.GREEN}✓ 无模板变量{Color.END}")
+
+    evidence_blockers, evidence_warnings = validate_handoff_evidence(content, Path(cr_path))
+    blockers.extend(evidence_blockers)
+    warnings.extend(evidence_warnings)
+    if evidence_blockers:
+        for item in evidence_blockers:
+            print(f"{Color.RED}✗ {item}{Color.END}")
+    elif evidence_warnings:
+        for item in evidence_warnings:
+            print(f"{Color.YELLOW}⚠ {item}{Color.END}")
+    else:
+        print(f"{Color.GREEN}✓ Handoff Evidence 来源、哈希与阶段窗口有效{Color.END}")
 
     # 检查 4: 上下文负载估算
     context_files = {

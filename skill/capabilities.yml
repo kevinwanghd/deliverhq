@@ -40,7 +40,7 @@ capabilities:
   integrated: integrated
   default_enabled: true
   allowed_in_pipeline: true
-  description: 当前主要检查摘要存在和上下文纪律，schema 化仍是后续项
+  description: 校验 context-summary 结构、最多两阶段全文、来源 SHA-256、已排除方案与 next_action；旧摘要 warning-first
 - id: cap-006
   name: PermissionGate
   script: scripts/permissiongate.py
@@ -244,8 +244,7 @@ capabilities:
   integrated: integrated
   default_enabled: false
   allowed_in_pipeline: true
-  description: 机检 plan.yml：task 粒度/verify/done/依赖/文件冲突/AC 覆盖；派生 wave；selftest 有契约。Worker=Dev
-    Agent、Verifier=ReviewGate（不新增角色）
+  description: 机检 plan.yml：task 粒度/依赖/文件冲突/AC 覆盖；brownfield 强制 read/write、复用搜索和破坏性变更证据；派生 wave
 - id: cap-031
   name: 证据补全 Loop（执行层）
   script: scripts/evidence_loop.py
@@ -274,12 +273,12 @@ capabilities:
   description: 不得在入口文档承诺为可用能力
 - id: cap-034
   name: Scout / Repo Harness
-  script: docs/ROADMAP-v4.8.md
-  status: roadmap
-  integrated: not_integrated
+  script: scripts/bootstrap_project.py + scripts/scan_legacy.py + scripts/scan_legacy_structure.py
+  status: experimental
+  integrated: integrated
   default_enabled: false
   allowed_in_pipeline: false
-  description: 规划项
+  description: "deliverhq bootstrap 组合现有 Legacy Scan，发现已有上下文、命令和抽象并附 path/hash 证据；默认只读，apply 只建候选文件"
 - id: cap-035
   name: PRD 层（产品意图唯一来源）
   script: docs/PRD.md
@@ -312,8 +311,7 @@ capabilities:
   integrated: integrated
   default_enabled: false
   allowed_in_pipeline: false
-  description: 借 GSD 客观阈值 + BMAD Quick Flow；按 changed_files/ac_count/敏感域给 lane 建议（fast/standard/high-risk）或建议拆
-    CR；建议器非 Gate，pre_dev_gate --suggest-lane 调用，最终 lane 仍由 state.yml 决定
+  description: 按 changed_files/ac_count/敏感域给 lane 建议；轻入口同时返回 required/skipped Gates、时间/token 区间、因素与置信度
 - id: cap-039
   name: STATE 指针（借 Pocock /handoff）
   script: scripts/handoff_state.py

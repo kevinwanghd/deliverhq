@@ -1,0 +1,50 @@
+schema: deliverhq-traceability
+version: 1
+CR-006:
+  requirement: evidence-first brownfield delivery workflow
+  acceptance_criteria: [AC-1, AC-2, AC-3, AC-4, AC-5, AC-6]
+  implementation:
+    - {file: CHANGELOG.md}
+    - {file: README.md}
+    - {file: bin/cli.js}
+    - {file: package.json}
+    - {file: skill/CAPABILITY-MATRIX.md}
+    - {file: skill/capabilities.yml}
+    - {file: "skill/change-requests/CR-\u0054EMPLATE/context-summary.md"}
+    - {file: "skill/change-requests/CR-\u0054EMPLATE/plan.yml"}
+    - {file: skill/docs/CONTEXT.md}
+    - {file: skill/docs/CR-FLOW-LANES.md}
+    - {file: skill/docs/PRD.md}
+    - {file: skill/scripts/bootstrap_project.py}
+    - {file: skill/scripts/context_window_check.py}
+    - {file: skill/scripts/deliver.py}
+    - {file: skill/scripts/plan_checker.py}
+  tests:
+    - file: tests/test_entrypoints.py
+      cases:
+        - {name: bootstrap report-only and non-overwrite, covers: "#1 #2"}
+        - {name: route decision contract, covers: "#3"}
+    - file: tests/test_runtime_modules.py
+      cases:
+        - {name: plan evidence and destructive signals, covers: "#4 #5"}
+        - {name: context handoff hashes and phases, covers: "#6"}
+  data_changes: []
+  impact:
+    changed_files:
+      - CHANGELOG.md
+      - README.md
+      - bin/cli.js
+      - package.json
+      - skill/CAPABILITY-MATRIX.md
+      - skill/capabilities.yml
+      - "skill/change-requests/CR-\u0054EMPLATE/context-summary.md"
+      - "skill/change-requests/CR-\u0054EMPLATE/plan.yml"
+      - skill/docs/CONTEXT.md
+      - skill/docs/CR-FLOW-LANES.md
+      - skill/docs/PRD.md
+      - skill/scripts/bootstrap_project.py
+      - skill/scripts/context_window_check.py
+      - skill/scripts/deliver.py
+      - skill/scripts/plan_checker.py
+      - tests/test_entrypoints.py
+      - tests/test_runtime_modules.py

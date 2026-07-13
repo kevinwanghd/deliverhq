@@ -1,0 +1,23 @@
+project:
+  name: DeliverHQ
+  type: python-node
+build:
+  enabled: true
+  command: "node --check bin/cli.js"
+  working_dir: "."
+  timeout: 60
+test:
+  unit:
+    enabled: true
+    command: "python -m unittest discover -s tests"
+    working_dir: "."
+    timeout: 180
+    coverage_enabled: false
+lint:
+  enabled: true
+  tools:
+    - {name: selftest, enabled: true, command: "python skill/scripts/selftest.py skill", working_dir: ".", timeout: 300, severity: error}
+    - {name: npm-pack, enabled: true, command: "npm pack --dry-run --json", working_dir: ".", timeout: 120, severity: error}
+qualitygate:
+  mode: hybrid
+  fail_fast: true

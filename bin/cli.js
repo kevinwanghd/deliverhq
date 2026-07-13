@@ -81,7 +81,7 @@ const TARGETS = {
 };
 
 function parseArgs(argv) {
-  const VALUE_FLAGS = new Set(['path', 'target', 'profile']);
+  const VALUE_FLAGS = new Set(['path', 'home', 'target', 'profile']);
   const out = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -451,6 +451,29 @@ function cmdRoute(argv, flags) {
   }
 }
 
+function cmdBootstrap(flags) {
+  console.log(C.b('=== DeliverHQ bootstrap ==='));
+  const py = requirePythonWithPyYAML();
+  const script = path.join(SKILL_SRC, 'scripts', 'bootstrap_project.py');
+  const args = [script, '--path', path.resolve(flags.path || process.cwd())];
+  if (flags.home) args.push('--home', path.resolve(flags.home));
+  if (flags.json) args.push('--json');
+  if (flags.apply) args.push('--apply');
+  try {
+    const out = execFileSync(py.cmd, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: SELFTEST_MAX_BUFFER,
+      env: SUBPROCESS_ENV,
+    }).toString();
+    if (out.trim()) console.log(out.trim());
+  } catch (e) {
+    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
+    console.log(C.r('✗ bootstrap 失败'));
+    if (out.trim()) console.log(out.trim());
+    process.exit(e.status || 1);
+  }
+}
+
 function help() {
   console.log(`DeliverHQ — AI 交付防翻车治理框架（多 Agent 安装器）
 
@@ -480,6 +503,9 @@ function help() {
   npx deliverhq route "user request" [--path <core dir>] [--json]
       Light entry: route natural language to quick/standard/strict/legacy
 
+  npx deliverhq bootstrap [--path <repo>] [--home <DeliverHQ dir>] [--json] [--apply]
+      Read-only brownfield discovery; --apply creates reviewable candidate artifacts
+
   npx deliverhq --version
       输出 npm 包版本
 
@@ -490,6 +516,7 @@ function help() {
   npx deliverhq init --target generic     # 任意 agent
   npx deliverhq init-project --profile fullstack-web
   npx deliverhq route "refactor payment callback" --json
+  npx deliverhq bootstrap --path . --json
   npx deliverhq selftest --path .claude/skills/deliverhq
 
 说明:
@@ -507,6 +534,7 @@ async function main() {
   if (cmd === 'doctor') return cmdDoctor(flags);
   if (cmd === 'selftest') return cmdSelftest(flags);
   if (cmd === 'route' || cmd === 'deliver') return cmdRoute(_.slice(1), flags);
+  if (cmd === 'bootstrap') return cmdBootstrap(flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));
   help();

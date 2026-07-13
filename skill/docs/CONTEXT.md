@@ -1,64 +1,39 @@
 # Project Context
+> 这是 DeliverHQ 安装包的安全占位页，不代表宿主项目事实。不要把示例技术栈、命令或架构写成 confirmed 信息。
 
-> 项目背景和技术栈概要
+## Bootstrap Status
 
-## Overview
-**项目名称**：SelfAutomaticAd（自动化广告投放系统）
-**业务领域**：广告投放 / MarTech
-**核心目标**：通过 AI 辅助实现广告投放全流程自动化，提升投放效率和 ROI
+- status: unscanned
+- authority: host project documents + repository evidence
+- command: `npx deliverhq bootstrap --path <host-repo> --json`
 
-## Tech Stack
-- **语言**：Python 3.9+, TypeScript
-- **框架**：后端未明确（待识别），前端可能包含 React/Vue
-- **数据库**：待识别（可能包含 MongoDB/MySQL/Redis）
-- **部署**：待识别（Docker/K8s）
-- **测试框架**：待建立（计划使用 pytest）
-- **AI 框架**：Claude Code, DeliverHQ v4.6
+## Context Source Policy
 
-## Architecture Pattern
-待完整识别，当前已知：
-- **DeliverHQ/**: AI 交付质量控制框架（已集成 v4.6）
-- **核心业务模块**: 待识别和文档化
+首次进入已有项目时：
 
-**已知模块**：
-- DeliverHQ: AI 全流程交付质量控制（规格化、门禁、知识沉淀）
-- 广告投放核心: 待文档化
-- 数据分析: 待文档化
+1. 先发现 `AGENTS.md`、`CLAUDE.md`、Cursor/Windsurf/Copilot 规则、`ARCHITECTURE.md`、`CONTRIBUTING.md` 与 README。
+2. 保留这些文档各自的权威范围，不强制复制成单一大文档。
+3. 代码扫描结论必须附 path、line 和 SHA-256；无证据推断只能标 inferred。
+4. `bootstrap --apply` 只生成 `DeliverHQ/*.candidate`，人工审查后再采用。
+5. 架构大改或扫描超过 90 天时重新运行 Bootstrap。
 
-## Key Documents
-| Document | Purpose | Location |
-|---|---|---|
-| AGENTS.md | DeliverHQ 行为规则 | `DeliverHQ/AGENTS.md` |
-| dir-graph.yaml | 权限与路径配置 | `DeliverHQ/dir-graph.yaml` |
-| rules / decisions / mistake-book | 组织记忆 | `DeliverHQ/docs/` |
-| MEMORY.md | 动态状态记录 | `DeliverHQ/docs/MEMORY.md` |
-| CR-001 | 框架升级 CR | `DeliverHQ/change-requests/CR-001/` |
+## Expected Project Context
 
-## Key Constraints
-- **性能要求**：待明确（目标：API P95 < 500ms）
-- **安全要求**：广告投放数据安全、API Token 管理
-- **可用性**：待明确（目标：核心服务 SLA 99%）
-- **AI 质量**：通过 DeliverHQ Gate 机制确保 AI 交付质量可控
+人工确认后的宿主上下文应覆盖：
 
-## Quality Gates
-- **SpecGate**: 验收规格完备性检查（SDD 三段式）
-- **DesignGate**: 设计产物完备性检查
-- **ContextWindowGate**: 上下文窗口纪律检查
-- **ReviewGate**: 代码审查门禁
-- **QualityGate**: 质量门禁（P0 通过率 100%，覆盖率 ≥ 80%）
-- **DeployGate**: 部署就绪性检查
-- **WritebackGate**: 知识沉淀完整性检查
+- 产品/业务边界与域语言
+- 技术栈、版本和权威命令
+- Module、Interface、依赖方向和关键数据流
+- 既有抽象索引与复用规则
+- protected paths、敏感域和禁动清单
+- 测试、CI、部署和回滚方式
+- 已知技术债、假设和证据来源
 
-## Maturity Model
-- **draft**: 初始规则，仅作提示
-- **verified**: 3+ 次引用，默认阻断违反
-- **proven**: 5+ 次引用，经过实战验证
+## DeliverHQ Governance Pointers
 
-## Current Focus
-- **CR-001**: 升级项目使用 DeliverHQ v4.6 框架（进行中）
-- **下一步**: 完善项目架构文档，建立测试框架
-
----
-
-**最后更新**: 2026-06-13 20:25  
-**更新人**: Kiro AI (CR-001)
+- 行为规则：`AGENTS.md`
+- 目录权限：`dir-graph.yaml`
+- 仓库地图：`REPO_MAP.md`
+- 权威命令：`COMMANDS.yml`
+- 能力状态：`CAPABILITY-MATRIX.md`
+- 当前 CR：`change-requests/CR-*`

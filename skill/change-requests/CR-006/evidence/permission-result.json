@@ -1,0 +1,23 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "permission",
+  "result": "pass",
+  "timestamp": "2026-07-12T22:57:24.564292",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "git status --porcelain"
+  ],
+  "artifacts": [
+    "exceptions.yml"
+  ],
+  "next_action": "继续执行 PreDevGate",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "dev",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": true,
+    "worktree_path": null
+  }
+}
