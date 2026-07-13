@@ -34,6 +34,8 @@
     "!skill/_archived/",
     "!skill/docs/superpowers/",
     "!skill/docs/OPTIMIZATION_*.md",
+    "!skill/docs/skill-prompts.md",
+    "!skill/docs/skill-builder-guide.md",
     "!skill/examples/self-development/",
     "!skill/doc-audit-*.md",
     "!skill/.claude/",
