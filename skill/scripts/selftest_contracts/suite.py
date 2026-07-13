@@ -1572,28 +1572,50 @@ def check_structure_governance_contract():
 
 
 def check_packaging_hygiene():
-    """检查发布包中不应包含运行时垃圾文件。"""
+    """检查发布边界，不把本地 Python 运行缓存误判成发布污染。"""
     section("27. Packaging Hygiene")
-    pycache_dirs = [path for path in ROOT.rglob("__pycache__") if path.is_dir()]
-    pyc_files = list(ROOT.rglob("*.pyc"))
-
     temp_state_files = [
         path for pattern in ("loop_state.json", "*.tmp", "*.bak")
         for path in ROOT.rglob(pattern)
-        if not any(part in {"examples", "change-requests"} for part in path.parts)
+        if "__pycache__" not in path.parts
+        and not any(part in {"examples", "change-requests"} for part in path.parts)
     ]
 
-    if pycache_dirs or pyc_files or temp_state_files:
-        print(f"  {FAIL} 发现不应发布的缓存/临时状态文件")
-        for path in pycache_dirs[:10]:
-            print(f"    __pycache__: {path.relative_to(ROOT)}")
-        for path in pyc_files[:10]:
-            print(f"    pyc: {path.relative_to(ROOT)}")
+    published_cache = []
+    package_root = ROOT.parent
+    npm = shutil.which("npm")
+    if (package_root / "package.json").is_file() and npm:
+        result = subprocess.run(
+            [npm, "pack", "--dry-run", "--json"],
+            cwd=package_root,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        if result.returncode != 0:
+            print(f"  {FAIL} npm pack --dry-run 执行失败")
+            return False
+        try:
+            payload = json.loads(result.stdout)
+            files = payload[0].get("files", []) if payload else []
+            published_cache = [
+                item.get("path", "") for item in files
+                if "__pycache__" in item.get("path", "").split("/")
+                or item.get("path", "").endswith(".pyc")
+            ]
+        except (json.JSONDecodeError, TypeError, AttributeError):
+            print(f"  {FAIL} 无法解析 npm pack 发布清单")
+            return False
+
+    if published_cache or temp_state_files:
+        print(f"  {FAIL} 发布边界包含缓存/临时状态文件")
+        for path in published_cache[:10]:
+            print(f"    published cache: {path}")
         for path in temp_state_files[:10]:
             print(f"    temp/state: {path.relative_to(ROOT)}")
         return False
 
-    print(f"  {PASS} 未发现 __pycache__ / *.pyc")
+    print(f"  {PASS} 发布清单不含 Python 缓存或临时状态")
     return True
 
 

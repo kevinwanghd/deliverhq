@@ -32,6 +32,8 @@ except ImportError:
     print("需要 PyYAML：pip install PyYAML")
     sys.exit(2)
 
+from runtime_support import configure_console
+
 
 class Color:
     GREEN = "\033[92m"
@@ -402,6 +404,7 @@ def emit_waves(tasks):
 
 
 def main():
+    configure_console()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         print("用法: python plan_checker.py <CR目录 或 plan.yml> [--emit-waves]")

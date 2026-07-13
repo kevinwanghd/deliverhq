@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Worktree Manager Tests for DeliverHQ v4.7
+Manual Worktree Manager checks for DeliverHQ v4.7 (not collected by pytest)
 """
 
 import os

@@ -1,0 +1,52 @@
+schema: deliverhq-goal-contract
+version: 1
+cr_id: CR-007
+goal: 提供统一只读 go 入口，修复跨平台与发布验证闭环，并建立兼容旧索引的 lesson 生命周期
+
+success_criteria:
+  metrics:
+    - id: tests_pass
+      command: python -m pytest -q
+      expect: exit_zero
+    - id: selftest_ok
+      command: python skill/scripts/selftest.py
+      expect: exit_zero
+    - id: package_budget
+      command: npm pack --dry-run --json
+      expect: exit_zero
+  invariants:
+    - tests_not_reduced
+    - coverage_threshold_not_lowered
+    - no_disabled_assertions
+    - frozen_gate_set_unchanged
+
+verification_commands:
+  - python skill/scripts/reviewgate.py skill/change-requests/CR-007
+  - python skill/scripts/qualitygate.py skill/change-requests/CR-007
+
+boundaries:
+  allowed_paths:
+    - bin/cli.js
+    - skill/deliverhq/**
+    - skill/scripts/**
+    - tests/**
+    - README.md
+    - CHANGELOG.md
+    - skill/SKILL.md
+    - skill/change-requests/CR-007/**
+  forbidden_actions:
+    - 删除测试以让测试通过
+    - 注释或跳过失败断言
+    - 降低 Gate 或 npm 体积阈值
+    - 修改冻结 Gate 集合或五动词链
+    - 自动创建或推进 CR
+
+on_failure:
+  max_retries: 3
+  retry_requires_new_hypothesis: true
+  on_exhausted: needs_human
+
+escalate_to_human_when:
+  - 重试达到 max_retries 仍失败
+  - 修改受保护路径或冻结 Gate 行为
+  - high-risk lane 的部署或权限决策

@@ -8,11 +8,15 @@ Provides worktree isolation for parallel CR development.
 import os
 import sys
 import json
+import re
 import subprocess
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
+
+
+CR_ID_PATTERN = re.compile(r"^CR-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
 
 
 class WorktreeStatus(Enum):
@@ -136,13 +140,29 @@ class WorktreeManager:
             errors="replace",
         )
 
-    def create(self, cr_id: str, base_branch: str = "master") -> WorktreeInfo:
+    def _detect_base_branch(self) -> str:
+        """Resolve the checked-out/default branch without assuming master."""
+        current = self._run_git(["symbolic-ref", "--quiet", "--short", "HEAD"])
+        if current.returncode == 0 and current.stdout.strip():
+            return current.stdout.strip()
+
+        remote = self._run_git(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
+        if remote.returncode == 0 and remote.stdout.strip():
+            return remote.stdout.strip().removeprefix("origin/")
+
+        for candidate in ("main", "master"):
+            exists = self._run_git(["rev-parse", "--verify", candidate])
+            if exists.returncode == 0:
+                return candidate
+        raise RuntimeError("Unable to detect a base branch; pass base_branch explicitly")
+
+    def create(self, cr_id: str, base_branch: Optional[str] = None) -> WorktreeInfo:
         """
         Create worktree for CR
 
         Args:
             cr_id: CR identifier (e.g., CR-003)
-            base_branch: Base branch to branch from (default: master)
+            base_branch: Base branch to branch from (default: detected branch)
 
         Returns:
             WorktreeInfo object
@@ -150,17 +170,13 @@ class WorktreeManager:
         Raises:
             RuntimeError: If worktree creation fails
         """
-        # Validate CR ID format
-        if not cr_id.startswith("CR-"):
-            raise ValueError(f"Invalid CR ID format: {cr_id}. Expected CR-XXX")
+        if not CR_ID_PATTERN.fullmatch(cr_id):
+            raise ValueError(
+                f"Invalid CR ID format: {cr_id}. Expected CR-001 or CR-BLOCKED-EXAMPLE"
+            )
 
-        # Extract number part
-        try:
-            number_part = cr_id[3:]
-            if not number_part or not all(c.isdigit() or c.isalpha() for c in number_part):
-                raise ValueError(f"Invalid CR ID format: {cr_id}. Expected CR-XXX")
-        except:
-            raise ValueError(f"Invalid CR ID format: {cr_id}. Expected CR-XXX")
+        if base_branch is None:
+            base_branch = self._detect_base_branch()
 
         # Check if worktree already exists
         registry = self._load_registry()

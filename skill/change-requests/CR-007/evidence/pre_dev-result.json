@@ -1,0 +1,27 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "pre_dev",
+  "result": "pass",
+  "timestamp": "2026-07-13T18:30:42.959758",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "permissiongate.py",
+    "pre_dev_gate.py",
+    "node --check bin/cli.js",
+    "python -m pytest -q",
+    "python -m compileall -q skill tests"
+  ],
+  "artifacts": [
+    "evidence/baseline-before.json"
+  ],
+  "next_action": "进入 ReviewGate / 开发执行阶段",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "dev",
+    "current_phase": "dev",
+    "current_owner": "dev-agent",
+    "requires_human": true,
+    "worktree_path": null
+  }
+}

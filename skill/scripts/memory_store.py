@@ -11,8 +11,21 @@ import json
 import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, fields
 from datetime import datetime
+
+
+VALID_STATUSES = {"active", "superseded", "deprecated"}
+
+
+def _normalize(value: str) -> str:
+    return " ".join((value or "").strip().lower().split())
+
+
+def _fingerprint(entry_type: str, content: str, root_cause: str = "", applies_to: str = "") -> str:
+    semantic_cause = root_cause or content
+    material = "|".join((_normalize(entry_type), _normalize(semantic_cause), _normalize(applies_to)))
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 @dataclass
@@ -27,6 +40,28 @@ class MemoryEntry:
     created_at: str
     updated_at: str
     references: List[str]
+    fingerprint: str = ""
+    root_cause: str = ""
+    status: str = "active"
+    applies_to: str = ""
+    keywords: List[str] = None
+    occurrences: int = 1
+    first_seen: str = ""
+    last_seen: str = ""
+    superseded_by: Optional[str] = None
+    revalidate_when: str = ""
+    evidence: List[str] = None
+
+    def __post_init__(self):
+        self.keywords = list(self.keywords or [])
+        self.evidence = list(self.evidence or [])
+        self.fingerprint = self.fingerprint or _fingerprint(
+            self.type, self.content, self.root_cause, self.applies_to
+        )
+        self.first_seen = self.first_seen or self.created_at
+        self.last_seen = self.last_seen or self.updated_at
+        if self.status not in VALID_STATUSES:
+            raise ValueError(f"Invalid memory status: {self.status}")
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dict"""
@@ -35,14 +70,19 @@ class MemoryEntry:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MemoryEntry':
         """Create from dict"""
-        return cls(**data)
+        allowed = {field.name for field in fields(cls)}
+        payload = {key: value for key, value in data.items() if key in allowed}
+        return cls(**payload)
 
 
 class MemoryStore:
     """External memory store for cross-CR knowledge"""
 
-    def __init__(self, storage_path: str = ".claude/memory"):
+    def __init__(self, storage_path: Optional[str] = None):
         """Initialize memory store"""
+        if storage_path is None:
+            home = Path(os.environ.get("DELIVERHQ_HOME", "DeliverHQ"))
+            storage_path = home / "memory"
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
@@ -73,12 +113,12 @@ class MemoryStore:
             for entry_id, entry in self.entries.items()
         }
 
-        with open(self.index_file, 'w') as f:
-            json.dump(data, f, indent=2)
+        with open(self.index_file, 'w', encoding="utf-8") as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
-    def _generate_id(self, content: str) -> str:
-        """Generate unique ID from content"""
-        return hashlib.md5(content.encode()).hexdigest()[:12]
+    def _generate_id(self, fingerprint: str) -> str:
+        """Generate a stable ID from a semantic SHA-256 fingerprint."""
+        return fingerprint[:16]
 
     def add(self,
             content: str,
@@ -86,7 +126,13 @@ class MemoryStore:
             context: str = "",
             cr_id: Optional[str] = None,
             tags: List[str] = None,
-            references: List[str] = None) -> MemoryEntry:
+            references: List[str] = None,
+            root_cause: str = "",
+            status: str = "active",
+            applies_to: str = "",
+            keywords: List[str] = None,
+            evidence: List[str] = None,
+            fingerprint: Optional[str] = None) -> MemoryEntry:
         """
         Add memory entry
 
@@ -101,18 +147,31 @@ class MemoryStore:
         Returns:
             Created MemoryEntry
         """
-        entry_id = self._generate_id(content)
+        if status not in VALID_STATUSES:
+            raise ValueError(f"Invalid memory status: {status}")
+        fingerprint = fingerprint or _fingerprint(type, content, root_cause, applies_to)
+        existing = next(
+            (entry for entry in self.entries.values() if entry.fingerprint == fingerprint),
+            None,
+        )
+        entry_id = existing.id if existing else self._generate_id(fingerprint)
         now = datetime.now().isoformat()
 
         # Check if exists
-        if entry_id in self.entries:
+        if existing:
             # Update existing
-            entry = self.entries[entry_id]
+            entry = existing
             entry.updated_at = now
+            entry.last_seen = now
+            entry.occurrences += 1
             if tags:
-                entry.tags = list(set(entry.tags + tags))
+                entry.tags = list(dict.fromkeys(entry.tags + tags))
             if references:
-                entry.references = list(set(entry.references + references))
+                entry.references = list(dict.fromkeys(entry.references + references))
+            if keywords:
+                entry.keywords = list(dict.fromkeys(entry.keywords + keywords))
+            if evidence:
+                entry.evidence = list(dict.fromkeys(entry.evidence + evidence))
         else:
             # Create new
             entry = MemoryEntry(
@@ -124,12 +183,43 @@ class MemoryStore:
                 tags=tags or [],
                 created_at=now,
                 updated_at=now,
-                references=references or []
+                references=references or [],
+                fingerprint=fingerprint,
+                root_cause=root_cause,
+                status=status,
+                applies_to=applies_to,
+                keywords=keywords or [],
+                occurrences=1,
+                first_seen=now,
+                last_seen=now,
+                evidence=evidence or [],
             )
             self.entries[entry_id] = entry
 
         self._save_index()
         print(f"✅ Memory added: {entry_id} ({type})")
+        return entry
+
+    def supersede(self, entry_id: str, replacement_id: str) -> MemoryEntry:
+        """Mark an entry as superseded while preserving its audit history."""
+        if entry_id not in self.entries or replacement_id not in self.entries:
+            raise KeyError("Both the old and replacement memory entries must exist")
+        entry = self.entries[entry_id]
+        entry.status = "superseded"
+        entry.superseded_by = replacement_id
+        entry.updated_at = datetime.now().isoformat()
+        self._save_index()
+        return entry
+
+    def deprecate(self, entry_id: str, revalidate_when: str) -> MemoryEntry:
+        """Deprecate an entry and record when it may become relevant again."""
+        if entry_id not in self.entries:
+            raise KeyError(entry_id)
+        entry = self.entries[entry_id]
+        entry.status = "deprecated"
+        entry.revalidate_when = revalidate_when
+        entry.updated_at = datetime.now().isoformat()
+        self._save_index()
         return entry
 
     def search(self,
@@ -189,6 +279,14 @@ class MemoryStore:
             return True
         return False
 
+    @staticmethod
+    def _generated_doc_path(docs_dir: Path, canonical_name: str) -> Path:
+        """Preserve human-owned canonical docs and emit a reviewable generated view."""
+        canonical = docs_dir / canonical_name
+        if not canonical.exists():
+            return canonical
+        return docs_dir / canonical_name.replace(".md", ".generated.md")
+
     def export_to_docs(self, docs_path: str = "docs"):
         """
         Export memories to documentation files
@@ -204,8 +302,8 @@ class MemoryStore:
         # Export decisions
         decisions = self.search(type="decision")
         if decisions:
-            decisions_file = docs_dir / "decisions.md"
-            with open(decisions_file, 'w') as f:
+            decisions_file = self._generated_doc_path(docs_dir, "decisions.md")
+            with open(decisions_file, 'w', encoding="utf-8") as f:
                 f.write("# Architecture Decisions\n\n")
                 f.write("> Generated from external memory store\n\n")
                 for entry in decisions:
@@ -224,8 +322,8 @@ class MemoryStore:
         # Export mistakes
         mistakes = self.search(type="mistake")
         if mistakes:
-            mistakes_file = docs_dir / "mistake-book.md"
-            with open(mistakes_file, 'w') as f:
+            mistakes_file = self._generated_doc_path(docs_dir, "mistake-book.md")
+            with open(mistakes_file, 'w', encoding="utf-8") as f:
                 f.write("# Mistake Book\n\n")
                 f.write("> Generated from external memory store\n\n")
                 for entry in mistakes:
@@ -244,8 +342,8 @@ class MemoryStore:
         # Export rules
         rules = self.search(type="rule")
         if rules:
-            rules_file = docs_dir / "rules.md"
-            with open(rules_file, 'w') as f:
+            rules_file = self._generated_doc_path(docs_dir, "rules.md")
+            with open(rules_file, 'w', encoding="utf-8") as f:
                 f.write("# Coding Rules\n\n")
                 f.write("> Generated from external memory store\n\n")
                 for entry in rules:
@@ -318,6 +416,10 @@ def main():
     add_parser.add_argument('--context', default='', help='Context description')
     add_parser.add_argument('--cr', help='Related CR ID')
     add_parser.add_argument('--tags', help='Comma-separated tags')
+    add_parser.add_argument('--root-cause', default='', help='Normalized root cause for semantic dedup')
+    add_parser.add_argument('--applies-to', default='', help='Runtime/stack/profile scope')
+    add_parser.add_argument('--keywords', help='Comma-separated retrieval keywords')
+    add_parser.add_argument('--evidence', action='append', help='Evidence path; repeatable')
 
     # search command
     search_parser = subparsers.add_parser('search', help='Search memories')
@@ -341,6 +443,14 @@ def main():
     delete_parser = subparsers.add_parser('delete', help='Delete memory')
     delete_parser.add_argument('entry_id', help='Entry ID to delete')
 
+    supersede_parser = subparsers.add_parser('supersede', help='Supersede a memory entry')
+    supersede_parser.add_argument('entry_id')
+    supersede_parser.add_argument('replacement_id')
+
+    deprecate_parser = subparsers.add_parser('deprecate', help='Deprecate a memory entry')
+    deprecate_parser.add_argument('entry_id')
+    deprecate_parser.add_argument('--revalidate-when', required=True)
+
     args = parser.parse_args()
 
     if not args.command:
@@ -357,9 +467,13 @@ def main():
                 type=args.type,
                 context=args.context,
                 cr_id=args.cr,
-                tags=tags
+                tags=tags,
+                root_cause=args.root_cause,
+                applies_to=args.applies_to,
+                keywords=args.keywords.split(',') if args.keywords else [],
+                evidence=args.evidence or [],
             )
-            print(json.dumps(entry.to_dict(), indent=2))
+            print(json.dumps(entry.to_dict(), indent=2, ensure_ascii=False))
 
         elif args.command == 'search':
             tags = args.tags.split(',') if args.tags else None
@@ -397,6 +511,14 @@ def main():
             else:
                 print(f"❌ Entry not found: {args.entry_id}")
                 sys.exit(1)
+
+        elif args.command == 'supersede':
+            entry = store.supersede(args.entry_id, args.replacement_id)
+            print(json.dumps(entry.to_dict(), indent=2, ensure_ascii=False))
+
+        elif args.command == 'deprecate':
+            entry = store.deprecate(args.entry_id, args.revalidate_when)
+            print(json.dumps(entry.to_dict(), indent=2, ensure_ascii=False))
 
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)

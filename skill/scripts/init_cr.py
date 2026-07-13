@@ -14,7 +14,7 @@ from typing import Iterable, List
 from datetime import datetime
 
 from cr_state import create_state, set_worktree_path
-from runtime_support import ensure_cr_runtime_dirs
+from runtime_support import configure_console, ensure_cr_runtime_dirs
 
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 CHANGE_REQUESTS_DIR = DELIVERHQ_ROOT / "change-requests"
@@ -268,6 +268,7 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, h
 
 
 def main():
+    configure_console()
     if len(sys.argv) < 3:
         _print("用法: python init_cr.py <CR-ID> <CR-NAME> [REQUESTER] [--home <项目根>/DeliverHQ] [--lane fast|standard|high-risk] [--worktree|--no-worktree]")
         _print("\n示例:")

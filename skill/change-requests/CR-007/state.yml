@@ -1,0 +1,30 @@
+cr_id: CR-007
+title: 统一入口、验证闭环与记忆生命周期基础
+lane: high-risk
+current_state: archived
+current_phase: writeback
+current_owner: writeback-agent
+goal: ''
+current_plan: null
+completed_steps: []
+blocking_reason: null
+blocked_by: []
+last_gate: writeback
+next_gate: null
+next_required_gate: null
+requires_human: true
+worktree_path: null
+gate_status:
+  spec: pass
+  architecture: pass
+  context: pass
+  permission: pass
+  pre_dev: pass
+  review: pass
+  quality: pass
+  writeback: pass
+created_at: '2026-07-13T18:28:03.902277'
+updated_at: '2026-07-13T18:55:33.415093'
+started_at: '2026-07-13T18:28:03.902288'
+completed_at: null
+transitions: []

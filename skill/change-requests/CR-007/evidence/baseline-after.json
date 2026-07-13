@@ -1,0 +1,111 @@
+{
+  "timestamp": "2026-07-13T18:55:01.273702",
+  "commit_hash": "cb22cdafc61cdf7457a24c835dcd6ffa55a7e22d",
+  "commands_run": [
+    "node --check bin/cli.js",
+    "python -m pytest -q",
+    "python -m compileall -q skill tests"
+  ],
+  "build_passed": true,
+  "build_errors": [],
+  "tests_total": 54,
+  "tests_passed": 54,
+  "tests_failed": 0,
+  "failing_tests": [],
+  "lint_errors": 0,
+  "lint_warnings": 0,
+  "type_errors": 0,
+  "coverage_percent": null,
+  "command_config": {
+    "project": {
+      "name": "DeliverHQ",
+      "type": "python-node"
+    },
+    "build": {
+      "enabled": true,
+      "command": "node --check bin/cli.js",
+      "working_dir": ".",
+      "timeout": 60,
+      "success_pattern": ""
+    },
+    "test": {
+      "unit": {
+        "enabled": true,
+        "command": "python -m pytest -q",
+        "working_dir": ".",
+        "timeout": 180,
+        "coverage_enabled": false,
+        "coverage_threshold": 0
+      },
+      "integration": {
+        "enabled": true,
+        "command": "python skill/scripts/selftest.py",
+        "working_dir": ".",
+        "timeout": 180
+      }
+    },
+    "lint": {
+      "enabled": true,
+      "tools": [
+        {
+          "name": "python-compile",
+          "command": "python -m compileall -q skill tests",
+          "severity": "error"
+        }
+      ]
+    },
+    "security": {
+      "enabled": false
+    },
+    "benchmark": {
+      "enabled": false
+    },
+    "custom": [
+      {
+        "name": "package-manifest",
+        "command": "npm pack --dry-run --json",
+        "enabled": true
+      }
+    ],
+    "qualitygate": {
+      "mode": "hybrid",
+      "fail_fast": true,
+      "auto_fix": false
+    }
+  },
+  "command_results": [
+    {
+      "name": "build",
+      "category": "build",
+      "command": "node --check bin/cli.js",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 60,
+      "success": true,
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "name": "test-unit",
+      "category": "test",
+      "command": "python -m pytest -q",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 180,
+      "success": true,
+      "returncode": 0,
+      "stdout": "......................................................              [100%]\n54 passed, 5 subtests passed in 18.83s\n",
+      "stderr": ""
+    },
+    {
+      "name": "python-compile",
+      "category": "lint",
+      "command": "python -m compileall -q skill tests",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 300,
+      "success": true,
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

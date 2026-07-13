@@ -1,0 +1,113 @@
+{
+  "timestamp": "2026-07-13T18:30:39.432052",
+  "commit_hash": "cb22cdafc61cdf7457a24c835dcd6ffa55a7e22d",
+  "commands_run": [
+    "node --check bin/cli.js",
+    "python -m pytest -q",
+    "python -m compileall -q skill tests"
+  ],
+  "build_passed": false,
+  "build_errors": [
+    "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0"
+  ],
+  "tests_total": 1,
+  "tests_passed": 0,
+  "tests_failed": 1,
+  "failing_tests": [],
+  "lint_errors": 0,
+  "lint_warnings": 0,
+  "type_errors": 0,
+  "coverage_percent": null,
+  "command_config": {
+    "project": {
+      "name": "DeliverHQ",
+      "type": "python-node"
+    },
+    "build": {
+      "enabled": true,
+      "command": "node --check bin/cli.js",
+      "working_dir": "..",
+      "timeout": 60,
+      "success_pattern": ""
+    },
+    "test": {
+      "unit": {
+        "enabled": true,
+        "command": "python -m pytest -q",
+        "working_dir": "..",
+        "timeout": 180,
+        "coverage_enabled": false,
+        "coverage_threshold": 0
+      },
+      "integration": {
+        "enabled": true,
+        "command": "python skill/scripts/selftest.py",
+        "working_dir": "..",
+        "timeout": 180
+      }
+    },
+    "lint": {
+      "enabled": true,
+      "tools": [
+        {
+          "name": "python-compile",
+          "command": "python -m compileall -q skill tests",
+          "severity": "error"
+        }
+      ]
+    },
+    "security": {
+      "enabled": false
+    },
+    "benchmark": {
+      "enabled": false
+    },
+    "custom": [
+      {
+        "name": "package-manifest",
+        "command": "npm pack --dry-run --json",
+        "enabled": true
+      }
+    ],
+    "qualitygate": {
+      "mode": "hybrid",
+      "fail_fast": true,
+      "auto_fix": false
+    }
+  },
+  "command_results": [
+    {
+      "name": "build",
+      "category": "build",
+      "command": "node --check bin/cli.js",
+      "working_dir": "D:\\Code",
+      "timeout": 60,
+      "success": false,
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0\n"
+    },
+    {
+      "name": "test-unit",
+      "category": "test",
+      "command": "python -m pytest -q",
+      "working_dir": "D:\\Code",
+      "timeout": 180,
+      "success": false,
+      "returncode": 1,
+      "stdout": "\n2 errors in 1.91s\n",
+      "stderr": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\pytest\\__main__.py\", line 9, in <module>\n    raise SystemExit(pytest.console_main())\n                     ~~~~~~~~~~~~~~~~~~~^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\config\\__init__.py\", line 223, in console_main\n    code = main()\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\config\\__init__.py\", line 199, in main\n    ret: ExitCode | int = config.hook.pytest_cmdline_main(config=config)\n                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\pluggy\\_hooks.py\", line 512, in __call__\n    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)\n           ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\pluggy\\_manager.py\", line 120, in _hookexec\n    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)\n           ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\pluggy\\_callers.py\", line 167, in _multicall\n    raise exception\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\pluggy\\_callers.py\", line 121, in _multicall\n    res = hook_impl.function(*args)\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\main.py\", line 365, in pytest_cmdline_main\n    return wrap_session(config, _main)\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\main.py\", line 360, in wrap_session\n    config._ensure_unconfigure()\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\config\\__init__.py\", line 1177, in _ensure_unconfigure\n    self._cleanup_stack.close()\n    ~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\contextlib.py\", line 627, in close\n    self.__exit__(None, None, None)\n    ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\contextlib.py\", line 619, in __exit__\n    raise exc\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\contextlib.py\", line 604, in __exit__\n    if cb(*exc_details):\n       ~~^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\contextlib.py\", line 482, in _exit_wrapper\n    callback(*args, **kwds)\n    ~~~~~~~~^^^^^^^^^^^^^^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\capture.py\", line 778, in stop_global_capturing\n    self._global_capturing.pop_outerr_to_orig()\n    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\capture.py\", line 659, in pop_outerr_to_orig\n    out, err = self.readouterr()\n               ~~~~~~~~~~~~~~~^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\capture.py\", line 706, in readouterr\n    out = self.out.snap() if self.out else \"\"\n          ~~~~~~~~~~~~~^^\n  File \"D:\\Github\\hermes-agent\\.venv\\Lib\\site-packages\\_pytest\\capture.py\", line 591, in snap\n    self.tmpfile.seek(0)\n    ~~~~~~~~~~~~~~~~~^^^\nValueError: I/O operation on closed file.\n"
+    },
+    {
+      "name": "python-compile",
+      "category": "lint",
+      "command": "python -m compileall -q skill tests",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 300,
+      "success": true,
+      "returncode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,98 @@
+schema: deliverhq-traceability
+version: 1
+
+CR-007:
+  requirement: 统一只读 go 入口、框架验证闭环与 lesson 生命周期基础
+  priority: P0
+  acceptance_criteria:
+    - AC-1 统一入口路由并预检工件
+    - AC-2 缺失工件时安全回退
+    - AC-3 测试与跨平台可靠性闭环
+    - AC-4 结构化 lesson 去重和生命周期
+    - AC-5 兼容现有入口
+  implementation:
+    - file: skill/change-requests/CR-007/
+      functions: [governance evidence bundle]
+      covers: [AC-1, AC-2, AC-3, AC-4, AC-5]
+    - file: bin/cli.js
+      functions: [cmdGo]
+      covers: [AC-1, AC-2, AC-5]
+    - file: skill/deliverhq/go.py
+      functions: [build_go_decision, artifact_preflight, discover_active_crs]
+      covers: [AC-1, AC-2]
+    - file: skill/scripts/deliver.py
+      functions: [main]
+      covers: [AC-1, AC-5]
+    - file: skill/scripts/worktree_manager.py
+      functions: [_detect_base_branch, create]
+      covers: [AC-3]
+    - file: skill/scripts/init_cr.py
+      functions: [main]
+      covers: [AC-3]
+    - file: skill/scripts/plan_checker.py
+      functions: [main]
+      covers: [AC-3]
+    - file: skill/scripts/selftest_contracts/suite.py
+      functions: [check_packaging_hygiene]
+      covers: [AC-3, AC-5]
+    - file: skill/scripts/anti_gaming_check.py
+      functions: [_git]
+      covers: [AC-3, AC-5]
+    - file: skill/scripts/reviewgate.py
+      functions: [_relevant_changed_files]
+      covers: [AC-3, AC-5]
+    - file: skill/scripts/memory_store.py
+      functions: [MemoryEntry, MemoryStore.add, MemoryStore.supersede, MemoryStore.deprecate]
+      covers: [AC-4, AC-5]
+    - file: skill/deliverhq/__init__.py
+      functions: [exports]
+      covers: [AC-1, AC-5]
+    - file: skill/scripts/test_worktree_manager.py
+      functions: [removed legacy pytest-shaped selftest]
+      covers: [AC-3, AC-5]
+    - file: skill/scripts/worktree_manager_manual_check.py
+      functions: [manual selftest entry]
+      covers: [AC-3, AC-5]
+    - file: skill/scripts/.npmignore
+      functions: [package exclusion]
+      covers: [AC-3, AC-5]
+    - file: README.md
+      functions: [go usage]
+      covers: [AC-1, AC-5]
+    - file: skill/SKILL.md
+      functions: [go operating contract]
+      covers: [AC-1, AC-2, AC-5]
+    - file: CHANGELOG.md
+      functions: [unreleased notes]
+      covers: [AC-5]
+  tests:
+    - file: tests/test_entrypoints.py
+      covers: [AC-1, AC-2, AC-3, AC-5]
+      cases:
+        - name: go routing and pure JSON
+          covers: '#1 #2 #5'
+    - file: tests/test_worktree_manager.py
+      covers: [AC-3, AC-5]
+      cases:
+        - name: branch and CR-ID validation
+          covers: '#3 #5'
+    - file: tests/test_memory_store.py
+      covers: [AC-4, AC-5]
+      cases:
+        - name: lesson lifecycle and migration
+          covers: '#4 #5'
+    - file: tests/test_runtime_modules.py
+      covers: [AC-3, AC-5]
+      cases:
+        - name: packaging hygiene
+          covers: '#3 #5'
+  verification:
+    - command: python -m pytest -q
+      result: 54 passed and 5 subtests passed
+    - command: python skill/scripts/selftest.py
+      result: 37/37 passed
+    - command: npm pack --dry-run --json
+      result: 226 files and 1197573 unpacked bytes
+  delivery:
+    branch: feat/go-memory-reliability
+    commit: recorded-by-git-history

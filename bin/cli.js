@@ -451,6 +451,79 @@ function cmdRoute(argv, flags) {
   }
 }
 
+function cmdGo(argv, flags) {
+  const projectRoot = path.resolve(flags.path || process.cwd());
+  const coreCandidates = [
+    path.join(projectRoot, 'DeliverHQ'),
+    path.join(projectRoot, '.deliverhq'),
+    path.join(projectRoot, '.claude', 'skills', 'deliverhq'),
+    path.join(projectRoot, '.hermes', 'skills', 'deliverhq'),
+    SKILL_SRC,
+  ];
+  const skillDir = coreCandidates.find((candidate) =>
+    fs.existsSync(path.join(candidate, 'scripts', 'deliver.py'))
+  );
+  if (!skillDir) {
+    console.log(C.r('✗ 找不到 DeliverHQ 核心；请先 init 或用包含 DeliverHQ 的项目路径运行'));
+    process.exit(1);
+  }
+
+  const homeCandidates = [
+    path.join(projectRoot, 'DeliverHQ'),
+  ];
+  const home = homeCandidates.find((candidate) =>
+    fs.existsSync(path.join(candidate, 'change-requests'))
+  );
+  if (!home) {
+    const error = {
+      error: 'deliverhq_home_not_found',
+      project_root: projectRoot,
+      recovery_action: `在 ${projectRoot} 初始化 DeliverHQ/ 治理目录后重试`,
+    };
+    if (flags.json) console.log(JSON.stringify(error, null, 2));
+    else {
+      console.log(C.r(`✗ 项目内缺少唯一治理目录: ${path.join(projectRoot, 'DeliverHQ')}`));
+      console.log(`  修复: ${error.recovery_action}`);
+    }
+    process.exit(1);
+  }
+
+  if (!flags.json) {
+    console.log(C.b('=== DeliverHQ go ==='));
+    console.log(`项目目录: ${projectRoot}`);
+    console.log(`核心目录: ${skillDir}`);
+  }
+
+  const py = flags.json ? detectPythonWithPyYAML() : requirePythonWithPyYAML();
+  if (!py || !py.hasYaml) {
+    const error = { error: 'python_runtime_unavailable', recovery_action: '安装 Python 3.10+ 与 PyYAML' };
+    if (flags.json) console.log(JSON.stringify(error, null, 2));
+    else console.log(C.r(`✗ ${error.recovery_action}`));
+    process.exit(1);
+  }
+  const script = path.join(skillDir, 'scripts', 'deliver.py');
+  const prompt = argv.join(' ').trim();
+  const args = [script, 'go'];
+  if (prompt) args.push(prompt);
+  args.push('--project-root', projectRoot);
+  if (home) args.push('--home', home);
+  if (flags.json) args.push('--json');
+
+  try {
+    const out = execFileSync(py.cmd, args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      maxBuffer: SELFTEST_MAX_BUFFER,
+      env: SUBPROCESS_ENV,
+    }).toString();
+    if (out.trim()) console.log(out.trim());
+  } catch (e) {
+    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
+    console.log(C.r('✗ go 失败'));
+    if (out.trim()) console.log(out.trim());
+    process.exit(1);
+  }
+}
+
 function cmdBootstrap(flags) {
   console.log(C.b('=== DeliverHQ bootstrap ==='));
   const py = requirePythonWithPyYAML();
@@ -503,6 +576,9 @@ function help() {
   npx deliverhq route "user request" [--path <core dir>] [--json]
       Light entry: route natural language to quick/standard/strict/legacy
 
+  npx deliverhq go "user request" [--path <project dir>] [--json]
+      Read-only unified entry: resolve active CR, target verb, and artifact preflight
+
   npx deliverhq bootstrap [--path <repo>] [--home <DeliverHQ dir>] [--json] [--apply]
       Read-only brownfield discovery; --apply creates reviewable candidate artifacts
 
@@ -516,6 +592,7 @@ function help() {
   npx deliverhq init --target generic     # 任意 agent
   npx deliverhq init-project --profile fullstack-web
   npx deliverhq route "refactor payment callback" --json
+  npx deliverhq go "继续" --path . --json
   npx deliverhq bootstrap --path . --json
   npx deliverhq selftest --path .claude/skills/deliverhq
 
@@ -534,6 +611,7 @@ async function main() {
   if (cmd === 'doctor') return cmdDoctor(flags);
   if (cmd === 'selftest') return cmdSelftest(flags);
   if (cmd === 'route' || cmd === 'deliver') return cmdRoute(_.slice(1), flags);
+  if (cmd === 'go') return cmdGo(_.slice(1), flags);
   if (cmd === 'bootstrap') return cmdBootstrap(flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));

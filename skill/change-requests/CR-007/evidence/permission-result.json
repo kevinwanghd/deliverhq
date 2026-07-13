@@ -1,0 +1,18 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "permission",
+  "result": "pass",
+  "timestamp": "2026-07-13T18:30:39.331017",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [
+    "git status --porcelain"
+  ],
+  "artifacts": [],
+  "next_action": "继续执行 PreDevGate",
+  "failure_attribution": [],
+  "metadata": {
+    "protected_hits": [],
+    "lane": "high-risk"
+  }
+}

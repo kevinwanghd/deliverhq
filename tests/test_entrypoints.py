@@ -67,8 +67,23 @@ class CliEntrypointTests(unittest.TestCase):
         result = self.run_cli("--help")
 
         self.assertEqual(0, result.returncode, result.stderr)
-        for command in ("init-project", "doctor", "selftest", "route", "bootstrap"):
+        for command in ("init-project", "doctor", "selftest", "route", "go", "bootstrap"):
             self.assertIn(command, result.stdout)
+
+    def test_init_cr_help_survives_native_windows_encoding(self):
+        env = os.environ.copy()
+        env.pop("PYTHONUTF8", None)
+        env.pop("PYTHONIOENCODING", None)
+        result = subprocess.run(
+            [sys.executable, str(SKILL / "scripts" / "init_cr.py")],
+            cwd=ROOT,
+            capture_output=True,
+            env=env,
+            timeout=30,
+        )
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertNotIn(b"UnicodeEncodeError", result.stderr)
 
     def test_bootstrap_is_read_only_and_deterministic(self):
         with tempfile.TemporaryDirectory(prefix="deliverhq-bootstrap-") as tmp:
@@ -154,6 +169,95 @@ class CliEntrypointTests(unittest.TestCase):
         factors = payload["estimated_cost"]["factors"]
         self.assertIn("user-visible-ui:+20%", factors)
         self.assertIn("schema-change:+10%", factors)
+
+    def make_go_project(self, root, cr_id="CR-101", files=()):
+        home = root / "DeliverHQ"
+        cr = home / "change-requests" / cr_id
+        cr.mkdir(parents=True)
+        state = {
+            "cr_id": cr_id,
+            "lane": "standard",
+            "current_state": "planning",
+            "current_phase": "implementation",
+            "next_required_gate": "pre_dev",
+            "requires_human": False,
+        }
+        (cr / "state.yml").write_text(
+            yaml.safe_dump(state, allow_unicode=True), encoding="utf-8"
+        )
+        for name in files:
+            (cr / name).parent.mkdir(parents=True, exist_ok=True)
+            (cr / name).write_text("evidence\n", encoding="utf-8")
+        return home, cr
+
+    def test_go_resolves_active_cr_and_emits_concrete_command(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-go-") as tmp:
+            root = Path(tmp)
+            _, cr = self.make_go_project(
+                root,
+                files=(
+                    "acceptance-spec.md",
+                    "architecture-design.md",
+                    "context-summary.md",
+                    "traceability.yml",
+                ),
+            )
+
+            result = self.run_cli("go", "继续", "--path", str(root), "--json")
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertEqual("CR-101", payload["current_cr"])
+            self.assertEqual("dev", payload["target_verb"])
+            self.assertEqual("dev", payload["target_phase"])
+            self.assertEqual("standard", payload["engagement_mode"])
+            self.assertEqual("standard", payload["risk_lane"])
+            self.assertTrue(payload["artifact_preflight"]["can_proceed"])
+            self.assertEqual([], payload["artifact_preflight"]["missing"])
+            self.assertNotIn("<CR>", payload["recommended_command"])
+            self.assertIn(cr.name, payload["recommended_command"])
+
+    def test_go_missing_artifact_returns_recovery_without_writes(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-go-missing-") as tmp:
+            root = Path(tmp)
+            _, cr = self.make_go_project(root, files=("acceptance-spec.md",))
+            before = sorted(path.relative_to(root).as_posix() for path in root.rglob("*"))
+
+            result = self.run_cli("go", "继续", "--path", str(root), "--json")
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertFalse(payload["artifact_preflight"]["can_proceed"])
+            self.assertIn("architecture-design.md", payload["artifact_preflight"]["missing"])
+            self.assertIsNone(payload["recommended_command"])
+            self.assertIn("architecture-design.md", payload["artifact_preflight"]["recovery_action"])
+            after = sorted(path.relative_to(root).as_posix() for path in root.rglob("*"))
+            self.assertEqual(before, after)
+            self.assertTrue(cr.is_dir())
+
+    def test_go_requires_human_when_multiple_active_crs_are_ambiguous(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-go-ambiguous-") as tmp:
+            root = Path(tmp)
+            self.make_go_project(root, cr_id="CR-101")
+            self.make_go_project(root, cr_id="CR-102")
+
+            result = self.run_cli("go", "继续", "--path", str(root), "--json")
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            payload = json.loads(result.stdout)
+            self.assertTrue(payload["needs_human"])
+            self.assertIsNone(payload["current_cr"])
+            self.assertEqual(["CR-101", "CR-102"], payload["active_crs"])
+            self.assertIsNone(payload["recommended_command"])
+
+    def test_go_without_deliverhq_home_fails_with_recovery_json(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-go-no-home-") as tmp:
+            result = self.run_cli("go", "继续", "--path", tmp, "--json")
+
+            self.assertNotEqual(0, result.returncode)
+            payload = json.loads(result.stdout)
+            self.assertEqual("deliverhq_home_not_found", payload["error"])
+            self.assertIn("DeliverHQ", payload["recovery_action"])
 
     def test_token_budget_runs_without_utf8_environment_overrides(self):
         env = os.environ.copy()

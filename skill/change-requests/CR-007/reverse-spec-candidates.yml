@@ -1,0 +1,66 @@
+# Reverse-Spec Candidates —— 逆向需求候选区
+#
+# 用途：老项目改造（目标2）的中间载体。
+#   代码 → 【本文件：AI 起草 + 客观风险分级】→ 人工裁决 → acceptance-spec.md + traceability.yml
+#
+# 三层结构（物理隔离，绝不混淆）：
+#   1. source / risk_signals  —— 客观层：由 scan_legacy.py 填写，是“代码事实”，可复现
+#   2. inferred_* / evidence  —— 推断层：由 AI 填写，是“草稿”，待证伪
+#   3. human_decision         —— 裁决层：由人填写，是唯一权威
+#
+# 关键约束：
+#   - review_required 由客观信号推导（见 scan_legacy.py），不由 AI 自评置信度决定
+#   - is_real_requirement 必须人工回答：true=真需求 / false=bug或技术债（不固化成需求）
+#   - ReverseSpecGate 会阻断：存在 review_required:true 且 status:unconfirmed 的条目
+#   - 确认后由 reverse_to_spec.py 转化为 acceptance-spec.md + traceability.yml
+#
+# 完整流程见 ../../LEGACY-REVERSE-GUIDE.md
+
+schema: deliverhq-reverse-spec
+version: 1
+
+project:
+  name: "{{项目名}}"
+  scanned_at: "{{YYYY-MM-DD HH:mm:ss}}"
+  scan_root: "{{扫描根目录}}"
+  tech_stack: "{{自动推断：python/node/java/...}}"
+
+# 候选条目列表（由 scan_legacy.py 生成；以下为单条结构示例）
+candidates:
+  - id: "RC-001"
+    title: "{{一句话描述这个模块/行为}}"
+
+    # ── 1. 客观层（scan_legacy.py 填，代码事实，可复现）──────────────
+    source:
+      files: []              # 形如 ["src/auth/login.py:45-89"]
+      functions: []          # 形如 ["check_login_attempts"]
+      module: "{{模块/包名}}"
+    risk_signals:
+      test_coverage: "unknown"     # none | partial | full | unknown
+      complexity: "unknown"        # low | medium | high | unknown
+      sensitive_domain: []         # auth|payment|data|permission|external|crypto 的子集，空=非敏感
+      change_frequency: "unknown"  # low | medium | high | unknown（来自 git 历史）
+      loc: 0                       # 模块代码行数
+
+    # ── 2. 推断层（AI 填，草稿，待证伪）─────────────────────────────
+    inferred_behavior: "{{AI 从代码推断：这个模块在做什么}}"
+    confidence: "low"              # low | medium | high（仅供参考，不决定 review_required）
+    assumptions: []                # AI 做出的、代码未明确证实的假设（高危项）
+    evidence:
+      supporting_tests: []         # 支持该推断的现有测试用例
+      contradicting_tests: []      # 与该推断矛盾的现有测试（非空→自动 review_required）
+
+    # ── review 必要性（scan_legacy.py 由 risk_signals 推导，非 AI）──
+    review_required: true
+    review_reason: []              # 形如 ["无测试覆盖", "auth 敏感域", "高复杂度"]
+
+    # ── 3. 裁决层（人填，唯一权威）──────────────────────────────────
+    human_decision:
+      status: "unconfirmed"        # unconfirmed | confirmed | modified | rejected | deferred
+      is_real_requirement: null    # true=真需求 / false=bug或技术债（不固化）/ null=未裁决
+      decided_by: ""
+      date: ""
+      note: ""                     # modified 时写修正后的需求；rejected 时写为何是 bug/债
+
+    # ── 转化桥（确认后填，直接映射到 acceptance-spec）──────────────
+    becomes_acceptance_criteria: null   # 人确认后的最终验收条件文字，供 reverse_to_spec.py 使用

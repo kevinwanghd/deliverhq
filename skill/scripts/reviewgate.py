@@ -195,7 +195,10 @@ def _relevant_changed_files(changed_files: Optional[List[str]]) -> List[str]:
     if not changed_files:
         return []
 
-    ignored_prefixes = ('DeliverHQ/', 'change-requests/', '_archived/', 'delivery/')
+    ignored_prefixes = (
+        'DeliverHQ/', 'change-requests/', 'skill/change-requests/',
+        '_archived/', 'delivery/',
+    )
     relevant = [path for path in changed_files if not path.startswith(ignored_prefixes)]
     return relevant or list(changed_files)
 
