@@ -1,0 +1,93 @@
+{
+  "timestamp": "2026-07-12T04:34:37.189333",
+  "commit_hash": "unknown",
+  "commands_run": [
+    "node --check ../bin/cli.js",
+    "python -m unittest discover -s ../tests -v",
+    "python scripts/selftest.py"
+  ],
+  "build_passed": false,
+  "build_errors": [
+    "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0"
+  ],
+  "tests_total": 1,
+  "tests_passed": 0,
+  "tests_failed": 1,
+  "failing_tests": [],
+  "lint_errors": 1,
+  "lint_warnings": 0,
+  "type_errors": 0,
+  "coverage_percent": null,
+  "command_config": {
+    "project": {
+      "name": "DeliverHQ",
+      "type": "python-node"
+    },
+    "build": {
+      "enabled": true,
+      "command": "node --check ../bin/cli.js",
+      "working_dir": ".",
+      "timeout": 60
+    },
+    "test": {
+      "unit": {
+        "enabled": true,
+        "command": "python -m unittest discover -s ../tests -v",
+        "working_dir": ".",
+        "timeout": 120,
+        "coverage_enabled": false
+      }
+    },
+    "lint": {
+      "enabled": true,
+      "tools": [
+        {
+          "name": "selftest",
+          "enabled": true,
+          "command": "python scripts/selftest.py",
+          "working_dir": ".",
+          "timeout": 300,
+          "severity": "error"
+        }
+      ]
+    },
+    "qualitygate": {
+      "mode": "hybrid"
+    }
+  },
+  "command_results": [
+    {
+      "name": "build",
+      "category": "build",
+      "command": "node --check ../bin/cli.js",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 60,
+      "success": false,
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "node:internal/modules/cjs/loader:1424\n  throw err;\n  ^\n\nError: Cannot find module 'D:\\Code\\bin\\cli.js'\n    at node:internal/modules/cjs/loader:1421:15\n    at node:internal/main/check_syntax:33:20 {\n  code: 'MODULE_NOT_FOUND',\n  requireStack: []\n}\n\nNode.js v24.13.0\n"
+    },
+    {
+      "name": "test-unit",
+      "category": "test",
+      "command": "python -m unittest discover -s ../tests -v",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 120,
+      "success": false,
+      "returncode": 1,
+      "stdout": "",
+      "stderr": "Traceback (most recent call last):\n  File \"<frozen runpy>\", line 198, in _run_module_as_main\n  File \"<frozen runpy>\", line 88, in _run_code\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\__main__.py\", line 18, in <module>\n    main(module=None)\n    ~~~~^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 103, in __init__\n    self.parseArgs(argv)\n    ~~~~~~~~~~~~~~^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 119, in parseArgs\n    self._do_discovery(argv[2:])\n    ~~~~~~~~~~~~~~~~~~^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 242, in _do_discovery\n    self.createTests(from_discovery=True, Loader=Loader)\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\main.py\", line 149, in createTests\n    self.test = loader.discover(self.start, self.pattern, self.top)\n                ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\kevin\\AppData\\Roaming\\uv\\python\\cpython-3.13-windows-x86_64-none\\Lib\\unittest\\loader.py\", line 308, in discover\n    raise ImportError('Start directory is not importable: %r' % start_dir)\nImportError: Start directory is not importable: '../tests'\n"
+    },
+    {
+      "name": "selftest",
+      "category": "lint",
+      "command": "python scripts/selftest.py",
+      "working_dir": "D:\\Code\\DeliverHQ",
+      "timeout": 300,
+      "success": false,
+      "returncode": 2,
+      "stdout": "",
+      "stderr": "python: can't open file 'D:\\\\Code\\\\DeliverHQ\\\\scripts\\\\selftest.py': [Errno 2] No such file or directory\n"
+    }
+  ]
+}

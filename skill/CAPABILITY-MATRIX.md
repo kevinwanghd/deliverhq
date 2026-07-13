@@ -31,7 +31,9 @@
 | DeployGate | scripts/deploygate.py | experimental | integrated | false | true | 部署就绪检查，不做真实部署 |
 | WritebackGate | scripts/writeback_gate.py | stable | integrated | false | true | 交付后知识沉淀检查 |
 | Gate Contract Check | scripts/gate_contract_check.py | stable | integrated | true | false | 验证脚本存在、正反例与参数契约 |
-| Orchestrator | scripts/skill_orchestrator.py | experimental | integrated | true | true | 默认 pipeline 停在 dev handoff；不假装自动完成开发/验收 |
+| Orchestrator | scripts/skill_orchestrator.py + scripts/orchestrator_core.py + scripts/orchestrator_routing.py | experimental | integrated | true | true | 薄 CLI + 编排 core + 纯路由/成本模块；默认 pipeline 停在 dev handoff |
+| Execution Runtime | scripts/execution_runtime.py | stable | integrated | false | false | 统一无 shell Python 脚本执行、UTF-8、超时和结构化结果；Gate wrapper 与 orchestrator 共用 |
+| Selftest Contract Suite | scripts/selftest.py + scripts/selftest_contracts/* | stable | integrated | true | false | 薄入口；37 项契约按 core/workflow/governance 三域注册，保持原汇总接口 |
 | Failure Attribution | scripts/failure_attribution.py | experimental | integrated | true | false | 已接入 gate evidence 输出结构化归因 |
 | Mistake Book Dedup | scripts/update_mistake_book.py | experimental | integrated | true | false | CR+Gate+failure_hash 去重，重复 3 次标记 rules_candidate |
 | Routing Eval | scripts/eval_routing.py + evals/*routing-cases.md | stable | integrated | true | false | selftest 真实执行，禁止 total=0 通过 |
@@ -77,5 +79,5 @@
 5. 新能力进入默认流程前，必须同时满足：脚本存在、参数契约测试、正反例或 dry-run 测试、README/SKILL 能力状态同步。
 6. **Gate 集合已冻结**：当前 11 道 Gate 是基线，由 `scripts/gate_composition_check.py` 的 `FROZEN_GATES` 单一事实源约束。新增/删除 Gate 必须更新该集合并经 CR 论证；Gate 之间禁止相互 import（除 `ALLOWED_GATE_EDGES` 白名单），串联只由编排器显式完成。对应 `gate_composition_contract`。
 
-**版本**: v5.15.3  
-**最后更新**: 2026-06-30
+**版本**: v5.16.0
+**最后更新**: 2026-07-11
