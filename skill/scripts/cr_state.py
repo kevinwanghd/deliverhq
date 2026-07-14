@@ -27,7 +27,7 @@ GATE_TO_STATE = {
     "dev": "dev",
     "review": "code_review",
     "quality": "testing",
-    "deploy": "deploy_ready",
+    "deploy": "delivery_ready",
     "writeback": "archived",
     "permission": "blocked",
 }
@@ -43,8 +43,11 @@ class CRState(Enum):
     DEV = "dev"
     CODE_REVIEW = "code_review"
     TESTING = "testing"
+    DELIVERY_READY = "delivery_ready"
+    SUBMITTED = "submitted"
     DEPLOY_READY = "deploy_ready"
     DEPLOYED = "deployed"
+    PRODUCTION_VERIFIED = "production_verified"
     ARCHIVED = "archived"
     BLOCKED = "blocked"
     NEEDS_HUMAN = "needs_human"
@@ -109,6 +112,8 @@ def _state_file(cr_path: Path) -> Path:
 
 
 def _coerce_state(value: str) -> CRState:
+    if value == "deploy_ready":
+        return CRState.DELIVERY_READY
     try:
         return CRState(value)
     except ValueError:

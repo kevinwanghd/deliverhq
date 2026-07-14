@@ -6,6 +6,7 @@ skill/change-requests/*/workspace/**
 skill/_archived/**
 skill/docs/superpowers/**
 skill/docs/OPTIMIZATION_*.md
+skill/docs/ROADMAP-v*.md
 skill/examples/self-development/**
 skill/doc-audit-*.md
 skill/.claude/**

@@ -12,9 +12,16 @@ python scripts/init_cr.py CR-001 "实现用户登录功能" "产品经理"
 ```
 
 脚本会自动：
-1. 复制 `CR-TEMPLATE` → `CR-001`
+1. 懒物化核心 CR 文件 → `CR-001`
 2. 替换所有模板变量（`{{CR_ID}}`、`{{CR_NAME}}` 等）
 3. 填充当前日期和提出人
+4. 在 `template-manifest.yml` 记录 UI、部署、逆向和报告类可选产物，按需再创建
+
+如需旧版“复制完整模板”的行为，使用：
+
+```bash
+python scripts/init_cr.py CR-001 "实现用户登录功能" "产品经理" --full-template
+```
 
 ## 手动创建（不推荐）
 
@@ -29,7 +36,9 @@ find . -type f -exec sed -i 's/{{CR_NAME}}/实现用户登录功能/g' {} \;
 find . -type f -exec sed -i 's/{{date}}/2026-06-11/g' {} \;
 ```
 
-## 文件清单（20 个）
+## 文件清单
+
+默认新 CR 只创建核心链路文件；完整模板仍保留以下可选文件，供 `--full-template` 或按需物化使用。
 
 ### 需求与规格（Spec Agent）
 - `request.md` — 需求输入（产品经理填写）

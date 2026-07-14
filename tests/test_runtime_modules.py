@@ -153,6 +153,111 @@ class RuntimeAdoptionTests(unittest.TestCase):
 
         self.assertTrue(suite.check_packaging_hygiene())
 
+    def test_init_cr_materializes_core_files_lazily_by_default(self):
+        init_cr = importlib.import_module("init_cr")
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-init-cr-")
+        self.addCleanup(temp.cleanup)
+        home = Path(temp.name) / "DeliverHQ"
+
+        ok = init_cr.init_cr(
+            "CR-101",
+            "Lazy materialization",
+            requester="tester",
+            lane="fast",
+            use_worktree=False,
+            home=str(home),
+        )
+
+        cr = home / "change-requests" / "CR-101"
+        self.assertTrue(ok)
+        self.assertTrue((cr / "request.md").is_file())
+        self.assertTrue((cr / "template-manifest.yml").is_file())
+        self.assertFalse((cr / "design" / "hi-fi-spec.md").exists())
+        self.assertFalse((cr / "deployment-checklist.md").exists())
+
+    def test_init_cr_full_template_preserves_legacy_copy_behavior(self):
+        init_cr = importlib.import_module("init_cr")
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-init-cr-full-")
+        self.addCleanup(temp.cleanup)
+        home = Path(temp.name) / "DeliverHQ"
+
+        ok = init_cr.init_cr(
+            "CR-102",
+            "Full materialization",
+            requester="tester",
+            lane="fast",
+            use_worktree=False,
+            home=str(home),
+            full_template=True,
+        )
+
+        cr = home / "change-requests" / "CR-102"
+        self.assertTrue(ok)
+        self.assertTrue((cr / "design" / "hi-fi-spec.md").is_file())
+        self.assertTrue((cr / "deployment-checklist.md").is_file())
+        self.assertFalse((cr / "template-manifest.yml").exists())
+
+    def test_review_provenance_missing_warns_standard_but_blocks_high_risk(self):
+        reviewgate = importlib.import_module("reviewgate")
+
+        standard_blockers, standard_warnings = reviewgate.review_provenance_findings(
+            "## Review\nAPPROVED\n",
+            lane="standard",
+        )
+        high_risk_blockers, _ = reviewgate.review_provenance_findings(
+            "## Review\nAPPROVED\n",
+            lane="high-risk",
+        )
+
+        self.assertEqual([], standard_blockers)
+        self.assertTrue(any("review provenance missing" in item for item in standard_warnings))
+        self.assertTrue(any("review provenance missing" in item for item in high_risk_blockers))
+
+    def test_review_provenance_accepts_fresh_agent_evidence(self):
+        reviewgate = importlib.import_module("reviewgate")
+        content = """## Review
+```yaml
+schema: deliverhq-review-provenance
+version: 1
+reviewer_mode: fresh-agent
+author_role: dev-agent
+reviewed_inputs:
+  - git diff
+  - acceptance-spec.md
+excluded_inputs:
+  - implementation self-assessment
+```
+"""
+
+        blockers, warnings = reviewgate.review_provenance_findings(content, lane="high-risk")
+
+        self.assertEqual([], blockers)
+        self.assertEqual([], warnings)
+
+    def test_deploy_ready_state_alias_loads_as_delivery_ready(self):
+        cr_state = importlib.import_module("cr_state")
+        temp = tempfile.TemporaryDirectory(prefix="deliverhq-state-")
+        self.addCleanup(temp.cleanup)
+        cr = Path(temp.name)
+        (cr / "state.yml").write_text(
+            yaml.safe_dump(
+                {
+                    "cr_id": "CR-103",
+                    "title": "legacy state",
+                    "lane": "standard",
+                    "current_state": "deploy_ready",
+                    "current_phase": "deploy",
+                    "current_owner": "deploy-agent",
+                },
+                allow_unicode=True,
+            ),
+            encoding="utf-8",
+        )
+
+        state = cr_state.load_state(cr)
+
+        self.assertEqual(cr_state.CRState.DELIVERY_READY, state.current_state)
+
 
 class BrownfieldPlanEvidenceTests(unittest.TestCase):
     @classmethod

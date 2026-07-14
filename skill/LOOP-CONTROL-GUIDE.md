@@ -87,7 +87,7 @@ python scripts/retry_guard.py change-requests/CR-XXX status
 
 CR 状态（`cr_state.py`）：
 ```
-draft → spec_review → ... → code_review → testing → deploy_ready → deployed → archived
+draft → spec_review → ... → code_review → testing → delivery_ready → submitted → production_verified → archived
                                                     ↘ blocked
                                                     ↘ needs_human   ← 重试耗尽 / 检测到钻空子 / 高风险决策
                                                     ↘ cancelled
