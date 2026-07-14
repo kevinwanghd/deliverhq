@@ -34,6 +34,7 @@
     "!skill/_archived/",
     "!skill/docs/superpowers/",
     "!skill/docs/OPTIMIZATION_*.md",
+    "!skill/docs/ROADMAP-v*.md",
     "!skill/docs/skill-prompts.md",
     "!skill/docs/skill-builder-guide.md",
     "!skill/docs/skill-definition.md",

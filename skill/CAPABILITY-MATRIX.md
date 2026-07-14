@@ -17,7 +17,7 @@
 <!-- BEGIN GENERATED CAPABILITIES -->
 | 能力 | 脚本/文档 | status | integrated | default_enabled | allowed_in_pipeline | 说明 |
 |---|---|---|---|---:|---:|---|
-| CR 初始化 | scripts/init_cr.py | stable | integrated | true | false | 创建 CR、state.yml、运行时目录；worktree 创建失败只警告 |
+| CR 初始化 | scripts/init_cr.py | stable | integrated | true | false | 创建 CR、state.yml、运行时目录；默认懒物化核心文件，`--full-template` 保留完整模板复制；worktree 创建失败只警告 |
 | CR 状态机 | scripts/cr_state.py | stable | integrated | true | true | 管理 lane/phase/next_required_gate/evidence |
 | SpecGate | scripts/specgate.py | stable | integrated | true | true | 验收规格 fail-closed 检查 |
 | DesignGate | scripts/designgate.py | experimental | integrated | true | true | UI/设计产物检查，后端项目需 metadata 声明跳过 |

@@ -20,6 +20,55 @@ DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 CHANGE_REQUESTS_DIR = DELIVERHQ_ROOT / "change-requests"
 WORKTREE_SCRIPT = DELIVERHQ_ROOT / "scripts" / "worktree_manager.py"
 VALID_LANES = {"fast", "standard", "high-risk"}
+CORE_TEMPLATE_FILES = {
+    "README.md",
+    "request.md",
+    "acceptance-spec.md",
+    "architecture-design.md",
+    "context-summary.md",
+    "implementation-plan.md",
+    "traceability.yml",
+    "test-plan.md",
+    "verification-manifest.yml",
+    "human-decisions.md",
+    "exceptions.yml",
+    "goal-contract.yml",
+    "plan.yml",
+    "sub-crs.yml",
+    "workspace/README.md",
+    "outputs/README.md",
+    "evidence/README.md",
+    "artifacts/README.md",
+}
+OPTIONAL_TEMPLATE_GROUPS = {
+    "ui-design": [
+        "design/lo-fi-spec.md",
+        "design/hi-fi-spec.md",
+        "design/prototype.html",
+        "design/design-decisions.md",
+        "design/direct-read-audit.md",
+        "design/visual-audit-report.md",
+        "design/assets/README.md",
+        "designgate-report.md",
+    ],
+    "review-quality": [
+        "review-report.md",
+        "quality-report.md",
+        "qualitygate-report.md",
+        "specgate-report.md",
+        "context-window-report.md",
+    ],
+    "deploy-writeback": [
+        "deployment-checklist.md",
+        "pr-summary.md",
+        "writeback-report.md",
+        "writeback-gate-report.md",
+    ],
+    "reverse-legacy": [
+        "request-clarifications.md",
+        "reverse-spec-candidates.yml",
+    ],
+}
 
 
 def _print(message: str):
@@ -33,6 +82,7 @@ def _parse_args(args: List[str]):
     lane = "standard"
     use_worktree = None
     home = None
+    full_template = False
 
     index = 0
     while index < len(args):
@@ -41,6 +91,8 @@ def _parse_args(args: List[str]):
             use_worktree = True
         elif arg == "--no-worktree":
             use_worktree = False
+        elif arg == "--full-template":
+            full_template = True
         elif arg == "--lane" and index + 1 < len(args):
             lane = args[index + 1]
             index += 1
@@ -68,7 +120,7 @@ def _parse_args(args: List[str]):
     if use_worktree is None:
         use_worktree = lane in {"standard", "high-risk"}
 
-    return cr_id, cr_name, requester, lane, use_worktree, home
+    return cr_id, cr_name, requester, lane, use_worktree, home, full_template
 
 
 def _resolve_home(home_arg):
@@ -178,6 +230,49 @@ def _replace_template_vars(target_dir: Path, replacements: dict) -> int:
     return replaced_count
 
 
+def _copy_one_template_file(template_dir: Path, target_dir: Path, relative_path: str) -> bool:
+    source = template_dir / relative_path
+    if not source.exists():
+        return False
+    target = target_dir / relative_path
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, target)
+    return True
+
+
+def _write_materialization_manifest(target_dir: Path, full_template: bool) -> None:
+    if full_template:
+        return
+
+    lines = [
+        "schema: deliverhq-template-materialization",
+        "version: 1",
+        "mode: lazy",
+        "description: Optional CR artifacts are created on demand instead of copied into every new CR.",
+        "optional_groups:",
+    ]
+    for group, files in OPTIONAL_TEMPLATE_GROUPS.items():
+        lines.append(f"  {group}:")
+        for file_name in files:
+            lines.append(f"    - {file_name}")
+    (target_dir / "template-manifest.yml").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _materialize_template(template_dir: Path, target_dir: Path, full_template: bool = False) -> int:
+    if full_template:
+        shutil.copytree(template_dir, target_dir)
+        return sum(1 for path in target_dir.rglob("*") if path.is_file())
+
+    target_dir.mkdir(parents=True, exist_ok=False)
+    copied = 0
+    for relative_path in sorted(CORE_TEMPLATE_FILES):
+        if _copy_one_template_file(template_dir, target_dir, relative_path):
+            copied += 1
+    _write_materialization_manifest(target_dir, full_template=False)
+    _print(f"Lazy CR template materialized: {copied} core files")
+    return copied
+
+
 def _create_state(target_dir: Path, cr_id: str, cr_name: str, requester: str, lane: str):
     owner = requester or "human"
     create_state(target_dir, cr_id, cr_name, lane=lane, owner=owner)
@@ -212,7 +307,7 @@ def _create_worktree(cr_id: str, project_root: Path):
     return None
 
 
-def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, home=None):
+def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, home=None, full_template=False):
     """初始化新 CR。
 
     模板源恒为 skill 包内的 CR-TEMPLATE；产物落点为 <home>/change-requests/<cr_id>。
@@ -233,7 +328,7 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, h
 
     (home_dir / "change-requests").mkdir(parents=True, exist_ok=True)
     _print(f"📁 复制模板 {template_dir} → {target_dir}")
-    shutil.copytree(template_dir, target_dir)
+    _materialize_template(template_dir, target_dir, full_template=full_template)
 
     today = datetime.now().strftime("%Y-%m-%d")
     replacements = {
@@ -279,7 +374,7 @@ def main():
         sys.exit(1)
 
     try:
-        cr_id, cr_name, requester, lane, use_worktree, home = _parse_args(sys.argv[1:])
+        cr_id, cr_name, requester, lane, use_worktree, home, full_template = _parse_args(sys.argv[1:])
     except ValueError as exc:
         _print(f"❌ 错误: {exc}")
         sys.exit(1)
@@ -294,7 +389,7 @@ def main():
     # 首次入场检测：CONTEXT.md 不存在 → 停下来问要不要扫描既有代码
     _check_first_time_setup(home_dir)
 
-    success = init_cr(cr_id, cr_name, requester, lane, use_worktree, str(home_dir))
+    success = init_cr(cr_id, cr_name, requester, lane, use_worktree, str(home_dir), full_template=full_template)
     sys.exit(0 if success else 1)
 
 

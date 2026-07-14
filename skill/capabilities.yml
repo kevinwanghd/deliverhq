@@ -8,7 +8,7 @@ capabilities:
   integrated: integrated
   default_enabled: true
   allowed_in_pipeline: false
-  description: 创建 CR、state.yml、运行时目录；worktree 创建失败只警告
+  description: 创建 CR、state.yml、运行时目录；默认懒物化核心文件，`--full-template` 保留完整模板复制；worktree 创建失败只警告
 - id: cap-002
   name: CR 状态机
   script: scripts/cr_state.py

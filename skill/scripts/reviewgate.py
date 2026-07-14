@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 
 import yaml
 
-from cr_state import update_gate_from_result
+from cr_state import load_state, update_gate_from_result
 from runtime_support import configure_console
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
@@ -82,6 +82,59 @@ def parse_review_report(report_path):
         'trace_complete': trace_complete,
         'content': content,
     }, None
+
+
+def parse_review_provenance(content: str) -> Dict[str, object]:
+    pattern = re.compile(
+        r"```yaml\s*\n\s*schema:\s*deliverhq-review-provenance\b(?P<body>.*?)```",
+        re.DOTALL,
+    )
+    match = pattern.search(content)
+    if not match:
+        return {}
+
+    raw = "schema: deliverhq-review-provenance" + match.group("body")
+    try:
+        payload = yaml.safe_load(raw) or {}
+    except Exception:
+        return {"_parse_error": True}
+    return payload if isinstance(payload, dict) else {"_parse_error": True}
+
+
+def review_provenance_findings(content: str, lane: str = "standard") -> Tuple[List[str], List[str]]:
+    blockers: List[str] = []
+    warnings: List[str] = []
+    provenance = parse_review_provenance(content)
+
+    if not provenance:
+        message = "review provenance missing: add schema deliverhq-review-provenance"
+        if lane == "high-risk":
+            blockers.append(message)
+        else:
+            warnings.append(message)
+        return blockers, warnings
+
+    if provenance.get("_parse_error"):
+        blockers.append("review provenance YAML could not be parsed")
+        return blockers, warnings
+
+    reviewer_mode = str(provenance.get("reviewer_mode", "")).strip()
+    reviewed_inputs = provenance.get("reviewed_inputs") or []
+    excluded_inputs = provenance.get("excluded_inputs") or []
+    author_role = str(provenance.get("author_role", "")).strip()
+
+    if reviewer_mode not in {"fresh-agent", "independent-human", "independent-agent"}:
+        blockers.append("review provenance reviewer_mode must be independent")
+    if not isinstance(reviewed_inputs, list) or not reviewed_inputs:
+        blockers.append("review provenance reviewed_inputs must list evidence used")
+    if not isinstance(excluded_inputs, list) or not excluded_inputs:
+        blockers.append("review provenance excluded_inputs must list author-side inputs avoided")
+    if author_role and author_role == reviewer_mode:
+        blockers.append("review provenance reviewer must not be the implementation author")
+    if lane == "high-risk" and reviewer_mode != "fresh-agent":
+        blockers.append("high-risk review requires reviewer_mode=fresh-agent")
+
+    return blockers, warnings
 
 
 def _load_traceability(cr_path: Path):
@@ -228,6 +281,8 @@ def check_reviewgate(cr_path):
     """ReviewGate 检查"""
 
     cr_path = Path(cr_path)
+    state = load_state(cr_path)
+    lane = state.lane if state is not None else "standard"
     print(f"{Color.BLUE}=== ReviewGate 检查 ==={Color.END}\n")
 
     report_path = cr_path / 'review-report.md'
@@ -399,6 +454,19 @@ def check_reviewgate(cr_path):
         print(f"{Color.GREEN}  ✓ acceptance-spec.md / test-plan.md / verification-manifest.yml 完整{Color.END}")
 
     # 汇总结果
+    print(f"\n{Color.BLUE}[Review Provenance]{Color.END}")
+    provenance_blockers, provenance_warnings = review_provenance_findings(content, lane=lane)
+    if provenance_blockers:
+        for message in provenance_blockers:
+            print(f"{Color.RED}  ✗ {message}{Color.END}")
+        blockers.extend(provenance_blockers)
+    else:
+        print(f"{Color.GREEN}  ✓ review provenance acceptable{Color.END}")
+    if provenance_warnings:
+        for message in provenance_warnings:
+            print(f"{Color.YELLOW}  ⚠ {message}{Color.END}")
+        warnings.extend(provenance_warnings)
+
     print(f"\n{Color.BLUE}=== ReviewGate 结果 ==={Color.END}")
     if blockers:
         print(f"{Color.RED}❌ BLOCKED{Color.END}")
