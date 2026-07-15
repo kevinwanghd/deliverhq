@@ -2017,6 +2017,93 @@ def check_capability_tiers_contract():
     return ok
 
 
+def check_knowledge_lifecycle_contract():
+    """知识生命周期契约：重复知识可晋升，退场知识必须可审计。"""
+    section("31. 知识生命周期契约 (memory_store)")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import memory_store
+    except Exception as e:
+        print(f"  {FAIL} 无法导入 memory_store: {e}")
+        return False
+
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-memory-contract-"))
+    store = memory_store.MemoryStore(tmp / "memory")
+    first = store.add("repeat failure", "mistake", root_cause="same cause", evidence=["missing.md"])
+    store.add("repeat again", "mistake", root_cause="same cause")
+    store.add("repeat third", "mistake", root_cause="same cause")
+    old = store.add("old rule", "rule")
+    new = store.add("new rule", "rule")
+    store.supersede(old.id, new.id)
+    store.obsolete(new.id, "newer guidance exists")
+    report = store.audit_lifecycle(root=str(tmp), min_occurrences=3)
+
+    ok = True
+    if first.id in report["promotion_candidates"]:
+        print(f"  {PASS} 重复知识进入晋升候选")
+    else:
+        print(f"  {FAIL} 重复知识未进入晋升候选")
+        ok = False
+    if not report["blockers"] and any("evidence path missing" in item for item in report["warnings"]):
+        print(f"  {PASS} 生命周期审计区分 blocker 与 warning")
+    else:
+        print(f"  {FAIL} 生命周期审计结果异常: {report}")
+        ok = False
+    if store.get(new.id).status == "obsolete":
+        print(f"  {PASS} obsolete 退场状态可记录原因")
+    else:
+        print(f"  {FAIL} obsolete 状态未记录")
+        ok = False
+    return ok
+
+
+def check_capability_stocktake_contract():
+    """新增能力前必须先盘点复用/扩展路径。"""
+    section("32. 能力盘点契约 (capability_stocktake)")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    sys.path.insert(0, str(ROOT))
+    try:
+        import capability_stocktake
+    except Exception as e:
+        print(f"  {FAIL} 无法导入 capability_stocktake: {e}")
+        return False
+
+    blocked = capability_stocktake.check_stocktake(
+        intent="review checks",
+        proposed_name="ReviewGate",
+        records=[],
+    )
+    accepted = capability_stocktake.check_stocktake(
+        intent="review checks",
+        proposed_name="Review Evidence Helper",
+        why_existing_insufficient="needs a separate lifecycle seam",
+        records=[],
+    )
+    if blocked["blockers"] and not accepted["blockers"]:
+        print(f"  {PASS} 缺复用决策会阻断，记录理由后通过")
+        return True
+    print(f"  {FAIL} 能力盘点契约异常: blocked={blocked}, accepted={accepted}")
+    return False
+
+
+def check_wording_drift_contract():
+    """入口文档引用能力矩阵，不重复维护能力状态表。"""
+    section("33. 文档措辞漂移契约 (wording_drift_check)")
+    sys.path.insert(0, str(ROOT / "scripts"))
+    try:
+        import wording_drift_check
+    except Exception as e:
+        print(f"  {FAIL} 无法导入 wording_drift_check: {e}")
+        return False
+
+    report = wording_drift_check.check_wording_drift(ROOT)
+    if not report["blockers"]:
+        print(f"  {PASS} 入口文档以 CAPABILITY-MATRIX.md 为能力状态唯一来源")
+        return True
+    print(f"  {FAIL} 文档漂移检查失败: {report['blockers']}")
+    return False
+
+
 def check_lane_advisor_contract():
     """客观规模分档建议器契约：fast / standard / high-risk / split 四类正例。"""
     section("31. 客观规模分档契约 (lane_advisor)")
@@ -2240,6 +2327,9 @@ def main():
         results["needs_clarification_contract"] = check_needs_clarification_contract()
         results["gate_composition_contract"] = check_gate_composition_contract()
         results["capability_tiers_contract"] = check_capability_tiers_contract()
+        results["knowledge_lifecycle_contract"] = check_knowledge_lifecycle_contract()
+        results["capability_stocktake_contract"] = check_capability_stocktake_contract()
+        results["wording_drift_contract"] = check_wording_drift_contract()
         results["token_budget_contract"] = check_token_budget_contract()
         results["must_haves_contract"] = check_must_haves_contract()
         results["handoff_state_contract"] = check_handoff_state_contract()

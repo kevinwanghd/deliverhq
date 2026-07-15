@@ -95,6 +95,95 @@ class CapabilityRegistryTests(unittest.TestCase):
         self.assertGreaterEqual(payload["count"], 40)
         self.assertTrue(payload["matrix_current"])
 
+    def test_capability_stocktake_requires_reuse_decision(self):
+        stocktake = importlib.import_module("capability_stocktake")
+        records = [
+            self.registry.Capability(
+                id="cap-001",
+                name="QualityGate",
+                script="scripts/qualitygate.py",
+                status="stable",
+                integrated="integrated",
+                default_enabled=False,
+                allowed_in_pipeline=True,
+                description="verification manifest quality checks",
+            )
+        ]
+
+        report = stocktake.check_stocktake(
+            intent="quality verification checks",
+            proposed_name="Quality Verification",
+            records=records,
+        )
+        accepted = stocktake.check_stocktake(
+            intent="quality verification checks",
+            proposed_name="Quality Verification",
+            extend_existing="cap-001",
+            records=records,
+        )
+
+        self.assertTrue(report["blockers"])
+        self.assertEqual([], accepted["blockers"])
+
+    def test_capability_stocktake_blocks_duplicate_names(self):
+        stocktake = importlib.import_module("capability_stocktake")
+        records = [
+            self.registry.Capability(
+                id="cap-010",
+                name="ReviewGate",
+                script="scripts/reviewgate.py",
+                status="stable",
+                integrated="integrated",
+                default_enabled=False,
+                allowed_in_pipeline=True,
+                description="review checks",
+            )
+        ]
+
+        report = stocktake.check_stocktake(
+            intent="new review checks",
+            proposed_name="ReviewGate",
+            why_existing_insufficient="different lifecycle point",
+            records=records,
+        )
+
+        self.assertTrue(any("duplicates existing" in item for item in report["blockers"]))
+
+    def test_wording_drift_check_blocks_duplicate_capability_tables(self):
+        drift = importlib.import_module("wording_drift_check")
+        with tempfile.TemporaryDirectory(prefix="deliverhq-wording-") as temp:
+            root = Path(temp)
+            (root / "CAPABILITY-MATRIX.md").write_text(
+                (SKILL / "CAPABILITY-MATRIX.md").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (root / "SKILL.md").write_text(
+                "See CAPABILITY-MATRIX.md\n\n| 能力 | status |\n|---|---|\n| A | stable |\n| B | stable |\n| C | stable |\n",
+                encoding="utf-8",
+            )
+            (root / "README.md").write_text("See CAPABILITY-MATRIX.md\n", encoding="utf-8")
+            (root / "AGENTS.md").write_text("See CAPABILITY-MATRIX.md\n", encoding="utf-8")
+
+            report = drift.check_wording_drift(root)
+
+        self.assertTrue(any("duplicate capability table" in item for item in report["blockers"]))
+
+    def test_wording_drift_check_requires_matrix_reference(self):
+        drift = importlib.import_module("wording_drift_check")
+        with tempfile.TemporaryDirectory(prefix="deliverhq-wording-") as temp:
+            root = Path(temp)
+            (root / "CAPABILITY-MATRIX.md").write_text(
+                (SKILL / "CAPABILITY-MATRIX.md").read_text(encoding="utf-8"),
+                encoding="utf-8",
+            )
+            (root / "SKILL.md").write_text("No matrix here\n", encoding="utf-8")
+            (root / "README.md").write_text("See CAPABILITY-MATRIX.md\n", encoding="utf-8")
+            (root / "AGENTS.md").write_text("See CAPABILITY-MATRIX.md\n", encoding="utf-8")
+
+            report = drift.check_wording_drift(root)
+
+        self.assertTrue(any("SKILL.md" in item for item in report["blockers"]))
+
 
 if __name__ == "__main__":
     unittest.main()

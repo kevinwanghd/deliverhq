@@ -87,13 +87,46 @@ class MemoryStoreLifecycleTests(unittest.TestCase):
 
         store.supersede(old.id, replacement.id)
         store.deprecate(replacement.id, "runtime upgraded")
+        obsolete = store.add("obsolete workaround", "pattern")
+        store.obsolete(obsolete.id, "the supported adapter replaced this workaround")
 
         self.assertEqual("superseded", store.get(old.id).status)
         self.assertEqual(replacement.id, store.get(old.id).superseded_by)
         self.assertEqual("deprecated", store.get(replacement.id).status)
         self.assertEqual("runtime upgraded", store.get(replacement.id).revalidate_when)
+        self.assertEqual("obsolete", store.get(obsolete.id).status)
         with self.assertRaises(ValueError):
             store.add("bad", "mistake", status="unknown")
+
+    def test_lifecycle_audit_reports_promotion_and_missing_evidence(self):
+        store = self.store()
+        first = store.add(
+            "same failure",
+            "mistake",
+            root_cause="repeatable root cause",
+            evidence=["missing/evidence.md"],
+        )
+        store.add("same failure again", "mistake", root_cause="repeatable root cause")
+        store.add("same failure third", "mistake", root_cause="repeatable root cause")
+
+        with tempfile.TemporaryDirectory(prefix="deliverhq-memory-root-") as tmp:
+            report = store.audit_lifecycle(root=tmp, min_occurrences=3)
+
+        self.assertEqual([], report["blockers"])
+        self.assertIn(first.id, report["promotion_candidates"])
+        self.assertTrue(any("ready for promotion" in item for item in report["warnings"]))
+        self.assertTrue(any("evidence path missing" in item for item in report["warnings"]))
+
+    def test_lifecycle_audit_blocks_broken_superseded_reference(self):
+        store = self.store()
+        entry = store.add("old rule", "rule")
+        entry.status = "superseded"
+        entry.superseded_by = "missing"
+        store._save_index()
+
+        report = store.audit_lifecycle()
+
+        self.assertTrue(any("superseded_by target" in item for item in report["blockers"]))
 
     def test_default_storage_uses_deliverhq_home_not_agent_directory(self):
         with tempfile.TemporaryDirectory(prefix="deliverhq-home-") as tmp:
