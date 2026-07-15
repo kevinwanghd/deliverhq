@@ -2,7 +2,7 @@
 """
 prd_writeback.py —— PRD 锚点的「关联 CR」行回填(原 PRD-LAYER-DESIGN 承诺的 writeback-agent)
 
-设计文档(docs/PRD-LAYER-DESIGN.md)承诺有一个 writeback-agent,在 CR 完成后回填
+设计文档(dev/docs/PRD-LAYER-DESIGN.md)承诺有一个 writeback-agent,在 CR 完成后回填
 docs/PRD.md 锚点章节的「关联 CR」行(反向索引),好让人翻 PRD 就能看到每个意图
 挂了哪些 CR。原先这个承诺是"言而无功"——没有真正的脚本。本脚本补齐它。
 

@@ -42,23 +42,27 @@ def write_if_missing(path: Path, content: str):
 def scaffold(project_root: Path, profile_name: str = "fullstack-web", force: bool = False):
     profile_path, profile = load_profile(profile_name)
     deliverhq_home = project_root / "DeliverHQ"
+    governance_only = bool(profile.get("governance_only"))
 
     for rel in profile.get("required_dirs", []):
         ensure_dir(project_root / rel)
 
-    # Minimal module README files for AI/human navigation.
-    readmes = {
-        "apps/web/README.md": ("web", "Frontend UI application."),
-        "apps/api/README.md": ("api", "Backend API application."),
-        "apps/worker/README.md": ("worker", "Optional background worker service."),
-        "packages/shared-types/README.md": ("shared-types", "Shared schemas and DTOs."),
-        "infra/README.md": ("infra", "Deployment and infrastructure files."),
-        "docs/README.md": ("docs", "Human-facing engineering documentation."),
-    }
-    for rel, (name, purpose) in readmes.items():
-        write_if_missing(project_root / rel, README_TEXT.format(name=name, purpose=purpose))
+    # 仅治理层 profile：不生成任何业务目录 / README / .env.example，
+    # 业务布局完全交给项目自己。只落 DeliverHQ/ 治理空间。
+    if not governance_only:
+        # Minimal module README files for AI/human navigation.
+        readmes = {
+            "apps/web/README.md": ("web", "Frontend UI application."),
+            "apps/api/README.md": ("api", "Backend API application."),
+            "apps/worker/README.md": ("worker", "Optional background worker service."),
+            "packages/shared-types/README.md": ("shared-types", "Shared schemas and DTOs."),
+            "infra/README.md": ("infra", "Deployment and infrastructure files."),
+            "docs/README.md": ("docs", "Human-facing engineering documentation."),
+        }
+        for rel, (name, purpose) in readmes.items():
+            write_if_missing(project_root / rel, README_TEXT.format(name=name, purpose=purpose))
 
-    write_if_missing(project_root / ".env.example", "# Copy to .env locally. Never commit real secrets.\n")
+        write_if_missing(project_root / ".env.example", "# Copy to .env locally. Never commit real secrets.\n")
 
     target_profile = deliverhq_home / "STRUCTURE-PROFILE.yml"
     if force or not target_profile.exists():
@@ -66,7 +70,8 @@ def scaffold(project_root: Path, profile_name: str = "fullstack-web", force: boo
         shutil.copyfile(profile_path, target_profile)
 
     repo_map = deliverhq_home / "REPO_MAP.md"
-    write_if_missing(repo_map, repo_map_content(profile_name))
+    repo_map_body = governance_repo_map_content() if governance_only else repo_map_content(profile_name)
+    write_if_missing(repo_map, repo_map_body)
 
     commands = deliverhq_home / "COMMANDS.yml"
     write_if_missing(commands, commands_content())
@@ -89,6 +94,32 @@ def scaffold(project_root: Path, profile_name: str = "fullstack-web", force: boo
         "commands": str(commands),
         "attention": str(attention),
     }
+
+
+def governance_repo_map_content() -> str:
+    return """# Repo Map
+
+Profile: `governance-only`
+
+> 仅治理层安装：DeliverHQ 不强加业务目录结构。本项目的业务布局由项目自己决定，
+> DeliverHQ 只在 `DeliverHQ/` 内提供文档门禁与组织记忆。
+
+## Business Layout
+
+- 由项目自行决定（本 profile 不生成、也不强制任何业务目录）。
+- 如需 DeliverHQ 托管结构治理，改用 `--profile fullstack-web` 或自定义 profile。
+
+## Review Boundaries
+
+- DeliverHQ governance review: `DeliverHQ/**`
+- 业务代码的评审边界：请在此按本项目实际结构补充。
+
+## AI Rules
+
+- Read this file before exploring the repo.
+- DeliverHQ 产物一律写入 `DeliverHQ/`，不散落到项目根。
+- 业务代码位置遵循项目自身约定；如要让 DeliverHQ 强制结构，升级 profile。
+"""
 
 
 def repo_map_content(profile_name: str) -> str:

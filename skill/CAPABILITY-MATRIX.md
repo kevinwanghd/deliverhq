@@ -31,13 +31,13 @@
 | must_haves 谓词（借 GSD 判据语法） | scripts/must_haves_check.py | experimental | integrated | false | true | 确定性校验 verification-manifest 的 must_haves 段（key_links/artifacts/min_lines/exports/contains/反 stub）；断言"建出来的=计划的"；QualityGate 调用，无此段则跳过（向后兼容）。非向 GSD agent-verifier 收敛，是给已有确定性门禁补判据语法 |
 | DeployGate | scripts/deploygate.py | experimental | integrated | false | true | 部署就绪检查，不做真实部署 |
 | WritebackGate | scripts/writeback_gate.py | stable | integrated | false | true | 交付后知识沉淀检查 |
-| Gate Contract Check | scripts/gate_contract_check.py | stable | integrated | true | false | 验证脚本存在、正反例与参数契约 |
+| Gate Contract Check（开发期） | dev/scripts/gate_contract_check.py | stable | integrated | false | false | 框架自测：验证 Gate 正反例与参数契约；依赖 dev/fixtures，不随项目发布 |
 | Orchestrator | scripts/skill_orchestrator.py + scripts/orchestrator_core.py + scripts/orchestrator_routing.py | experimental | integrated | true | true | 薄 CLI + 编排 core + 纯路由/成本模块；默认 pipeline 停在 dev handoff |
 | Execution Runtime | scripts/execution_runtime.py | stable | integrated | false | false | 统一无 shell Python 脚本执行、UTF-8、超时和结构化结果；Gate wrapper 与 orchestrator 共用 |
-| Selftest Contract Suite | scripts/selftest.py + scripts/selftest_contracts/* | stable | integrated | true | false | 薄入口；37 项契约按 core/workflow/governance 三域注册，保持原汇总接口 |
+| Selftest Contract Suite（开发期） | dev/scripts/selftest.py + dev/scripts/selftest_contracts/* | stable | integrated | false | false | 框架自测：40 项契约按 core/workflow/governance 三域注册；依赖 dev/ 夹具，不随项目发布。用户面自检用 health_check |
 | Failure Attribution | scripts/failure_attribution.py | experimental | integrated | true | false | 已接入 gate evidence 输出结构化归因 |
 | Mistake Book Dedup | scripts/update_mistake_book.py | experimental | integrated | true | false | CR+Gate+failure_hash 去重，重复 3 次标记 rules_candidate |
-| Routing Eval | scripts/eval_routing.py + evals/*routing-cases.md | stable | integrated | true | false | selftest 真实执行，禁止 total=0 通过 |
+| Routing Eval（开发期） | dev/scripts/eval_routing.py + dev/evals/*routing-cases.md | stable | integrated | false | false | 框架自测：dev selftest 真实执行，禁止 total=0 通过；不随项目发布 |
 | Workflow Router | scripts/workflow_router.py | experimental | integrated | false | false | 规则版低噪路由，输出可解释 JSON；不替代人工判断 |
 | Legacy Scan（逆向，目标2） | scripts/scan_legacy.py | experimental | integrated | false | false | 客观扫描老项目：技术栈/测试覆盖/复杂度/敏感域；review_required 由客观信号推导，AI 无权降级。文件按相对路径确定性排序，并产出 reverse-input-flatten.yml（借 BMAD flatten：每文件 sha256 + 整体 input_hash），同一份代码必产同一候选集（flatten_reproducible_contract） |
 | ReverseSpecGate（逆向） | scripts/reverse_spec_gate.py | experimental | integrated | false | true | 未裁决高风险逆向需求 → BLOCK；selftest 有正反例契约（reverse_spec_contract） |
@@ -49,7 +49,7 @@
 | PlanChecker（执行层） | scripts/plan_checker.py | experimental | integrated | false | true | 机检 plan.yml：task 粒度/依赖/文件冲突/AC 覆盖；brownfield 强制 read/write、复用搜索和破坏性变更证据；派生 wave |
 | 证据补全 Loop（执行层） | scripts/evidence_loop.py | experimental | integrated | false | true | 可恢复 loop：扫 CR 缺哪些 evidence(spec/traceability/changed-files/manifest/test-plan)→列 gaps+next_action→写回 needs_human。复用 cr_state/reviewgate口径/write_gate_evidence，不新增 Agent；selftest 有契约 |
 | Gate JSON Output | scripts/gate_json_output.py + scripts/runtime_support.py | experimental | integrated | false | false | 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer |
-| Dynamic Workflows / Tournament / Fan-out | docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 不得在入口文档承诺为可用能力 |
+| Dynamic Workflows / Tournament / Fan-out | dev/docs/ROADMAP-v4.8.md | roadmap | not_integrated | false | false | 不得在入口文档承诺为可用能力 |
 | Scout / Repo Harness | scripts/bootstrap_project.py + scripts/scan_legacy.py + scripts/scan_legacy_structure.py | experimental | integrated | false | false | deliverhq bootstrap 组合现有 Legacy Scan，发现已有上下文、命令和抽象并附 path/hash 证据；默认只读，apply 只建候选文件 |
 | PRD 层（产品意图唯一来源） | docs/PRD.md | experimental | integrated | true | false | 产品意图唯一来源，薄/给人看/仅人工维护；功能锚点 `[PRD-XXX]` 是 CR 挂载点；CR 用 derived_from 回指 |
 | PRD↔CR 对账（DriftCheck） | scripts/drift_check.py | experimental | integrated | true | true | 重算 PRD 锚点哈希（排除「关联 CR」行）与 CR 记录比对；confirmed 失配→NEED_HUMAN_DECISION，reverse-engineered→仅警告；specgate 检查9 复用同逻辑，warning-first |
@@ -72,5 +72,6 @@
 | Knowledge Lifecycle Audit | scripts/memory_store.py audit | experimental | integrated | false | false | 审计外部记忆 active/superseded/deprecated/obsolete 状态、晋升候选与证据路径，避免知识只进不出 |
 | Capability Stocktake | scripts/capability_stocktake.py | experimental | integrated | false | false | 新增能力前检查现有能力复用/扩展路径，要求记录 why_existing_insufficient，防止能力矩阵膨胀 |
 | Wording Drift Check | scripts/wording_drift_check.py | experimental | integrated | false | false | 检查入口文档引用 CAPABILITY-MATRIX.md 且不重复维护能力状态表，减少跨文档措辞漂移 |
+| Health Check（用户面自检） | scripts/health_check.py | stable | integrated | false | false | 随包发布的轻量自检：骨架完整性 + dir-graph 合法性 + 脚本可编译；不依赖 dev/ 夹具，npx deliverhq doctor 调用它。全量契约测试见 dev/scripts/selftest.py |
 <!-- END GENERATED CAPABILITIES -->
 

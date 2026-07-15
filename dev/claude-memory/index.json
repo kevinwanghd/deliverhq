@@ -1,0 +1,100 @@
+{
+  "4c4b456b9b7f": {
+    "id": "4c4b456b9b7f",
+    "type": "decision",
+    "content": "\u5b9e\u73b0 Loop Mode \u81ea\u52a8\u5316\u6267\u884c\u5f15\u64ce",
+    "context": "Reason: \u63d0\u5347\u5f00\u53d1\u6548\u7387 80%",
+    "cr_id": "CR-003",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.485220",
+    "updated_at": "2026-06-13T21:46:20.485220",
+    "references": []
+  },
+  "fd085d0dcbcf": {
+    "id": "fd085d0dcbcf",
+    "type": "decision",
+    "content": "\u5b9e\u73b0 worktree \u9694\u79bb\u673a\u5236",
+    "context": "Reason: \u652f\u6301\u5e76\u884c\u5f00\u53d1\uff0c\u907f\u514d\u51b2\u7a81",
+    "cr_id": "CR-002",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.485372",
+    "updated_at": "2026-06-13T21:46:20.485372",
+    "references": []
+  },
+  "19a7ec249e1c": {
+    "id": "19a7ec249e1c",
+    "type": "decision",
+    "content": "\u63a8\u8fdf\u5916\u90e8\u8bb0\u5fc6\u5e93\u548c Skills \u62c6\u5206\u5230 v4.8",
+    "context": "Reason: \u4f18\u5148\u5b8c\u6210\u6838\u5fc3\u529f\u80fd",
+    "cr_id": "v4.7",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.485497",
+    "updated_at": "2026-06-13T21:46:20.485497",
+    "references": []
+  },
+  "1dd1fc4e457e": {
+    "id": "1dd1fc4e457e",
+    "type": "decision",
+    "content": "\u91c7\u7528 SDD \u4e09\u6bb5\u5f0f\u89c4\u683c\uff08Data/Interface/Behavior\uff09",
+    "context": "Reason: \u63d0\u5347\u9700\u6c42\u53ef\u9a8c\u8bc1\u6027\u548c\u53ef\u6d4b\u8bd5\u6027",
+    "cr_id": "CR-001",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.486018",
+    "updated_at": "2026-06-13T21:46:20.486018",
+    "references": []
+  },
+  "33ce6143003d": {
+    "id": "33ce6143003d",
+    "type": "decision",
+    "content": "\u4f7f\u7528 WARNING \u6a21\u5f0f\u4f5c\u4e3a\u9ed8\u8ba4\uff0c\u4e25\u683c\u6a21\u5f0f\u53ef\u9009",
+    "context": "Reason: \u4fdd\u8bc1\u5411\u540e\u517c\u5bb9\uff0c\u9010\u6b65\u542f\u7528",
+    "cr_id": "CR-001",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.486521",
+    "updated_at": "2026-06-13T21:46:20.486521",
+    "references": []
+  },
+  "e5fb3e0a6a87": {
+    "id": "e5fb3e0a6a87",
+    "type": "decision",
+    "content": "SpecGate",
+    "context": "Reason: CR-001",
+    "cr_id": "\u5305\u542b\u6a21\u677f\u53d8\u91cf\u548c\u5f85\u786e\u8ba4\u5360\u4f4d\u7b26",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.487030",
+    "updated_at": "2026-06-13T21:46:20.487030",
+    "references": []
+  },
+  "48e6ab81d34b": {
+    "id": "48e6ab81d34b",
+    "type": "decision",
+    "content": "pre_dev_gate",
+    "context": "Reason: CR-001",
+    "cr_id": "acceptance-spec.md \u5305\u542b {{}} \u5360\u4f4d\u7b26",
+    "tags": [
+      "imported",
+      "decision"
+    ],
+    "created_at": "2026-06-13T21:46:20.487554",
+    "updated_at": "2026-06-13T21:46:20.487554",
+    "references": []
+  }
+}

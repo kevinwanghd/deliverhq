@@ -25,7 +25,7 @@ success_criteria:
       command: "{{npm test 或 pytest 等}}"
       expect: "exit_zero"          # exit_zero | contains:<文本> | not_contains:<文本>
     - id: "selftest_ok"
-      command: "python scripts/selftest.py"
+      command: "python scripts/health_check.py"
       expect: "exit_zero"
   # 2b. 不变量 —— 防 Goodhart 的客观约束（由 anti_gaming_check.py 核验 git diff）
   invariants:

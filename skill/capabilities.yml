@@ -117,13 +117,13 @@ capabilities:
   allowed_in_pipeline: true
   description: 交付后知识沉淀检查
 - id: cap-015
-  name: Gate Contract Check
-  script: scripts/gate_contract_check.py
+  name: Gate Contract Check（开发期）
+  script: dev/scripts/gate_contract_check.py
   status: stable
   integrated: integrated
-  default_enabled: true
+  default_enabled: false
   allowed_in_pipeline: false
-  description: 验证脚本存在、正反例与参数契约
+  description: 框架自测：验证 Gate 正反例与参数契约；依赖 dev/fixtures，不随项目发布
 - id: cap-016
   name: Orchestrator
   script: scripts/skill_orchestrator.py + scripts/orchestrator_core.py + scripts/orchestrator_routing.py
@@ -141,13 +141,13 @@ capabilities:
   allowed_in_pipeline: false
   description: 统一无 shell Python 脚本执行、UTF-8、超时和结构化结果；Gate wrapper 与 orchestrator 共用
 - id: cap-018
-  name: Selftest Contract Suite
-  script: scripts/selftest.py + scripts/selftest_contracts/*
+  name: Selftest Contract Suite（开发期）
+  script: dev/scripts/selftest.py + dev/scripts/selftest_contracts/*
   status: stable
   integrated: integrated
-  default_enabled: true
+  default_enabled: false
   allowed_in_pipeline: false
-  description: 薄入口；37 项契约按 core/workflow/governance 三域注册，保持原汇总接口
+  description: 框架自测：40 项契约按 core/workflow/governance 三域注册；依赖 dev/ 夹具，不随项目发布。用户面自检用 health_check
 - id: cap-019
   name: Failure Attribution
   script: scripts/failure_attribution.py
@@ -165,13 +165,13 @@ capabilities:
   allowed_in_pipeline: false
   description: CR+Gate+failure_hash 去重，重复 3 次标记 rules_candidate
 - id: cap-021
-  name: Routing Eval
-  script: scripts/eval_routing.py + evals/*routing-cases.md
+  name: Routing Eval（开发期）
+  script: dev/scripts/eval_routing.py + dev/evals/*routing-cases.md
   status: stable
   integrated: integrated
-  default_enabled: true
+  default_enabled: false
   allowed_in_pipeline: false
-  description: selftest 真实执行，禁止 total=0 通过
+  description: 框架自测：dev selftest 真实执行，禁止 total=0 通过；不随项目发布
 - id: cap-022
   name: Workflow Router
   script: scripts/workflow_router.py
@@ -265,7 +265,7 @@ capabilities:
   description: 作为最小 Gate evidence schema helper 集成到 write_gate_evidence；不含 Dashboard/Viewer
 - id: cap-033
   name: Dynamic Workflows / Tournament / Fan-out
-  script: docs/ROADMAP-v4.8.md
+  script: dev/docs/ROADMAP-v4.8.md
   status: roadmap
   integrated: not_integrated
   default_enabled: false
@@ -453,3 +453,12 @@ capabilities:
   default_enabled: false
   allowed_in_pipeline: false
   description: 检查入口文档引用 CAPABILITY-MATRIX.md 且不重复维护能力状态表，减少跨文档措辞漂移
+- id: cap-056
+  name: Health Check（用户面自检）
+  script: scripts/health_check.py
+  status: stable
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 随包发布的轻量自检：骨架完整性 + dir-graph 合法性 + 脚本可编译；不依赖 dev/ 夹具，npx deliverhq doctor 调用它。全量契约测试见 dev/scripts/selftest.py
+

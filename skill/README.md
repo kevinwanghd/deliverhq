@@ -430,15 +430,12 @@ DeliverHQ 是**技术栈无关**的治理框架，支持：
 ## 扩展阅读
 
 - **`AGENTS.md`** — 9 个 Agent 的详细行为规则
-- **`docs/FOUR-FUNCTION-MODE.md`** — 四职能最小模式，说明小团队如何不用机械启动 9 个 Agent
-- **`docs/PROJECT-STRUCTURE-GOVERNANCE.md`** — 新老项目结构治理、StructureGate 与渐进迁移策略
 - **`MIGRATION.md`** — 迁移到其他 AI 平台
 - **`ROLLBACK.md`** — 回滚已交付 CR 的操作指南
 - **`CAPABILITY-MATRIX.md`** — 单一能力状态源（stable/experimental/roadmap、是否默认启用）
-- **`docs/OPTIMIZATION_2026-06-12.md`** — v4.5 优化记录
 
 ---
 
-**本治理体系基于 DeliverHQ v5.18.0**
+**本治理体系基于 DeliverHQ v5.19.0**
 **模板版本**: 2026-06-12  
 **适用**: 所有软件项目（技术栈无关）
