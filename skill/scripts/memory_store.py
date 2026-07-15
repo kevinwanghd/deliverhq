@@ -15,7 +15,8 @@ from dataclasses import dataclass, asdict, fields
 from datetime import datetime
 
 
-VALID_STATUSES = {"active", "superseded", "deprecated"}
+VALID_STATUSES = {"active", "superseded", "deprecated", "obsolete"}
+PROMOTION_TAGS = {"rule_candidate", "rules_candidate", "promote", "promote_to_rule"}
 
 
 def _normalize(value: str) -> str:
@@ -222,6 +223,63 @@ class MemoryStore:
         self._save_index()
         return entry
 
+    def obsolete(self, entry_id: str, reason: str) -> MemoryEntry:
+        """Mark an entry as obsolete when it should no longer be retrieved as guidance."""
+        if entry_id not in self.entries:
+            raise KeyError(entry_id)
+        entry = self.entries[entry_id]
+        entry.status = "obsolete"
+        entry.revalidate_when = reason
+        entry.updated_at = datetime.now().isoformat()
+        self._save_index()
+        return entry
+
+    def promotion_candidates(self, min_occurrences: int = 3) -> List[MemoryEntry]:
+        """Return active entries that have enough recurrence or explicit tags to promote."""
+        candidates = [
+            entry for entry in self.entries.values()
+            if entry.status == "active"
+            and (
+                entry.occurrences >= min_occurrences
+                or bool(PROMOTION_TAGS.intersection(set(entry.tags)))
+            )
+        ]
+        candidates.sort(key=lambda entry: (entry.occurrences, entry.updated_at), reverse=True)
+        return candidates
+
+    def audit_lifecycle(self, root: Optional[str] = None, min_occurrences: int = 3) -> Dict[str, Any]:
+        """Audit lifecycle metadata without mutating the memory store."""
+        root_path = Path(root) if root else None
+        blockers = []
+        warnings = []
+        candidates = [entry.id for entry in self.promotion_candidates(min_occurrences)]
+
+        for entry in self.entries.values():
+            if entry.status == "superseded":
+                if not entry.superseded_by:
+                    blockers.append(f"{entry.id}: superseded entry must name superseded_by")
+                elif entry.superseded_by not in self.entries:
+                    blockers.append(f"{entry.id}: superseded_by target does not exist")
+            if entry.status in {"deprecated", "obsolete"} and not entry.revalidate_when:
+                warnings.append(f"{entry.id}: {entry.status} entry should record revalidate_when/reason")
+            if entry.status == "active" and entry.id in candidates:
+                warnings.append(f"{entry.id}: recurring knowledge is ready for promotion")
+
+            for evidence in entry.evidence:
+                if _looks_like_path(evidence) and root_path is not None:
+                    evidence_path = Path(evidence)
+                    if not evidence_path.is_absolute():
+                        evidence_path = root_path / evidence_path
+                    if not evidence_path.exists():
+                        warnings.append(f"{entry.id}: evidence path missing: {evidence}")
+
+        return {
+            "blockers": blockers,
+            "warnings": warnings,
+            "promotion_candidates": candidates,
+            "total": len(self.entries),
+        }
+
     def search(self,
                query: Optional[str] = None,
                type: Optional[str] = None,
@@ -402,6 +460,13 @@ class MemoryStore:
         return stats
 
 
+def _looks_like_path(value: str) -> bool:
+    text = (value or "").strip()
+    if not text or "://" in text:
+        return False
+    return any(marker in text for marker in ("/", "\\")) or bool(Path(text).suffix)
+
+
 def main():
     """CLI entry point"""
     import argparse
@@ -450,6 +515,21 @@ def main():
     deprecate_parser = subparsers.add_parser('deprecate', help='Deprecate a memory entry')
     deprecate_parser.add_argument('entry_id')
     deprecate_parser.add_argument('--revalidate-when', required=True)
+
+    obsolete_parser = subparsers.add_parser('obsolete', help='Mark a memory entry obsolete')
+    obsolete_parser.add_argument('entry_id')
+    obsolete_parser.add_argument('--reason', required=True)
+
+    audit_parser = subparsers.add_parser('audit', help='Audit lifecycle metadata')
+    audit_parser.add_argument('--root', help='Root path for relative evidence checks')
+    audit_parser.add_argument('--min-occurrences', type=int, default=3)
+    audit_parser.add_argument('--json', action='store_true')
+
+    promote_parser = subparsers.add_parser(
+        'promote-candidates',
+        help='List recurring memories ready to promote',
+    )
+    promote_parser.add_argument('--min-occurrences', type=int, default=3)
 
     args = parser.parse_args()
 
@@ -519,6 +599,25 @@ def main():
         elif args.command == 'deprecate':
             entry = store.deprecate(args.entry_id, args.revalidate_when)
             print(json.dumps(entry.to_dict(), indent=2, ensure_ascii=False))
+
+        elif args.command == 'obsolete':
+            entry = store.obsolete(args.entry_id, args.reason)
+            print(json.dumps(entry.to_dict(), indent=2, ensure_ascii=False))
+
+        elif args.command == 'audit':
+            report = store.audit_lifecycle(root=args.root, min_occurrences=args.min_occurrences)
+            if args.json:
+                print(json.dumps(report, indent=2, ensure_ascii=False))
+            else:
+                print(f"Blockers: {len(report['blockers'])}")
+                print(f"Warnings: {len(report['warnings'])}")
+                print(f"Promotion candidates: {len(report['promotion_candidates'])}")
+            if report["blockers"]:
+                sys.exit(1)
+
+        elif args.command == 'promote-candidates':
+            entries = store.promotion_candidates(args.min_occurrences)
+            print(json.dumps([entry.to_dict() for entry in entries], indent=2, ensure_ascii=False))
 
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)

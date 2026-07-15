@@ -429,3 +429,27 @@ capabilities:
   allowed_in_pipeline: false
   description: 生成 acceptance-spec 之前逐条拷问需求（一次一问+推荐答案），产出 request-clarifications.md；条件步，缺
     request.md 则跳过。借鉴 Pocock grilling
+- id: cap-053
+  name: Knowledge Lifecycle Audit
+  script: scripts/memory_store.py audit
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 审计外部记忆 active/superseded/deprecated/obsolete 状态、晋升候选与证据路径，避免知识只进不出
+- id: cap-054
+  name: Capability Stocktake
+  script: scripts/capability_stocktake.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 新增能力前检查现有能力复用/扩展路径，要求记录 why_existing_insufficient，防止能力矩阵膨胀
+- id: cap-055
+  name: Wording Drift Check
+  script: scripts/wording_drift_check.py
+  status: experimental
+  integrated: integrated
+  default_enabled: false
+  allowed_in_pipeline: false
+  description: 检查入口文档引用 CAPABILITY-MATRIX.md 且不重复维护能力状态表，减少跨文档措辞漂移

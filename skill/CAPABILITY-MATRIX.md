@@ -69,5 +69,8 @@
 | CR 规模分析（Decompose） | scripts/skill_orchestrator.py decompose | experimental | integrated | false | false | 分析 CR 规模（token 估算 + criteria 数量）；超阈值（criteria>10 或 tokens>5000）给出拆解建议；建议器非 Gate，不强制阻断 |
 | 动词路由器（Route） | scripts/skill_orchestrator.py route | experimental | integrated | false | false | 根据场景（新需求/bug/重构/legacy/已有spec）推荐动词流；支持关键词匹配或交互式问答。借鉴 Pocock ask-matt |
 | grill（需求澄清拷问） | scripts/grill.py | experimental | integrated | false | false | 生成 acceptance-spec 之前逐条拷问需求（一次一问+推荐答案），产出 request-clarifications.md；条件步，缺 request.md 则跳过。借鉴 Pocock grilling |
+| Knowledge Lifecycle Audit | scripts/memory_store.py audit | experimental | integrated | false | false | 审计外部记忆 active/superseded/deprecated/obsolete 状态、晋升候选与证据路径，避免知识只进不出 |
+| Capability Stocktake | scripts/capability_stocktake.py | experimental | integrated | false | false | 新增能力前检查现有能力复用/扩展路径，要求记录 why_existing_insufficient，防止能力矩阵膨胀 |
+| Wording Drift Check | scripts/wording_drift_check.py | experimental | integrated | false | false | 检查入口文档引用 CAPABILITY-MATRIX.md 且不重复维护能力状态表，减少跨文档措辞漂移 |
 <!-- END GENERATED CAPABILITIES -->
 
