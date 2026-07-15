@@ -1,0 +1,22 @@
+{
+  "schema_version": "deliverhq-gate-result/v1",
+  "gate_name": "writeback",
+  "result": "pass",
+  "timestamp": "2026-07-15T10:49:54.350063",
+  "blocking_items": [],
+  "warnings": [],
+  "commands_run": [],
+  "artifacts": [
+    "writeback-report.md",
+    "docs/rules-candidates.md"
+  ],
+  "next_action": "进入归档流程",
+  "failure_attribution": [],
+  "metadata": {
+    "current_state": "archived",
+    "current_phase": "writeback",
+    "current_owner": "writeback-agent",
+    "requires_human": false,
+    "worktree_path": null
+  }
+}

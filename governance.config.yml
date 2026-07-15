@@ -1,0 +1,110 @@
+# AgentGate governance config for DeliverHQ.
+version: v1.2.1
+
+metadata:
+  enforcement: soft
+  soft_deadline: 2026-10-13
+  mandatory_fields:
+    - background
+    - changes
+    - ai_usage
+    - self_test
+
+risk_annotations:
+  enforcement: hard
+  reviewed_max_age_days: 180
+  scan_exclude_paths:
+    - "governance/scripts/**"
+    - "**/governance/scripts/**"
+    - "skill/change-requests/**"
+    - "skill/examples/**"
+    - "skill/docs/superpowers/**"
+    - "**/node_modules/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/__pycache__/**"
+    - "**/*.generated.*"
+  registered_types:
+    - auth-bypass
+    - magic-id
+    - swallowed-exception
+    - suppressed-warning
+    - skipped-test
+    - time-bypass
+    - env-hardcode
+    - todo-no-context
+    - test-removal
+    - untested
+  reason_blacklist:
+    - 临时
+    - 先这样
+    - 历史原因
+    - TODO
+    - 待确认
+    - quick fix
+    - temp
+    - wip
+    - hack
+    - for now
+
+large_change:
+  line_threshold: 500
+  excluded_paths:
+    - "*.lock"
+    - "**/*.generated.*"
+    - "skill/change-requests/**"
+    - "skill/examples/**"
+  sensitive_paths:
+    - ".github/"
+    - "governance.config.yml"
+    - "governance/scripts/"
+    - "skill/scripts/"
+    - "*secret*"
+  schema_paths:
+    - "*.sql"
+    - "*.proto"
+
+testing:
+  enforcement: soft
+  soft_deadline: 2026-10-13
+  untested_max_age_days: 180
+  exclude_paths:
+    - "governance/scripts/**"
+    - "docs/**"
+    - "skill/docs/**"
+    - "skill/change-requests/**"
+    - "skill/examples/**"
+    - "skill/CAPABILITY-MATRIX.md"
+    - "skill/capabilities.yml"
+    - "skill/*.md"
+    - ".github/**"
+    - "*.md"
+    - "*.yml"
+    - "*.yaml"
+    - "package.json"
+  reason_blacklist:
+    - 临时
+    - 先这样
+    - 历史原因
+    - TODO
+    - 待确认
+    - quick fix
+    - temp
+    - wip
+    - hack
+    - for now
+
+deliverhq_integration:
+  enabled: true
+  records_dirs:
+    - "skill/change-requests/"
+  evidence_summary: "skill/evidence-summary.json"
+  requirement_doc_patterns:
+    - "request.md"
+    - "acceptance-spec.md"
+    - "README.md"
+  background_headings:
+    - "背景"
+    - "Background"
+    - "需求描述"
+    - "目标"
