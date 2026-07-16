@@ -56,3 +56,21 @@ jobs:
         run: |
           cd skill
           python scripts/selftest.py
+
+  # 汇总门禁:产出一个名为 `selftest` 的稳定 check，供分支保护作为必需检查引用。
+  # 上面的 matrix job 因设了 `name:` 只会产出 `ubuntu-latest / Python 3.10` 等 4 个
+  # 变体 check,不存在纯 `selftest` 名的 check——本 job 补上该名,并要求 4 个变体全绿。
+  # 仅涉及本 workflow,与 AgentGate 治理检查(governance.yml)完全独立。
+  selftest-gate:
+    name: selftest
+    needs: selftest
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Require all selftest matrix jobs to pass
+        run: |
+          if [ "${{ needs.selftest.result }}" != "success" ]; then
+            echo "::error::selftest matrix 未全部通过 (result=${{ needs.selftest.result }})"
+            exit 1
+          fi
+          echo "✅ selftest matrix 全绿"
