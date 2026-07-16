@@ -548,7 +548,7 @@ function cmdBootstrap(flags) {
 }
 
 function help() {
-  console.log(`DeliverHQ — AI 交付防翻车治理框架（多 Agent 安装器）
+  console.log(`DeliverHQ v${PACKAGE_JSON.version} — AI 交付防翻车治理框架（多 Agent 安装器）
 
 用法:
   npx deliverhq init [--target <agent>] [--global|--local] [--force] [--yes]

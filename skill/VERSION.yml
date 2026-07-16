@@ -1,12 +1,12 @@
 ﻿# DeliverHQ 鐗堟湰鏉冨▉鏉ユ簮锛圫ingle Source of Truth锛?
 # 鎵€鏈夋枃妗?鑴氭湰鐨勭増鏈彿蹇呴』涓庢鏂囦欢涓€鑷达紝鐢?selftest 鐨?version_consistency 妫€鏌ュ己鍒跺榻愩€?
 name: DeliverHQ
-version: 5.17.0
-release_date: 2026-07-12
+version: 5.18.0
+release_date: 2026-07-16
 schema_version: 1
 
 # 鐗堟湰鍙峰嚭鐜扮殑浣嶇疆锛堢敤浜庝竴鑷存€ф牎楠岋級
-version_string: "v5.17.0"
+version_string: "v5.18.0"
 
 source_of_truth:
   skill: SKILL.md
