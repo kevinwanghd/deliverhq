@@ -1,0 +1,34 @@
+schema: deliverhq-structure-profile
+version: 1
+
+# 仅治理层 profile：只落 DeliverHQ/ 治理空间，不强加任何业务目录结构。
+# 适用于：库 / CLI / 移动端 / 已有自己结构的项目 —— 业务布局由项目自己决定，
+# DeliverHQ 只提供文档门禁与组织记忆，不充当"业务脚手架"。
+governance_only: true
+
+project:
+  type: governance-only
+  architecture: unspecified
+
+# 不创建任何业务目录（scaffold 只建 DeliverHQ/ 治理空间本身）。
+required_dirs: []
+
+# 刻意不设 allowed_top_level_dirs：structuregate 仅在该列表非空时才启用
+# "未授权顶层目录"白名单校验。这里留空 = 不对业务布局设限（库/CLI/移动端各随其形），
+# 只保留下面的坏味道拦截。
+forbidden_top_level_dirs:
+  - tmp
+  - temp
+  - src2
+
+forbidden_files:
+  - .env
+  - .env.production
+  - .env.local
+
+# 不设 placement_rules：不对业务源码位置做任何强制。
+placement_rules: {}
+
+legacy:
+  mode: strict
+  legacy_paths: []

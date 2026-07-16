@@ -376,7 +376,7 @@ CURRENT_PHASE_PATTERNS = [
 
 **问题**：没有一键自检脚本，用户不知道 DeliverHQ 是否正常。
 
-**v4.5 改进**：新增 `scripts/selftest.py`。
+**改进**：`scripts/health_check.py`（骨架/dir-graph/脚本可编译），或 `npx deliverhq doctor`。
 
 ---
 
@@ -389,5 +389,5 @@ CURRENT_PHASE_PATTERNS = [
 ---
 
 **版本**：v4.5  
-**来源**：OPTIMIZATION_2026-06-12.md 真实失败案例提炼  
+**来源**：框架开发期真实失败案例提炼  
 **一句话**：这些坑来自真实踩坑，不是 AI 本来就知道的通用建议。

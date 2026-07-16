@@ -21,9 +21,21 @@ os.environ.setdefault("PYTHONUTF8", "1")
 os.environ.setdefault("PYTHONIOENCODING", "utf-8")
 os.environ.setdefault("PYTHONDONTWRITEBYTECODE", "1")
 
+# 本套件已下沉到 dev/scripts/selftest_contracts/；运行时模块与被测核心仍在 skill/scripts/。
+_SKILL = Path(__file__).resolve().parents[3] / "skill"
+_SKILL_SCRIPTS = _SKILL / "scripts"
+if _SKILL_SCRIPTS.is_dir() and str(_SKILL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SKILL_SCRIPTS))
+
 from runtime_support import configure_console
 
-ROOT = Path(__file__).resolve().parents[2]
+# dev/ 布局锚点（不随 argv 覆盖的 ROOT 变化）
+DEV_ROOT = Path(__file__).resolve().parents[2]          # dev/
+DEV_SCRIPTS = DEV_ROOT / "scripts"
+EXAMPLE_CR_ROOT = DEV_ROOT / "fixtures" / "change-requests"
+
+# 默认被测核心为同仓库 skill/；仍可用 argv[1] 覆盖。
+ROOT = _SKILL
 configure_console()
 
 from selftest_contracts import ALL_CONTRACTS
@@ -77,21 +89,28 @@ def section(title):
 
 
 def snapshot_example_crs():
-    temp_dir = Path(tempfile.mkdtemp(prefix="deliverhq-selftest-"))
+    """把 dev/fixtures 里的示例 CR 暂存进被测核心 ROOT/change-requests/，
+    使依赖 change-requests/CR-EXAMPLE 的检查照常工作。返回已暂存目标路径列表。"""
+    staged = []
+    dest_root = ROOT / "change-requests"
+    dest_root.mkdir(parents=True, exist_ok=True)
     for cr_name in ("CR-EXAMPLE", "CR-BLOCKED-EXAMPLE"):
-        source = ROOT / "change-requests" / cr_name
-        if source.exists():
-            shutil.copytree(source, temp_dir / cr_name)
-    return temp_dir
-
-
-def restore_example_crs(snapshot_dir):
-    for source in snapshot_dir.iterdir():
-        target = ROOT / "change-requests" / source.name
+        source = EXAMPLE_CR_ROOT / cr_name
+        if not source.exists():
+            continue
+        target = dest_root / cr_name
         if target.exists():
             shutil.rmtree(str(target))
         shutil.copytree(source, target)
-    shutil.rmtree(str(snapshot_dir), ignore_errors=True)
+        staged.append(target)
+    return staged
+
+
+def restore_example_crs(staged):
+    """移除暂存的示例 CR（含 gate 运行期写入的 evidence），dev/fixtures 原件不受影响。"""
+    for target in staged:
+        if target.exists():
+            shutil.rmtree(str(target), ignore_errors=True)
 
 
 def check_skeleton():
@@ -362,9 +381,9 @@ def check_cr_state_files():
 def check_routing_eval():
     """运行真实 eval_routing.py，禁止 total=0 时通过。"""
     section("7. Routing Eval 真实执行")
-    eval_script = ROOT / "scripts" / "eval_routing.py"
+    eval_script = DEV_SCRIPTS / "eval_routing.py"
     if not eval_script.exists():
-        print(f"  {FAIL} scripts/eval_routing.py 不存在")
+        print(f"  {FAIL} dev/scripts/eval_routing.py 不存在")
         return False
 
     result = subprocess.run(
@@ -374,7 +393,7 @@ def check_routing_eval():
         universal_newlines=True,
         encoding="utf-8",
         errors="replace",
-        cwd=str(ROOT),
+        cwd=str(DEV_ROOT),
         env=SUBPROCESS_ENV,
     )
     output = result.stdout + result.stderr
@@ -879,13 +898,13 @@ def check_gate_contract():
     """检查 Gate 契约：直接复用独立的 gate_contract_check.py"""
     section("15. Gate 契约检查")
 
-    gate_contract = ROOT / "scripts" / "gate_contract_check.py"
+    gate_contract = DEV_SCRIPTS / "gate_contract_check.py"
     if not gate_contract.exists():
         print(f"  {FAIL} gate_contract_check.py 不存在")
         return False
 
     result = subprocess.run(
-        [sys.executable, str(gate_contract)],
+        [sys.executable, str(gate_contract), str(ROOT)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,

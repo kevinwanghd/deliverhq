@@ -18,9 +18,21 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+# 本脚本已下沉到 dev/scripts/；运行时模块与被测核心仍在 skill/scripts/。
+_SKILL_SCRIPTS = Path(__file__).resolve().parent.parent.parent / "skill" / "scripts"
+if _SKILL_SCRIPTS.is_dir() and str(_SKILL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SKILL_SCRIPTS))
+
 from runtime_support import configure_console
 
-ROOT = Path(__file__).resolve().parent.parent
+# 示例 CR 夹具存放于 dev/fixtures/change-requests/（不随项目发布）。
+EXAMPLE_CR_ROOT = Path(__file__).resolve().parent.parent / "fixtures" / "change-requests"
+
+# 被测核心（提供 gate 脚本与其依赖的 docs）默认为同仓库 skill/；可用 argv[1] 覆盖。
+ROOT = _SKILL_SCRIPTS.parent
+positional = [a for a in sys.argv[1:] if not a.startswith("--")]
+if positional:
+    ROOT = Path(positional[0]).resolve()
 configure_console()
 SUBPROCESS_ENV = {**dict(os.environ), "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1", "DELIVERHQ_SELFTEST": "1", "DELIVERHQ_AUTO_MISTAKE_BOOK": "0"}
 
@@ -113,22 +125,28 @@ def run_gate(script, args):
     return result.returncode, result.stdout, result.stderr
 
 def _snapshot_example_crs():
-    temp_dir = Path(tempfile.mkdtemp(prefix="deliverhq-gate-contract-"))
-    cr_names = ["CR-EXAMPLE", "CR-BLOCKED-EXAMPLE"]
-    for cr_name in cr_names:
-        source = ROOT / "change-requests" / cr_name
-        if source.exists():
-            shutil.copytree(source, temp_dir / cr_name)
-    return temp_dir
-
-
-def _restore_example_crs(snapshot_dir):
-    for source in snapshot_dir.iterdir():
-        target = ROOT / "change-requests" / source.name
+    """把 dev/fixtures 里的示例 CR 暂存进被测核心 ROOT/change-requests/，
+    使各 gate 能以 ROOT 为家目录、按 change-requests/CR-EXAMPLE 相对路径找到它们。"""
+    staged = []
+    dest_root = ROOT / "change-requests"
+    dest_root.mkdir(parents=True, exist_ok=True)
+    for cr_name in ("CR-EXAMPLE", "CR-BLOCKED-EXAMPLE"):
+        source = EXAMPLE_CR_ROOT / cr_name
+        if not source.exists():
+            continue
+        target = dest_root / cr_name
         if target.exists():
             shutil.rmtree(str(target))
         shutil.copytree(source, target)
-    shutil.rmtree(str(snapshot_dir), ignore_errors=True)
+        staged.append(target)
+    return staged
+
+
+def _restore_example_crs(staged):
+    """移除暂存的示例 CR（含 gate 运行期写入的 evidence），dev/fixtures 原件不受影响。"""
+    for target in staged:
+        if target.exists():
+            shutil.rmtree(str(target), ignore_errors=True)
 
 
 def check_gate_pass_blocked():

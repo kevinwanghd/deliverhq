@@ -49,13 +49,11 @@ jobs:
         run: npm pack --dry-run
 
       - name: Run DeliverHQ selftest
-        # selftest 必须从 skill 目录运行;CR-EXAMPLE 的 manifest 调用 `python`,
-        # setup-python 已在 PATH 中提供 `python`,无需额外 shim。
+        # 全量 selftest 已下沉到 dev/scripts/（不随 npm 包发布）；从仓库根运行、
+        # 显式对被测核心 skill/ 执行。夹具在 dev/fixtures，运行时模块在 skill/scripts。
         env:
           PYTHONDONTWRITEBYTECODE: "1"
-        run: |
-          cd skill
-          python scripts/selftest.py
+        run: python dev/scripts/selftest.py skill
 
   # 汇总门禁:产出一个名为 `selftest` 的稳定 check，供分支保护作为必需检查引用。
   # 上面的 matrix job 因设了 `name:` 只会产出 `ubuntu-latest / Python 3.10` 等 4 个

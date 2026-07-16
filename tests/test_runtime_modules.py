@@ -14,7 +14,10 @@ sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "skill" / "scripts"
+# 全量 selftest 套件已下沉到 dev/scripts/（不随包发布）；测试从此处校验。
+DEV_SCRIPTS = ROOT / "dev" / "scripts"
 sys.path.insert(0, str(SCRIPTS))
+sys.path.insert(0, str(DEV_SCRIPTS))
 
 
 class ExecutionRuntimeTests(unittest.TestCase):
@@ -130,12 +133,16 @@ class RuntimeAdoptionTests(unittest.TestCase):
         self.assertNotIn("from skill_orchestrator", source)
 
     def test_public_entrypoints_are_thin(self):
-        for name in ("skill_orchestrator.py", "selftest.py"):
-            lines = (SCRIPTS / name).read_text(encoding="utf-8").splitlines()
-            self.assertLessEqual(len(lines), 80, name)
+        self.assertLessEqual(
+            len((SCRIPTS / "skill_orchestrator.py").read_text(encoding="utf-8").splitlines()),
+            80, "skill_orchestrator.py")
+        # selftest 薄入口已随套件下沉到 dev/scripts/。
+        self.assertLessEqual(
+            len((DEV_SCRIPTS / "selftest.py").read_text(encoding="utf-8").splitlines()),
+            80, "selftest.py")
 
     def test_selftest_contract_catalog_is_split_by_domain(self):
-        package = SCRIPTS / "selftest_contracts"
+        package = DEV_SCRIPTS / "selftest_contracts"
         for name in ("core.py", "workflow.py", "governance.py"):
             self.assertTrue((package / name).is_file(), name)
 

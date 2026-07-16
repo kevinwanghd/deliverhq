@@ -34,15 +34,25 @@ class NpmPackagingTests(unittest.TestCase):
         self.assertLessEqual(self.pack["unpackedSize"], 1_200_000)
 
     def test_internal_working_material_is_excluded(self):
+        # 开发资产已物理移到仓库根 dev/（不在 skill/ 内，天然不进包）。
+        # _archived/ 现作为空运行时目录随包发布（check_skeleton 需要该目录），
+        # 其历史脚本已移入 dev/archived-scripts/，故不再列入禁发前缀。
         forbidden_prefixes = (
             "skill/change-requests/CR-001/",
             "skill/change-requests/CR-002/",
             "skill/change-requests/CR-003/",
             "skill/change-requests/CR-004/",
             "skill/change-requests/CR-005/",
-            "skill/_archived/",
+            "skill/change-requests/CR-EXAMPLE/",
+            "skill/change-requests/CR-BLOCKED-EXAMPLE/",
             "skill/docs/superpowers/",
-            "skill/examples/self-development/",
+            "skill/examples/",
+            "skill/evals/",
+            "skill/scripts/selftest.py",
+            "skill/scripts/selftest_contracts/",
+            "skill/scripts/eval_routing.py",
+            "skill/scripts/gate_contract_check.py",
+            "dev/",
         )
         offenders = sorted(
             path for path in self.files if any(path.startswith(prefix) for prefix in forbidden_prefixes)
@@ -54,12 +64,12 @@ class NpmPackagingTests(unittest.TestCase):
         required = {
             "bin/cli.js",
             "skill/SKILL.md",
-            "skill/scripts/selftest.py",
+            "skill/scripts/health_check.py",
             "skill/deliverhq/__init__.py",
             "skill/capabilities.yml",
+            "skill/structure-profiles/governance-only.yml",
+            "skill/structure-profiles/fullstack-web.yml",
             "skill/change-requests/CR-TEMPLATE/request.md",
-            "skill/change-requests/CR-EXAMPLE/request.md",
-            "skill/change-requests/CR-BLOCKED-EXAMPLE/README.md",
         }
 
         self.assertEqual(set(), required - self.files)

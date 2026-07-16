@@ -5,12 +5,5 @@
 
 | CR | lane | phase | state | 下一道门 | needs_human |
 |---|---|---|---|---|---|
-| CR-004 | standard | writeback | archived | - | 否 |
-| CR-005 | standard | writeback | archived | - | 否 |
-| CR-006 | high-risk | writeback | archived | - | ⚠ 是 |
-| CR-007 | high-risk | writeback | archived | - | ⚠ 是 |
-| CR-BLOCKED-EXAMPLE | standard | dev | blocked | writeback | 否 |
-| CR-EXAMPLE | standard | writeback | archived | - | 否 |
 
-**阻塞原因**：
-- CR-BLOCKED-EXAMPLE：缺少 writeback-report.md，Writeback Agent 未执行
+_（尚无活跃 CR。创建首个 CR 后由 `handoff_state.py` 自动刷新本表。）_

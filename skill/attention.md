@@ -1,8 +1,8 @@
 # DeliverHQ Attention
 
-This is the lightweight, always-read control file for DeliverHQ itself. Keep it
-short; durable implementation details belong in `docs/`, `references/`, or the
-relevant script.
+This is the lightweight, always-read control file for this project's DeliverHQ
+governance space. Keep it short; durable implementation details belong in
+`docs/`, `references/`, or the relevant script.
 
 ## Governance Lanes
 

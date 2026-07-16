@@ -14,9 +14,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# 本脚本已下沉到 dev/scripts/；运行时模块仍在 skill/scripts/，注入其路径。
+_SKILL_SCRIPTS = Path(__file__).resolve().parent.parent.parent / "skill" / "scripts"
+if _SKILL_SCRIPTS.is_dir() and str(_SKILL_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SKILL_SCRIPTS))
+
 from routing_rules import route_request
 from runtime_support import configure_console
 
+# ROOT = dev/（本脚本 dev/scripts/ 的上一级），eval fixtures 位于 dev/evals/
 ROOT = Path(__file__).resolve().parent.parent
 configure_console()
 

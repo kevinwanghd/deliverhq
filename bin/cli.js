@@ -186,7 +186,7 @@ function injectPointer(instructionPath, coreRelDir) {
     '门禁是 Python 脚本（需 Python 3.10+ 与 PyYAML），用 shell 调用，例如：',
     '',
     '```bash',
-    `python3 ${coreRelDir}/scripts/selftest.py ${coreRelDir}   # 自检`,
+    `python3 ${coreRelDir}/scripts/health_check.py ${coreRelDir}   # 健康自检`,
     `python3 ${coreRelDir}/scripts/specgate.py <acceptance-spec.md>`,
     '```',
     POINTER_END,
@@ -261,9 +261,21 @@ async function cmdInit(flags) {
   console.log(`  验证健康度:  npx deliverhq doctor --path "${installedDir}"`);
 }
 
-function cmdInitProject(flags) {
+async function chooseProfile(flags) {
+  // 显式 --profile 或非交互（--yes）时不追问
+  if (typeof flags.profile === 'string' && flags.profile) return flags.profile;
+  if (flags['governance-only']) return 'governance-only';
+  if (flags.yes) return 'fullstack-web';
+  console.log('选择初始化范围：');
+  console.log('  1) 仅治理层        只在项目根建 DeliverHQ/，不碰业务目录结构（库/CLI/移动端/已有结构的项目）');
+  console.log('  2) 全栈 Web 骨架    额外生成 apps/ packages/ 等 monorepo 业务骨架');
+  const ans = await ask('请选择 [1/2]（默认 1）: ');
+  return ans === '2' ? 'fullstack-web' : 'governance-only';
+}
+
+async function cmdInitProject(flags) {
   console.log(C.b('=== DeliverHQ init-project ==='));
-  const profile = flags.profile || 'fullstack-web';
+  const profile = await chooseProfile(flags);
   const targetPath = flags.path ? path.resolve(flags.path) : process.cwd();
   const py = detectPythonWithPyYAML();
   if (!py || !py.hasYaml) {
@@ -271,6 +283,7 @@ function cmdInitProject(flags) {
     console.log(C.r(`✗ 需要带 PyYAML 的 Python：${cmd} -m pip install PyYAML`));
     process.exit(1);
   }
+  console.log(`profile: ${C.b(profile)}${profile === 'governance-only' ? '（仅治理层，不生成业务目录）' : ''}`);
   try {
     const deliverhqDir = path.join(targetPath, 'DeliverHQ');
     if (fs.existsSync(deliverhqDir) && flags.force) {
@@ -307,15 +320,15 @@ function resolveSkillDir(flags) {
       path.join(home, '.hermes', 'skills', 'deliverhq'),
       SKILL_SRC,
     ];
-    skillDir = candidates.find((p) => fs.existsSync(path.join(p, 'scripts', 'selftest.py')));
+    skillDir = candidates.find((p) => fs.existsSync(path.join(p, 'scripts', 'health_check.py')));
   }
-  if (!skillDir || !fs.existsSync(path.join(skillDir, 'scripts', 'selftest.py'))) return null;
+  if (!skillDir || !fs.existsSync(path.join(skillDir, 'scripts', 'health_check.py'))) return null;
   return { skillDir, isFallback: path.resolve(skillDir) === path.resolve(SKILL_SRC) && !flags.path };
 }
 
 function requirePythonWithPyYAML() {
   const py = detectPythonWithPyYAML();
-  if (!py) { console.log(C.r('✗ 未找到 Python，无法运行 selftest')); process.exit(1); }
+  if (!py) { console.log(C.r('✗ 未找到 Python，无法运行 health_check')); process.exit(1); }
   console.log(C.g(`✓ ${py.version} (${py.cmd})`));
   if (!py.hasYaml) {
     console.log(C.r(`✗ 缺少 PyYAML：${py.cmd} -m pip install PyYAML`)); process.exit(1);
@@ -324,8 +337,8 @@ function requirePythonWithPyYAML() {
   return py;
 }
 
-function runSelftest(py, skillDir, extraArgs) {
-  const args = [path.join(skillDir, 'scripts', 'selftest.py'), skillDir].concat(extraArgs || []);
+function runHealthCheck(py, skillDir) {
+  const args = [path.join(skillDir, 'scripts', 'health_check.py'), skillDir];
   try {
     return {
       ok: true,
@@ -351,21 +364,16 @@ function printSelftestSummary(out) {
   const line = lines.find((l) => /通过[:：]/.test(l)) || '';
   const match = line.match(/通过[:：]\s*(\d+)\s*\/\s*(\d+)/);
   if (match) {
-    console.log(C.g(`✅ selftest 通过: ${match[1]}/${match[2]}`));
+    console.log(C.g(`✅ health_check 通过: ${match[1]}/${match[2]}`));
     return;
   }
-  const routingLine = lines.find((l) => l.includes('routing_eval PASS')) || '';
-  if (routingLine) {
-    console.log(C.g('✅ routing_eval PASS'));
-    return;
-  }
-  console.log(C.g('✅ selftest 通过'));
+  console.log(C.g('✅ health_check 通过'));
 }
 
 function printSelftestFailures(out) {
   const fails = out.split('\n').filter((l) => l.includes('❌'));
   const visible = fails.slice(0, 12);
-  console.log(C.r('❌ selftest 未通过：'));
+  console.log(C.r('❌ health_check 未通过：'));
   if (!visible.length) {
     console.log('  未捕获到 ❌ 明细，用 --verbose 查看完整输出。');
     return;
@@ -387,9 +395,8 @@ function cmdDoctor(flags) {
 
   const py = requirePythonWithPyYAML();
 
-  console.log(C.b('\n[运行 selftest]'));
-  const extraArgs = flags['routing-eval'] ? ['--routing-eval'] : [];
-  const result = runSelftest(py, resolved.skillDir, extraArgs);
+  console.log(C.b('\n[运行 health_check]'));
+  const result = runHealthCheck(py, resolved.skillDir);
   if (flags.verbose && result.out.trim()) console.log(result.out.trim());
   if (result.ok) {
     if (!flags.verbose) printSelftestSummary(result.out);
@@ -400,7 +407,8 @@ function cmdDoctor(flags) {
 }
 
 function cmdSelftest(flags) {
-  console.log(C.b('=== DeliverHQ selftest ==='));
+  // 兼容旧命令：selftest 现别名到随包发布的 health_check（全量 selftest 已下沉到 dev/）。
+  console.log(C.b('=== DeliverHQ health_check ==='));
   const resolved = resolveSkillDir(flags);
   if (!resolved) {
     console.log(C.r('✗ 找不到已安装的 DeliverHQ（用 --path 指定，或先 init）'));
@@ -409,8 +417,7 @@ function cmdSelftest(flags) {
   printSkillDir(resolved);
 
   const py = requirePythonWithPyYAML();
-  const extraArgs = flags['routing-eval'] ? ['--routing-eval'] : [];
-  const result = runSelftest(py, resolved.skillDir, extraArgs);
+  const result = runHealthCheck(py, resolved.skillDir);
   if (result.out.trim()) console.log(result.out.trim());
   if (!result.ok) process.exit(1);
 }
@@ -564,14 +571,17 @@ function help() {
   --force              覆盖已存在的安装
   --yes                非交互
 
-  npx deliverhq init-project [--profile fullstack-web] [--path <项目目录>] [--force]
-      初始化 AI 友好、人类易复查的项目目录结构 + DeliverHQ 治理空间
+  npx deliverhq init-project [--profile <名称>] [--governance-only] [--path <项目目录>] [--force] [--yes]
+      初始化项目治理空间。无 --profile/--yes 时交互选择范围：
+        · governance-only（默认）— 只建 DeliverHQ/，不碰业务目录结构（库/CLI/移动端/已有结构）
+        · fullstack-web        — 额外生成 apps/ packages/ 等 monorepo 业务骨架
+      --governance-only 等价于 --profile governance-only；--yes 非交互时默认 fullstack-web
 
-  npx deliverhq doctor [--path <核心目录>] [--verbose] [--routing-eval]
-      检测 Python/PyYAML + 运行 selftest（默认摘要输出，--verbose 显示完整输出）
+  npx deliverhq doctor [--path <核心目录>] [--verbose]
+      检测 Python/PyYAML + 运行 health_check（默认摘要输出，--verbose 显示完整输出）
 
-  npx deliverhq selftest [--path <核心目录>] [--routing-eval]
-      直接运行 selftest 并完整透传输出
+  npx deliverhq selftest [--path <核心目录>]
+      运行 health_check 并完整透传输出（selftest 的兼容别名）
 
   npx deliverhq route "user request" [--path <core dir>] [--json]
       Light entry: route natural language to quick/standard/strict/legacy
@@ -590,11 +600,12 @@ function help() {
   npx deliverhq init --target hermes --global
   npx deliverhq init --target codex       # 写 .deliverhq/ + AGENTS.md 指针
   npx deliverhq init --target generic     # 任意 agent
+  npx deliverhq init-project --governance-only   # 仅治理层（不生成业务目录）
   npx deliverhq init-project --profile fullstack-web
   npx deliverhq route "refactor payment callback" --json
   npx deliverhq go "继续" --path . --json
   npx deliverhq bootstrap --path . --json
-  npx deliverhq selftest --path .claude/skills/deliverhq
+  npx deliverhq doctor --path .claude/skills/deliverhq
 
 说明:
   DeliverHQ 核心是 agent 无关的 Python 门禁脚本（需 Python 3.10+ 与 PyYAML）。
