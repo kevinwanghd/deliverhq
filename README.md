@@ -22,6 +22,8 @@ npx deliverhq init --target hermes --global
 npx deliverhq init --target codex
 
 # 产品经理只安装 PRD 相关能力（PRD 模板、验收规格模板、PRD 校验/漂移/回写脚本）
+npx deliverhq product --path D:\Code\YourProject
+# 未传 --path 时会提示确认当前目录，避免装错位置
 npx deliverhq product
 # 等价于：
 npx deliverhq init --target codex --profile product

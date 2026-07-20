@@ -146,6 +146,12 @@ function ask(question) {
   });
 }
 
+async function confirm(question) {
+  if (!process.stdin.isTTY) return false;
+  const ans = (await ask(question)).toLowerCase();
+  return ans === '' || ans === 'y' || ans === 'yes';
+}
+
 function copyDir(src, dst) {
   const SKIP_DIRS = new Set(['__pycache__', 'workspace', 'outputs', 'artifacts', '.baseline']);
   fs.mkdirSync(dst, { recursive: true });
@@ -308,6 +314,7 @@ async function chooseScope(flags) {
 async function cmdInit(flags) {
   console.log(C.b('=== DeliverHQ 安装 ==='));
   const profile = normalizeInstallProfile(flags.profile);
+  const installRoot = path.resolve(flags.installRoot || process.cwd());
 
   // 选 target
   let target = (flags.target || 'claude').toLowerCase();
@@ -324,7 +331,7 @@ async function cmdInit(flags) {
 
   if (t.kind === 'folder') {
     const scope = await chooseScope(flags);
-    installedDir = scope === 'global' ? t.globalDir() : t.projectDir(process.cwd());
+    installedDir = scope === 'global' ? t.globalDir() : t.projectDir(installRoot);
     if (fs.existsSync(installedDir) && !flags.force) {
       console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
       process.exit(1);
@@ -334,7 +341,7 @@ async function cmdInit(flags) {
     copyInstallProfile(profile, installedDir);
   } else {
     // 扁平型：核心固定放项目 .deliverhq/，指针注入指令文件
-    installedDir = path.join(process.cwd(), '.deliverhq');
+    installedDir = path.join(installRoot, '.deliverhq');
     if (fs.existsSync(installedDir) && !flags.force) {
       console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
       process.exit(1);
@@ -343,7 +350,7 @@ async function cmdInit(flags) {
     console.log(`复制核心 → ${installedDir}`);
     copyInstallProfile(profile, installedDir);
 
-    const instrPath = path.join(process.cwd(), t.instructionFile);
+    const instrPath = path.join(installRoot, t.instructionFile);
     console.log(`注入指针 → ${instrPath}`);
     injectPointer(instrPath, '.deliverhq');
   }
@@ -375,8 +382,45 @@ function printProductManagerNextSteps(installedDir) {
   console.log(`  npx deliverhq prd-sync --path "${installedDir}"`);
 }
 
+function ensureDirectory(root) {
+  if (fs.existsSync(root) && !fs.statSync(root).isDirectory()) {
+    console.log(C.r(`安装路径不是目录: ${root}`));
+    process.exit(1);
+  }
+  fs.mkdirSync(root, { recursive: true });
+}
+
+async function resolveProductInstallRoot(flags) {
+  const root = path.resolve(flags.path || process.cwd());
+  if (flags.path) {
+    ensureDirectory(root);
+    return root;
+  }
+
+  console.log('\n即将在当前目录安装产品经理 PRD Skill：');
+  console.log(`  ${root}`);
+  console.log('\n安装后会创建：');
+  console.log(`  ${path.join(root, '.deliverhq')}`);
+  console.log(`  ${path.join(root, 'AGENTS.md')}`);
+
+  if (flags.force || flags.yes) {
+    ensureDirectory(root);
+    return root;
+  }
+
+  if (!(await confirm('\n请确认这是你要写 PRD 的项目/需求目录。继续安装？[Y/n] '))) {
+    console.log(C.y('\n已取消安装。请先在 Codex 打开正确的项目目录，或显式指定路径：'));
+    console.log('  npx deliverhq product --path <项目或需求目录>');
+    process.exit(1);
+  }
+
+  ensureDirectory(root);
+  return root;
+}
+
 async function cmdProduct(flags) {
-  return cmdInit({ ...flags, target: 'codex', profile: 'product' });
+  const installRoot = await resolveProductInstallRoot(flags);
+  return cmdInit({ ...flags, target: 'codex', profile: 'product', installRoot });
 }
 
 async function chooseProfile(flags) {
@@ -745,7 +789,7 @@ function help() {
 
 用法:
   npx deliverhq init [--target <agent>] [--profile <full|product>] [--global|--local] [--force] [--yes]
-  npx deliverhq product [--force]
+  npx deliverhq product [--path <project dir>] [--force|--yes]
 
   --target 支持的 agent:
     claude   文件夹 skill → .claude/skills/deliverhq/   （默认）
@@ -756,7 +800,7 @@ function help() {
 
   --global / --local   仅文件夹型：全局或项目级（默认问；--yes 取项目级）
   --profile            安装范围：full（默认完整治理包）或 product（产品经理 PRD 包）
-  --force              覆盖已存在的安装
+  --force              覆盖已存在的安装；product 未传 --path 时也表示确认当前目录
   --yes                非交互
 
   npx deliverhq init-project [--profile <名称>] [--governance-only] [--path <项目目录>] [--force] [--yes]
@@ -790,7 +834,8 @@ function help() {
       输出 npm 包版本
 
 示例:
-  npx deliverhq product                   # Codex 中安装产品经理 PRD 写作 Skill
+  npx deliverhq product --path D:\\Code\\YourProject  # Codex 中安装产品经理 PRD 写作 Skill
+  npx deliverhq product                   # 交互确认当前目录后安装
   npx deliverhq init                      # Claude Code，问位置
   npx deliverhq init --target codex --profile product  # 产品经理只安装 PRD 相关能力
   npx deliverhq init --target hermes --global
