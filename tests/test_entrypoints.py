@@ -67,8 +67,67 @@ class CliEntrypointTests(unittest.TestCase):
         result = self.run_cli("--help")
 
         self.assertEqual(0, result.returncode, result.stderr)
-        for command in ("init-project", "doctor", "selftest", "route", "go", "bootstrap"):
+        for command in ("init-project", "doctor", "selftest", "route", "prd-validate", "prd-sync", "go", "bootstrap"):
             self.assertIn(command, result.stdout)
+        self.assertIn("--profile <full|product>", result.stdout)
+
+    def test_init_product_profile_installs_prd_only_core(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-product-install-") as tmp:
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "bin" / "cli.js"),
+                    "init",
+                    "--target",
+                    "codex",
+                    "--profile",
+                    "product",
+                    "--force",
+                ],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            home = Path(tmp) / ".deliverhq"
+            self.assertTrue((home / "INSTALL-PROFILE.yml").is_file())
+            self.assertIn("profile: product", (home / "INSTALL-PROFILE.yml").read_text(encoding="utf-8"))
+            self.assertTrue((home / "docs" / "PRD.md").is_file())
+            self.assertTrue((home / "scripts" / "prd_validate.py").is_file())
+            self.assertTrue((home / "scripts" / "prd_sync.py").is_file())
+            self.assertFalse((home / "scripts" / "qualitygate.py").exists())
+            self.assertFalse((home / "scripts" / "reviewgate.py").exists())
+            self.assertFalse((home / "capabilities.yml").exists())
+            self.assertIn("产品经理", (home / "SKILL.md").read_text(encoding="utf-8"))
+            self.assertTrue((Path(tmp) / "AGENTS.md").is_file())
+
+            doctor = subprocess.run(
+                ["node", str(ROOT / "bin" / "cli.js"), "doctor", "--path", str(home)],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+            self.assertEqual(0, doctor.returncode, doctor.stdout + doctor.stderr)
+
+            sync = subprocess.run(
+                ["node", str(ROOT / "bin" / "cli.js"), "prd-sync", "--path", str(home), "--json"],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+            self.assertNotEqual(0, sync.returncode)
+            self.assertIn("真实功能锚点", sync.stdout + sync.stderr)
+            self.assertFalse((home / "docs" / "agent").exists())
 
     def test_init_cr_help_survives_native_windows_encoding(self):
         env = os.environ.copy()

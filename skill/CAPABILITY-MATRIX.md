@@ -73,5 +73,7 @@
 | Capability Stocktake | scripts/capability_stocktake.py | experimental | integrated | false | false | 新增能力前检查现有能力复用/扩展路径，要求记录 why_existing_insufficient，防止能力矩阵膨胀 |
 | Wording Drift Check | scripts/wording_drift_check.py | experimental | integrated | false | false | 检查入口文档引用 CAPABILITY-MATRIX.md 且不重复维护能力状态表，减少跨文档措辞漂移 |
 | Health Check（用户面自检） | scripts/health_check.py | stable | integrated | false | false | 随包发布的轻量自检：骨架完整性 + dir-graph 合法性 + 脚本可编译；不依赖 dev/ 夹具，npx deliverhq doctor 调用它。全量契约测试见 dev/scripts/selftest.py |
+| PRD Contract Validate | scripts/prd_validate.py | experimental | integrated | false | true | 校验 PRD 元数据、稳定功能锚点、REQ 字段、范围/依赖/来源/任务映射和未确认项，作为 PRD 派生前的确定性结构检查 |
+| PRD Sync | scripts/prd_sync.py | experimental | integrated | false | false | 从 docs/PRD.md 派生 docs/agent/prd-manifest.yml、task-map.yml、acceptance-spec.md 和 change-report.md，给 Agent 使用 hash 绑定的执行约束；PRD 仍由产品经理维护 |
 <!-- END GENERATED CAPABILITIES -->
 

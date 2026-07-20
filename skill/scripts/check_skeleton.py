@@ -1,23 +1,17 @@
 #!/usr/bin/env python3
-"""
-DeliverHQ 骨架完整性自检
-验证所有必需文件和目录是否存在
-"""
+"""Check installed DeliverHQ skeleton completeness."""
 
 import sys
 from pathlib import Path
 
-# 必需的文件清单（相对 DeliverHQ/ 目录）
+
 REQUIRED_FILES = [
-    # 入口层
     "CLAUDE.md",
     "AGENTS.md",
     "attention.md",
     "dir-graph.yaml",
     "README.md",
-    ".ai-instructions",  # AI 平台集成指令
-
-    # 组织记忆
+    ".ai-instructions",
     "docs/CONTEXT.md",
     "docs/architecture.md",
     "docs/interfaces.md",
@@ -29,12 +23,8 @@ REQUIRED_FILES = [
     "notes/_index.md",
     "inbox/README.md",
     "journal/README.md",
-
-    # 扫描报告
     "docs/reports/code-health-report.md",
     "docs/reports/legacy-scan-report.md",
-
-    # CR 模板
     "change-requests/CR-TEMPLATE/request.md",
     "change-requests/CR-TEMPLATE/acceptance-spec.md",
     "change-requests/CR-TEMPLATE/architecture-design.md",
@@ -47,8 +37,6 @@ REQUIRED_FILES = [
     "change-requests/CR-TEMPLATE/human-decisions.md",
     "change-requests/CR-TEMPLATE/traceability.yml",
     "change-requests/CR-TEMPLATE/exceptions.yml",
-
-    # 设计模板
     "change-requests/CR-TEMPLATE/design/lo-fi-spec.md",
     "change-requests/CR-TEMPLATE/design/hi-fi-spec.md",
     "change-requests/CR-TEMPLATE/design/prototype.html",
@@ -56,20 +44,18 @@ REQUIRED_FILES = [
     "change-requests/CR-TEMPLATE/design/direct-read-audit.md",
     "change-requests/CR-TEMPLATE/design/visual-audit-report.md",
     "change-requests/CR-TEMPLATE/design/assets/README.md",
-
-    # Gate 报告模板
     "change-requests/CR-TEMPLATE/specgate-report.md",
     "change-requests/CR-TEMPLATE/designgate-report.md",
     "change-requests/CR-TEMPLATE/context-window-report.md",
     "change-requests/CR-TEMPLATE/qualitygate-report.md",
     "change-requests/CR-TEMPLATE/writeback-gate-report.md",
-
-    # 检查脚本
     "scripts/pre_dev_gate.py",
     "scripts/check_skeleton.py",
     "scripts/init_cr.py",
     "scripts/deliver.py",
     "scripts/specgate.py",
+    "scripts/prd_validate.py",
+    "scripts/prd_sync.py",
     "scripts/designgate.py",
     "scripts/architecturegate.py",
     "scripts/context_window_check.py",
@@ -77,13 +63,10 @@ REQUIRED_FILES = [
     "scripts/writeback_gate.py",
     "scripts/update_rule_maturity.py",
     "scripts/update_mistake_book.py",
-
-    # 迁移与回滚文档
     "MIGRATION.md",
     "ROLLBACK.md",
 ]
 
-# 必需的目录清单
 REQUIRED_DIRS = [
     "docs",
     "docs/reports",
@@ -98,61 +81,94 @@ REQUIRED_DIRS = [
     "scripts",
 ]
 
-def check_completeness(base_dir="."):
-    """检查 DeliverHQ 骨架完整性"""
-    base = Path(base_dir)
+PRODUCT_REQUIRED_FILES = [
+    "INSTALL-PROFILE.yml",
+    "AGENTS.md",
+    "COMMANDS.yml",
+    "README.md",
+    "SKILL.md",
+    "VERSION.yml",
+    "dir-graph.yaml",
+    "docs/PRD.md",
+    "scripts/check_skeleton.py",
+    "scripts/dir_graph_lint.py",
+    "scripts/health_check.py",
+    "scripts/prd_validate.py",
+    "scripts/prd_sync.py",
+    "scripts/runtime_support.py",
+]
 
-    print("=== DeliverHQ 骨架完整性检查 ===\n")
+PRODUCT_REQUIRED_DIRS = [
+    "docs",
+    "scripts",
+]
+
+
+def detect_install_profile(base: Path) -> str:
+    profile_path = base / "INSTALL-PROFILE.yml"
+    if not profile_path.exists():
+        return "full"
+    for line in profile_path.read_text(encoding="utf-8").splitlines():
+        if line.startswith("profile:"):
+            return line.split(":", 1)[1].strip() or "full"
+    return "full"
+
+
+def check_completeness(base_dir=".") -> bool:
+    base = Path(base_dir)
+    profile = detect_install_profile(base)
+    required_dirs = PRODUCT_REQUIRED_DIRS if profile == "product" else REQUIRED_DIRS
+    required_files = PRODUCT_REQUIRED_FILES if profile == "product" else REQUIRED_FILES
+
+    print("=== DeliverHQ skeleton check ===")
+    print(f"install profile: {profile}")
 
     missing_dirs = []
     missing_files = []
 
-    # 检查目录
-    print("[目录检查]")
-    for dir_path in REQUIRED_DIRS:
+    print("\n[directories]")
+    for dir_path in required_dirs:
         full_path = base / dir_path
         if full_path.exists():
-            print(f"  ✓ {dir_path}")
+            print(f"  OK {dir_path}")
         else:
-            print(f"  ✗ {dir_path} (缺失)")
+            print(f"  MISSING {dir_path}")
             missing_dirs.append(dir_path)
 
-    # 检查文件
-    print("\n[文件检查]")
-    for file_path in REQUIRED_FILES:
+    print("\n[files]")
+    for file_path in required_files:
         full_path = base / file_path
         if full_path.exists():
-            print(f"  ✓ {file_path}")
+            print(f"  OK {file_path}")
         else:
-            print(f"  ✗ {file_path} (缺失)")
+            print(f"  MISSING {file_path}")
             missing_files.append(file_path)
 
-    # 统计
-    print(f"\n[统计]")
-    print(f"目录: {len(REQUIRED_DIRS) - len(missing_dirs)}/{len(REQUIRED_DIRS)}")
-    print(f"文件: {len(REQUIRED_FILES) - len(missing_files)}/{len(REQUIRED_FILES)}")
+    print("\n[summary]")
+    print(f"directories: {len(required_dirs) - len(missing_dirs)}/{len(required_dirs)}")
+    print(f"files: {len(required_files) - len(missing_files)}/{len(required_files)}")
 
-    # 结果
-    print(f"\n[结果]")
     if not missing_dirs and not missing_files:
-        print("✅ DeliverHQ 骨架完整，可以用于新项目开发或老项目扫描。")
+        print("\nPASS")
         return True
-    else:
-        print("❌ DeliverHQ 骨架不完整，请补齐缺失文件。")
-        if missing_dirs:
-            print(f"\n缺失目录 ({len(missing_dirs)}):")
-            for d in missing_dirs:
-                print(f"  - {d}")
-        if missing_files:
-            print(f"\n缺失文件 ({len(missing_files)}):")
-            for f in missing_files:
-                print(f"  - {f}")
-        return False
 
-def main():
+    print("\nBLOCKED")
+    if missing_dirs:
+        print(f"\nmissing directories ({len(missing_dirs)}):")
+        for item in missing_dirs:
+            print(f"  - {item}")
+    if missing_files:
+        print(f"\nmissing files ({len(missing_files)}):")
+        for item in missing_files:
+            print(f"  - {item}")
+    return False
+
+
+def main() -> None:
     base_dir = sys.argv[1] if len(sys.argv) > 1 else "."
     passed = check_completeness(base_dir)
     sys.exit(0 if passed else 1)
+
 
 if __name__ == "__main__":
     main()

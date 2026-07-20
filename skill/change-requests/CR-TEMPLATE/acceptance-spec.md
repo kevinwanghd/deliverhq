@@ -5,6 +5,49 @@
 ## CR-ID
 {{CR_ID}}
 
+## Spec Manifest
+
+```yaml
+schema: deliverhq-acceptance-spec
+schema_version: 2
+cr_id: {{CR_ID}}
+status: draft
+prd_id: {{PRD-ID}}
+prd_version: {{PRD-VERSION}}
+derived_from: [{{PRD-XXX}}]
+owner: {{研发负责人}}
+target_platforms: [{{platform}}]
+business_logic_authority: backend
+client_role: pure_ui_and_result_rendering
+unresolved_questions_block_dev: true
+```
+
+## Scope Contract
+
+### In Scope
+
+- {{本 CR 必须实现的范围}}
+
+### Out of Scope
+
+- {{本 CR 明确不实现的范围}}
+
+### Do Not Touch
+
+- {{不可修改的模块、接口、数据或行为}}
+
+### Source Evidence
+
+| Evidence ID | 来源 | 定位 | 说明 |
+|---|---|---|---|
+| SRC-001 | {{PRD/原型/截图/代码}} | {{链接、页面或路径}} | {{支持的需求结论}} |
+
+## Requirement Traceability
+
+| REQ ID | PRD Anchor | AC IDs | DEV Task | QA Task | Status |
+|---|---|---|---|---|---|
+| REQ-XXX | PRD-XXX | AC-XXX-01, AC-XXX-02 | DEV-XXX | QA-XXX | planned |
+
 ## 来源锚点（derived_from）
 
 > 本 CR 派生自 `docs/PRD.md` 的哪个功能锚点。PRD 是产品意图唯一来源,本 spec 是它的可执行切片。
@@ -99,6 +142,18 @@ derived_from:
 - **Then** {{预期结果，例如：成功购买，余额变为 0}}
 - **Measurable Success** {{边界值处理正确}}
 
+### Client/Server Responsibility
+
+| 行为 | 服务端责任 | Flutter/客户端责任 | 禁止客户端自行判断 |
+|---|---|---|---|
+| {{奖励/任务/状态行为}} | {{规则、状态、结果、错误码}} | {{纯 UI、交互、结果渲染}} | {{奖励、次数、CD、跨日、资格等}} |
+
+### Observable Events
+
+| Event ID | 事件名 | 触发条件 | 必填字段 | 责任方 |
+|---|---|---|---|---|
+| EVT-001 | {{event_name}} | {{明确条件}} | {{字段}} | backend / flutter |
+
 ---
 
 ## 非功能验收
@@ -119,6 +174,12 @@ derived_from:
 |---|---|---|---|
 | {{外部系统/API}} | 外部 | {{已就绪/待确认}} | {{负责人}} |
 | {{基础设施}} | 内部 | {{已就绪/待确认}} | {{负责人}} |
+
+## 任务拆分与交付顺序
+
+| Task ID | 角色 | 目标 | Covers | Depends On | Done Evidence |
+|---|---|---|---|---|---|
+| DEV-XXX | backend / flutter / qa | {{任务目标}} | {{REQ/AC}} | {{任务 ID}} | {{接口、截图、测试报告等}} |
 
 ---
 

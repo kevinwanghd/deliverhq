@@ -1,0 +1,3 @@
+# Product profile commands
+validate: python scripts/prd_validate.py docs/PRD.md --strict
+sync: python scripts/prd_sync.py
