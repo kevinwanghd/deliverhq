@@ -71,6 +71,36 @@ class PrdValidateTests(unittest.TestCase):
         self.assertFalse(result["ok"])
         self.assertTrue(any("范围外" in item for item in result["blockers"]))
 
+    def _validate_text(self, text, **kwargs):
+        validator = load_validator()
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "PRD.md"
+            path.write_text(text, encoding="utf-8")
+            return validator.validate(path, **kwargs)
+
+    def test_real_feature_with_brace_is_not_dropped(self):
+        # A fully-filled feature whose prose legitimately contains {{ user }}
+        # must still be counted — the leftover brace should not misclassify the
+        # whole section as a template stub (regression: silent feature drop).
+        prd = VALID_PRD.replace("- **范围内**: 登录", "- **范围内**: 返回 {{ user }} 给前端")
+        result = self._validate_text(prd)
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(1, result["feature_count"])
+        self.assertTrue(any("占位符" in w for w in result["warnings"]), result)
+
+    def test_brace_placeholder_blocks_under_strict(self):
+        prd = VALID_PRD.replace("- **范围内**: 登录", "- **范围内**: 返回 {{ user }} 给前端")
+        result = self._validate_text(prd, strict=True)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("占位符" in b for b in result["blockers"]), result)
+
+    def test_template_markers_still_detected(self):
+        # The shipped template markers must keep classifying as template stubs.
+        prd = VALID_PRD.replace("- AC-LOGIN-01: 成功登录", "- AC-LOGIN-01: 成功登录 示例锚点")
+        result = self._validate_text(prd)
+        self.assertFalse(result["ok"])
+        self.assertEqual(0, result["feature_count"])
+
 
 if __name__ == "__main__":
     unittest.main()
