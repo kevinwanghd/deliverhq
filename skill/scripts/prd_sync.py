@@ -9,6 +9,7 @@ contract without reinterpreting the full PRD every time.
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -30,8 +31,30 @@ def sha256_text(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+def generated_at() -> str:
+    """Deterministic-when-pinned generation timestamp.
+
+    Honours ``SOURCE_DATE_EPOCH`` (the reproducible-builds standard) so the same
+    PRD produces byte-identical derived artifacts across runs — required by the
+    framework's reproducibility principle. Falls back to wall-clock time only
+    when the epoch is not pinned.
+    """
+    epoch = os.environ.get("SOURCE_DATE_EPOCH")
+    if epoch:
+        try:
+            return datetime.fromtimestamp(int(epoch), timezone.utc).replace(microsecond=0).isoformat()
+        except (ValueError, OverflowError, OSError):
+            pass
+    return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
 def is_template_section(section: str) -> bool:
-    return "示例锚点" in section or "(同上结构)" in section
+    """Deprecated shim — template detection is unified in prd_validate.
+
+    Kept only so any external caller does not break; delegates to the single
+    source of truth. New code should use ``prd_validate.is_template_feature``.
+    """
+    return any(marker in section for marker in prd_validate.TEMPLATE_MARKERS)
 
 
 def extract_req_id(section: str) -> str:
@@ -94,7 +117,7 @@ def extract_task_rows(section: str) -> list:
 def collect_features(prd_text: str) -> list:
     features = []
     for anchor, section in prd_validate._features(prd_text):
-        if prd_validate.is_template_feature(anchor, section) or is_template_section(section):
+        if prd_validate.is_template_feature(anchor, section):
             continue
         req_id = extract_req_id(section)
         features.append({
@@ -118,7 +141,7 @@ def collect_features(prd_text: str) -> list:
 
 
 def build_manifest(prd_path: Path, prd_text: str, meta: dict, features: list) -> dict:
-    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    now = generated_at()
     return {
         "schema": "deliverhq-prd-manifest",
         "schema_version": 1,
@@ -260,6 +283,21 @@ def sync(prd_path: Path, out_dir: Path, strict: bool = False) -> dict:
     prd_text = prd_path.read_text(encoding="utf-8")
     meta = prd_validate._metadata(prd_text)
     features = collect_features(prd_text)
+
+    # Fail closed on drift between the gate's feature count and what we actually
+    # derived. If they diverge, a real feature was silently dropped — never emit
+    # a partial contract that claims completeness. (Trust evidence, not claims.)
+    if len(features) != validation["feature_count"]:
+        return {
+            "ok": False,
+            "validation": validation,
+            "writes": [],
+            "error": (
+                f"派生特性数 ({len(features)}) 与校验特性数 "
+                f"({validation['feature_count']}) 不一致——疑似静默丢弃特性,拒绝产出残缺工件"
+            ),
+        }
+
     manifest = build_manifest(prd_path, prd_text, meta, features)
 
     manifest_path = out_dir / "prd-manifest.yml"

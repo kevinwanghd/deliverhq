@@ -95,6 +95,65 @@ class PrdSyncTests(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertFalse(out.exists())
 
+    def test_generated_at_is_deterministic_when_epoch_pinned(self):
+        # Reproducibility: same PRD + pinned SOURCE_DATE_EPOCH => byte-identical
+        # derived artifacts across runs.
+        import os
+
+        prd_sync = load_sync()
+        prev = os.environ.get("SOURCE_DATE_EPOCH")
+        os.environ["SOURCE_DATE_EPOCH"] = "1700000000"
+        try:
+            with tempfile.TemporaryDirectory(prefix="deliverhq-prd-sync-det-") as tmp:
+                root = Path(tmp)
+                prd = root / "PRD.md"
+                prd.write_text(VALID_PRD, encoding="utf-8")
+                out1, out2 = root / "a1", root / "a2"
+                prd_sync.sync(prd, out1)
+                prd_sync.sync(prd, out2)
+                for name in ("prd-manifest.yml", "task-map.yml", "acceptance-spec.md", "change-report.md"):
+                    self.assertEqual(
+                        (out1 / name).read_text(encoding="utf-8"),
+                        (out2 / name).read_text(encoding="utf-8"),
+                        f"{name} differs across runs with pinned epoch",
+                    )
+                manifest = yaml.safe_load((out1 / "prd-manifest.yml").read_text(encoding="utf-8"))
+                self.assertEqual("2023-11-14T22:13:20+00:00", manifest["generated_at"])
+        finally:
+            if prev is None:
+                os.environ.pop("SOURCE_DATE_EPOCH", None)
+            else:
+                os.environ["SOURCE_DATE_EPOCH"] = prev
+
+    def test_feature_count_parity_guard(self):
+        # If sync's derived feature count ever diverges from the validator's,
+        # it must fail closed rather than emit a partial contract.
+        prd_sync = load_sync()
+        with tempfile.TemporaryDirectory(prefix="deliverhq-prd-sync-parity-") as tmp:
+            root = Path(tmp)
+            prd = root / "PRD.md"
+            out = root / "agent"
+            prd.write_text(VALID_PRD, encoding="utf-8")
+
+            # Force a divergence: make validate see one more feature than
+            # collect_features returns, simulating a template-detection mismatch.
+            original = prd_sync.prd_validate.validate
+
+            def inflated(path, strict=False):
+                res = original(path, strict=strict)
+                res["feature_count"] += 1
+                return res
+
+            prd_sync.prd_validate.validate = inflated
+            try:
+                result = prd_sync.sync(prd, out)
+            finally:
+                prd_sync.prd_validate.validate = original
+
+            self.assertFalse(result["ok"])
+            self.assertIn("error", result)
+            self.assertFalse(out.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

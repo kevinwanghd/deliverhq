@@ -53,11 +53,22 @@ def _features(text: str):
     return result
 
 
+TEMPLATE_ANCHORS = {"PRD-SAMPLE", "PRD-XXX", "PRD-YYY"}
+TEMPLATE_MARKERS = ("示例锚点", "(同上结构)")
+
+
 def is_template_feature(anchor: str, section: str) -> bool:
-    """Identify the illustrative sections shipped in the PRD template."""
-    if anchor in {"PRD-SAMPLE", "PRD-XXX", "PRD-YYY"}:
+    """Identify the illustrative sections shipped in the PRD template.
+
+    Only the anchors and prose markers the template actually ships count as
+    template stubs. A leftover ``{{...}}`` no longer classifies a whole section
+    as a template — that would silently drop a real, fully-filled feature that
+    merely quotes template syntax (e.g. ``{{ user }}``) in its prose. Unresolved
+    braces are surfaced by ``validate`` as explicit placeholders instead.
+    """
+    if anchor in TEMPLATE_ANCHORS:
         return True
-    return "{{" in section or "}}" in section
+    return any(marker in section for marker in TEMPLATE_MARKERS)
 
 
 def validate(path: Path, strict: bool = False):
@@ -108,8 +119,15 @@ def validate(path: Path, strict: bool = False):
 
     placeholder_tokens = ["待确认", "TO" + "DO", "NEEDS CLARIFICATION"]
     unresolved = re.findall(r"\[(?:" + "|".join(placeholder_tokens) + r")[^\]]*\]", text, re.I)
-    if unresolved:
-        message = f"存在 {len(unresolved)} 个显式未确认占位符"
+    # Unfilled {{...}} template variables inside real (non-template) features are
+    # unresolved placeholders too — surface them explicitly instead of silently
+    # treating the whole feature as a template stub.
+    brace_placeholders = 0
+    for anchor, section in real_features:
+        brace_placeholders += len(re.findall(r"\{\{[^}]*\}\}", section))
+    total_unresolved = len(unresolved) + brace_placeholders
+    if total_unresolved:
+        message = f"存在 {total_unresolved} 个显式未确认占位符"
         if meta.get("status") in {"approved", "frozen"} or strict:
             blockers.append(message)
         else:
