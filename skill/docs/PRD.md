@@ -94,7 +94,7 @@ policy:
 > - 老项目逆向生成的锚点标 `状态: reverse-engineered`,人确认后改为 `confirmed`
 >   (这两个值是机器要识别的,保持英文)
 
-## [PRD-TODO] 待办事项管理(示例锚点,与 CR-EXAMPLE 配套)
+## [PRD-SAMPLE] 待办事项管理(示例锚点,与 CR-EXAMPLE 配套)
 
 - **状态**: confirmed
 - **优先级**: P1

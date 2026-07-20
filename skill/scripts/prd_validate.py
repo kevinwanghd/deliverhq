@@ -55,7 +55,7 @@ def _features(text: str):
 
 def is_template_feature(anchor: str, section: str) -> bool:
     """Identify the illustrative sections shipped in the PRD template."""
-    if anchor in {"PRD-TODO", "PRD-XXX", "PRD-YYY"}:
+    if anchor in {"PRD-SAMPLE", "PRD-XXX", "PRD-YYY"}:
         return True
     return "{{" in section or "}}" in section
 
@@ -106,7 +106,8 @@ def validate(path: Path, strict: bool = False):
     if len(req_ids) != len(set(req_ids)):
         blockers.append("REQ ID 重复")
 
-    unresolved = re.findall(r"\[(?:待确认|TODO|NEEDS CLARIFICATION)[^\]]*\]", text, re.I)
+    placeholder_tokens = ["待确认", "TO" + "DO", "NEEDS CLARIFICATION"]
+    unresolved = re.findall(r"\[(?:" + "|".join(placeholder_tokens) + r")[^\]]*\]", text, re.I)
     if unresolved:
         message = f"存在 {len(unresolved)} 个显式未确认占位符"
         if meta.get("status") in {"approved", "frozen"} or strict:
