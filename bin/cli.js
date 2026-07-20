@@ -354,6 +354,29 @@ async function cmdInit(flags) {
   console.log('  ' + t.note);
   console.log('\n下一步：');
   console.log(`  验证健康度:  npx deliverhq doctor --path "${installedDir}"`);
+  if (profile === 'product') {
+    printProductManagerNextSteps(installedDir);
+  }
+}
+
+function printProductManagerNextSteps(installedDir) {
+  console.log('\n产品经理下一步可以直接在 Codex 里这样说：');
+  console.log('');
+  console.log('  请按 DeliverHQ PRD 标准，帮我把这个原型/需求整理成 PRD，并写入 .deliverhq/docs/PRD.md。');
+  console.log('');
+  console.log('如果你已经有一份老 PRD，可以这样说：');
+  console.log('');
+  console.log('  请按 DeliverHQ PRD 标准，把这份老 PRD 标准化改造成新的 PRD，并写入 .deliverhq/docs/PRD.md。');
+  console.log('  保留已明确的业务事实；缺失信息放到待澄清问题；不要自行脑补。');
+  console.log('');
+  console.log('写完后校验：');
+  console.log(`  npx deliverhq prd-validate --path "${installedDir}" --strict`);
+  console.log('定稿后同步给研发 agent：');
+  console.log(`  npx deliverhq prd-sync --path "${installedDir}"`);
+}
+
+async function cmdProduct(flags) {
+  return cmdInit({ ...flags, target: 'codex', profile: 'product' });
 }
 
 async function chooseProfile(flags) {
@@ -722,6 +745,7 @@ function help() {
 
 用法:
   npx deliverhq init [--target <agent>] [--profile <full|product>] [--global|--local] [--force] [--yes]
+  npx deliverhq product [--force]
 
   --target 支持的 agent:
     claude   文件夹 skill → .claude/skills/deliverhq/   （默认）
@@ -766,6 +790,7 @@ function help() {
       输出 npm 包版本
 
 示例:
+  npx deliverhq product                   # Codex 中安装产品经理 PRD 写作 Skill
   npx deliverhq init                      # Claude Code，问位置
   npx deliverhq init --target codex --profile product  # 产品经理只安装 PRD 相关能力
   npx deliverhq init --target hermes --global
@@ -790,6 +815,7 @@ async function main() {
   if (flags.help || flags.h || _[0] === 'help') return help();
   const cmd = _[0];
   if (cmd === 'init') return cmdInit(flags);
+  if (cmd === 'product') return cmdProduct(flags);
   if (cmd === 'init-project') return cmdInitProject(flags);
   if (cmd === 'doctor') return cmdDoctor(flags);
   if (cmd === 'selftest') return cmdSelftest(flags);
