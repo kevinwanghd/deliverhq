@@ -70,6 +70,7 @@ class CliEntrypointTests(unittest.TestCase):
         for command in ("product", "init-project", "doctor", "selftest", "route", "prd-validate", "prd-sync", "go", "bootstrap"):
             self.assertIn(command, result.stdout)
         self.assertIn("--profile <full|product>", result.stdout)
+        self.assertIn("product [--path <project dir>]", result.stdout)
 
     def test_init_product_profile_installs_prd_only_core(self):
         with tempfile.TemporaryDirectory(prefix="deliverhq-product-install-") as tmp:
@@ -157,6 +158,51 @@ class CliEntrypointTests(unittest.TestCase):
             self.assertIn("profile: product", (home / "INSTALL-PROFILE.yml").read_text(encoding="utf-8"))
             self.assertIn("请按 DeliverHQ PRD 标准", result.stdout)
             self.assertIn("老 PRD", (home / "README.md").read_text(encoding="utf-8"))
+
+    def test_product_shortcut_installs_to_explicit_path(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-product-path-") as tmp:
+            project = Path(tmp) / "selected-project"
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "bin" / "cli.js"),
+                    "product",
+                    "--path",
+                    str(project),
+                    "--yes",
+                ],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertTrue((project / ".deliverhq" / "docs" / "PRD.md").is_file())
+            self.assertTrue((project / "AGENTS.md").is_file())
+            self.assertFalse((Path(tmp) / ".deliverhq").exists())
+
+    def test_product_shortcut_requires_confirmation_without_path(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-product-confirm-") as tmp:
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "bin" / "cli.js"),
+                    "product",
+                ],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("product --path", result.stdout)
+            self.assertFalse((Path(tmp) / ".deliverhq").exists())
 
     def test_init_cr_help_survives_native_windows_encoding(self):
         env = os.environ.copy()
