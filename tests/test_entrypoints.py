@@ -67,7 +67,7 @@ class CliEntrypointTests(unittest.TestCase):
         result = self.run_cli("--help")
 
         self.assertEqual(0, result.returncode, result.stderr)
-        for command in ("init-project", "doctor", "selftest", "route", "prd-validate", "prd-sync", "go", "bootstrap"):
+        for command in ("product", "init-project", "doctor", "selftest", "route", "prd-validate", "prd-sync", "go", "bootstrap"):
             self.assertIn(command, result.stdout)
         self.assertIn("--profile <full|product>", result.stdout)
 
@@ -93,6 +93,10 @@ class CliEntrypointTests(unittest.TestCase):
             )
 
             self.assertEqual(0, result.returncode, result.stderr)
+            self.assertIn("产品经理下一步", result.stdout)
+            self.assertIn("老 PRD 标准化", result.stdout)
+            self.assertIn("prd-validate", result.stdout)
+            self.assertIn("prd-sync", result.stdout)
             home = Path(tmp) / ".deliverhq"
             self.assertTrue((home / "INSTALL-PROFILE.yml").is_file())
             self.assertIn("profile: product", (home / "INSTALL-PROFILE.yml").read_text(encoding="utf-8"))
@@ -128,6 +132,31 @@ class CliEntrypointTests(unittest.TestCase):
             self.assertNotEqual(0, sync.returncode)
             self.assertIn("真实功能锚点", sync.stdout + sync.stderr)
             self.assertFalse((home / "docs" / "agent").exists())
+
+    def test_product_shortcut_installs_codex_product_profile(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-product-shortcut-") as tmp:
+            result = subprocess.run(
+                [
+                    "node",
+                    str(ROOT / "bin" / "cli.js"),
+                    "product",
+                    "--force",
+                ],
+                cwd=tmp,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=30,
+            )
+
+            self.assertEqual(0, result.returncode, result.stderr)
+            home = Path(tmp) / ".deliverhq"
+            self.assertTrue((home / "docs" / "PRD.md").is_file())
+            self.assertTrue((Path(tmp) / "AGENTS.md").is_file())
+            self.assertIn("profile: product", (home / "INSTALL-PROFILE.yml").read_text(encoding="utf-8"))
+            self.assertIn("请按 DeliverHQ PRD 标准", result.stdout)
+            self.assertIn("老 PRD", (home / "README.md").read_text(encoding="utf-8"))
 
     def test_init_cr_help_survives_native_windows_encoding(self):
         env = os.environ.copy()
