@@ -131,7 +131,7 @@ license: 见仓库
 | `docs/mistake-book.md` | QualityGate 失败后 | 错误案例库 |
 | `references/gotchas.md` | 遇到问题时 | 真实踩坑经验 |
 
-**原则**：不要一次性加载 47 个文件，只加载当前阶段必需文件。
+**原则**：不要一次性加载全部文件，只加载当前阶段必需文件。
 
 ---
 
@@ -150,7 +150,7 @@ license: 见仓库
 ## 验证 Checklist
 
 ### 初始化后验证
-- [ ] `python scripts/check_skeleton.py DeliverHQ` 输出 `47/47`
+- [ ] `python scripts/check_skeleton.py DeliverHQ` 骨架完整（当前 57/57，以实际输出为准）
 - [ ] `docs/CONTEXT.md` 已填写项目信息
 - [ ] `dir-graph.yaml` 的 `protected_paths` 已配置
 - [ ] 无模板变量残留（`grep -r "{{.*}}" DeliverHQ/docs/`）

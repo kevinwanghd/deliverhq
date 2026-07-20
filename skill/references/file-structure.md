@@ -1,4 +1,4 @@
-# DeliverHQ 文件结构（47 核心文件）
+# DeliverHQ 文件结构
 
 ## 目录布局
 
@@ -13,18 +13,32 @@ DeliverHQ/                          # 治理根目录
 ├── MIGRATION.md                    # 迁移到其他平台指南
 ├── ROLLBACK.md                     # 回滚操作指南
 │
+├── attention.md                   # 轻量控制文件（每轮必读：治理车道/风险触发/知识落点）
+├── STATE.md                        # 机器维护的 CR 状态汇总（handoff_state.py 刷新）
+├── capabilities.yml                # 机器可读能力注册表（渲染 CAPABILITY-MATRIX.md）
+│
 ├── docs/                           # 组织记忆（baseline knowledge）
 │   ├── CONTEXT.md                  # 项目上下文（模板，Skill 自动填充）
+│   ├── PRD.md                      # 产品意图唯一来源（人工维护）
 │   ├── architecture.md             # 系统架构
 │   ├── interfaces.md               # 接口契约
 │   ├── data-model.md               # 数据模型
 │   ├── rules.md                    # 规则表（带成熟度）
+│   ├── rules-candidates.md         # 规则候选（人工审核后晋升）
 │   ├── decisions.md                # 设计决策记录
 │   ├── mistake-book.md             # 错题本
 │   ├── verification.md             # 验收标准
 │   └── reports/                    # 扫描报告
 │       ├── code-health-report.md   # 代码健康度
 │       └── legacy-scan-report.md   # 老项目扫描
+│
+├── notes/                          # 已确认可复用经验（知识落点）
+├── inbox/                          # 未分诊的想法/候选规则
+├── journal/                        # 日粒度进展与交接
+│
+├── structure-profiles/             # 结构 profile（fullstack-web / governance-only）
+├── context-packs/                  # 各 Agent 的上下文包
+├── legacy/                         # 老项目逆向工作区
 │
 ├── change-requests/                # 活跃交付
 │   └── CR-TEMPLATE/               # ★ 模板（复制使用）
@@ -53,7 +67,7 @@ DeliverHQ/                          # 治理根目录
 ├── delivery/                       # 已交付归档（按月）
 │   └── YYYY-MM/CR-XXX/
 │
-├── _archived/                      # 历史归档（只读）
+├── _archived/                      # 历史归档目录（保留 README；退役脚本已移出）
 │
 ├── references/                     # 详细参考文档
 │   ├── modes.md                    # 工作模式详解
@@ -61,13 +75,12 @@ DeliverHQ/                          # 治理根目录
 │   ├── gotchas.md                  # 踩坑清单
 │   └── file-structure.md           # 本文件
 │
-├── evals/                          # 路由评估案例
-│   └── skill-routing-cases.md
+├── deliverhq/                      # 运行时 Python 包（go/routing/runtime/capabilities）
 │
-└── scripts/                        # 治理脚本（11 个）
+└── scripts/                        # 治理脚本（门禁 + 编排 + 工具，数十个）
     ├── init_cr.py                  # 初始化 CR
     ├── check_skeleton.py           # 骨架完整性检查
-    ├── selftest.py                 # 一键自检
+    ├── health_check.py             # 一键健康自检（骨架/dir-graph/脚本可编译）
     ├── pre_dev_gate.py             # 开发前门禁
     ├── specgate.py                 # SpecGate
     ├── designgate.py               # DesignGate
@@ -76,6 +89,10 @@ DeliverHQ/                          # 治理根目录
     ├── writeback_gate.py           # WritebackGate
     ├── update_rule_maturity.py     # 规则成熟度更新
     └── update_mistake_book.py      # 错题本更新
+    # …等数十个门禁/编排/工具脚本；全量自检见 dev/scripts/selftest.py
+
+# 说明：完整 selftest 套件与开发夹具（examples/evals/CR-EXAMPLE 等）已下沉到仓库
+# 根的 dev/，不随 npm 包发布、也不进 init-project 产物；用户面自检用 scripts/health_check.py。
 ```
 
 ## 文件分类
@@ -116,7 +133,7 @@ DeliverHQ/                          # 治理根目录
 
 ## 按需加载策略
 
-**不要一次读取所有 47 个文件！** 按当前任务只加载必要文件：
+**不要一次读取所有文件！** 按当前任务只加载必要文件：
 
 | 任务 | 需要读取 |
 |---|---|
