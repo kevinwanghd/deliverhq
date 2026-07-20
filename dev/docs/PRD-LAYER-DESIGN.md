@@ -14,17 +14,31 @@ PRD 层就是补这个缺口：**给人一页纸看懂整个产品意图**。
 
 ## 核心设计原则
 
-### 1. 两层分工：PRD 给人看意图，spec 给机器验执行
+### 1. 两层分工：PRD 给人看意图，派生规格给机器验执行
 
 ```
-docs/PRD.md（意图，薄，给人看全貌，仅人工维护）
+docs/PRD.md（意图，给人看全貌，带稳定锚点和结构化字段，仅人工维护）
       │  Spec Agent 切片
       ▼
 acceptance-spec.md（执行，厚，给机器验，带 ID/schema/负例/Do-Not-Touch）
 ```
 
-- **PRD 不写**带 ID 的强制项、字段 schema、禁改清单、测试用例——那些是 spec 的职责。PRD 写进这些就变成机器契约，丧失"给人看"的定位，还和 spec 重复维护。
-- **AI 干活读的是 spec，不是 PRD**。所以"约束 AI"的活由 spec + SpecGate 承担；PRD 的职责是"约束**人**对产品的理解"。
+- PRD 可以保留稳定的 `PRD-*` 锚点、`REQ-*` 功能 ID、范围、依赖、来源、业务不变式和粗粒度 `AC-*` 索引；这些是产品意图的结构化表达，不是实现代码契约。
+- 字段 schema、接口契约、完整测试步骤、任务证据和禁改清单仍归 acceptance-spec；避免在两层重复维护实现细节。
+- **AI 干活读的是派生规格，不是自由解释 PRD**。Spec Agent 必须从 PRD 生成 acceptance-spec/task-map，并记录 PRD 版本与锚点哈希。
+
+### 1.1 派生物同步不变量
+
+PRD 是唯一产品意图来源，派生物不得被人工当作第二份需求维护：
+
+```text
+PRD.md → acceptance-spec.md + task-map.yml + prd-manifest.yml → CR snapshot
+```
+
+- 每个派生物记录 `prd_id`、`prd_version` 和锚点哈希。
+- PRD 锚点变化后，受影响派生物必须重新生成或标记 `STALE`。
+- `STALE` 的 CR 不得继续进入开发门禁，除非人工确认差异。
+- `prd_validate.py` 校验 PRD 结构；SpecGate 校验派生规格；DriftCheck 校验两者是否一致。
 
 ### 2. PRD 是「意图」的唯一来源，不是「实现真相」的唯一来源
 

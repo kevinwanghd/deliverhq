@@ -17,6 +17,8 @@
 
 **项目结构治理（可选）**：新项目可用 `deliverhq init-project --profile fullstack-web` 初始化 AI 友好、人类易复查的目录契约；老项目先运行 `python scripts/scan_legacy_structure.py <项目根>` 生成结构评估报告，再用 progressive StructureGate 渐进约束。
 
+**产品经理轻量安装**：只需要 PRD 能力时，使用 `npx deliverhq init --target codex --profile product`。产品版只安装 PRD 模板、轻量产品说明、PRD 校验和同步脚本，不安装研发执行门禁。先运行 `npx deliverhq prd-validate --path .deliverhq --strict`，再运行 `npx deliverhq prd-sync --path .deliverhq`，刷新 `docs/agent/` 下给研发 Agent 使用的派生文档。
+
 ---
 
 ## 核心价值

@@ -21,6 +21,15 @@ npx deliverhq init --target hermes --global
 # Codex → .deliverhq/ + 向 AGENTS.md 注入指针
 npx deliverhq init --target codex
 
+# 产品经理只安装 PRD 相关能力（PRD 模板、验收规格模板、PRD 校验/漂移/回写脚本）
+npx deliverhq init --target codex --profile product
+
+# 校验 PRD
+npx deliverhq prd-validate --path .deliverhq --strict
+
+# PRD 修改后刷新 Agent 可读的派生文档
+npx deliverhq prd-sync --path .deliverhq
+
 # Gemini → .deliverhq/ + 向 GEMINI.md 注入指针
 npx deliverhq init --target gemini
 

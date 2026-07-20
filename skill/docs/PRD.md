@@ -1,13 +1,33 @@
 # 产品需求文档 (PRD): {{产品名}}
 
-> 本文是**产品意图的唯一来源**,仅人工维护意图部分;Agent 只读。
+```yaml
+schema: deliverhq-prd
+schema_version: 2
+prd_id: {{PRD-产品或项目标识}}
+product: {{产品名}}
+status: draft
+owner: {{产品负责人}}
+created_at: {{YYYY-MM-DD}}
+updated_at: {{YYYY-MM-DD}}
+source_of_truth: product_intent
+handoff:
+  executable_spec_required: true
+  task_map_required: true
+  unresolved_questions_block_export: true
+policy:
+  backend_authoritative_business_logic: true
+  client_role: pure_ui_and_result_rendering
+```
+
+> 本文是**产品意图的唯一来源**,仅人工维护意图部分;Agent 可以读取、校验、拆分和生成派生工件，但不能擅自改变产品意图。
 > 例外:`writeback-agent` 可回填功能锚点的「关联 CR」行(该行不参与哈希)。
 >
-> **本文给人看**:用于规划、评审、把握产品全貌。
-> 它**不是** AI 的行动契约——AI 干活读的是 `change-requests/CR-*/acceptance-spec.md`。
-> 因此本文**不写**带 ID 的强制项 / 字段结构 / 禁改清单 / 测试用例,那些归 acceptance-spec。
+> **本文给人看，也要能被 Agent 稳定解析**:用于规划、评审、把握产品全貌；功能锚点中的 REQ/AC/INV/依赖/来源字段是结构化产品意图，不等同于实现代码。
+> AI 干活使用本 PRD 派生的 `acceptance-spec.md`、`task-map.yml` 和 `prd-manifest.yml`。
+> PRD 不直接承载代码实现细节；字段契约、接口 schema、测试步骤和禁改清单归 acceptance-spec。
 >
-> **单文件原则**:始终只用 `docs/PRD.md` 单文件,不拆 `docs/prd/` 目录(避免双源)。
+> **单文件原则**:始终只用 `docs/PRD.md` 作为产品意图文件,不拆 `docs/prd/` 目录(避免双源)。
+> 研发交付包可以在 CR 或外部交付目录中生成派生文件，但不得反向形成第二份产品意图。
 > 产品很大时,靠锚点 ID 前缀分层(如 `[PRD-AUTH]` / `[PRD-AUTH-SSO]`),不拆文件。
 
 ## 元信息
@@ -18,6 +38,10 @@
 | 状态 | 草稿 / 生效 / 冻结 |
 | 负责人 | {{负责人}} |
 | 最后更新 | {{日期}} |
+| 发布状态 | draft / reviewed / approved / frozen / superseded |
+| 目标平台 | {{Web / Android / iOS / Flutter / 服务端等}} |
+| 来源证据 | {{原型、截图、会议纪要、数据分析链接}} |
+| 变更策略 | approved 后修改必须记录变更原因并触发 PRD↔CR 对账 |
 
 ---
 
@@ -97,8 +121,15 @@
 
 ## [PRD-XXX] {{功能名}}
 
-- **状态**: reverse-engineered(逆向待确认) | confirmed(已确认)
+- **REQ ID**: REQ-XXX
+- **状态**: draft | pending_confirmation | confirmed | deferred | deprecated
 - **优先级**: P0 / P1 / P2
+- **负责人**: {{产品/技术负责人}}
+- **目标平台**: {{平台}}
+- **来源证据**: {{原型页、截图、会议纪要、数据链接}}
+- **依赖**: {{REQ-YYY / 外部系统 / 无}}
+- **范围内**: {{本功能本期必须交付的内容}}
+- **范围外**: {{明确不做的内容}}
 
 **意图**
 > 一句话说清这个能力要达成什么。
@@ -112,8 +143,36 @@
 **验收意图**(粗粒度,给人看)
 > 人话描述"做对了长什么样"。**不是**带 ID 的测试用例——细化成可机检验收条件是 acceptance-spec 的事。
 
+**验收条件索引**
+
+- AC-XXX-01: {{正常路径结果}}
+- AC-XXX-02: {{异常路径结果}}
+- AC-XXX-03: {{边界路径结果}}
+
 **绝不能发生**(粗粒度负例,给人看)
 > 人需要看到的关键不变式,如"绝不泄漏跨用户数据"。acceptance-spec 会把它展开成每条验收条件的"绝不"项。
+
+**业务不变式**
+
+- INV-XXX-01: {{必须始终成立的业务条件}}
+
+**状态与动作**
+
+| 状态 | 进入条件 | 用户可执行动作 | 服务端返回结果 | 终态 |
+|---|---|---|---|---|
+| {{初始状态}} | {{条件}} | {{动作}} | {{结果/错误码}} | {{下一状态}} |
+
+**研发交付映射**
+
+| 任务 ID | 角色 | 责任 | 覆盖 REQ/AC | 禁止承接 |
+|---|---|---|---|---|
+| DEV-XXX | backend / flutter / qa | {{业务规则/纯 UI/验收脚本}} | {{REQ/AC}} | {{不应由该角色实现的内容}} |
+
+**待确认问题**
+
+| 问题 ID | 问题 | 阻断级别 | 负责人 | 状态 |
+|---|---|---|---|---|
+| Q-XXX-01 | {{未确定规则}} | P0 / P1 / P2 | {{负责人}} | open / resolved / deferred |
 
 **关联 CR**: {{由 writeback-agent 自动回填,如 CR-007, CR-012;不参与哈希}}
 
