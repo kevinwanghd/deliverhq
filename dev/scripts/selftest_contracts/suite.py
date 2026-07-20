@@ -1404,6 +1404,80 @@ def check_designgate_mobile_keyword_contract():
         shutil.rmtree(str(tmp), ignore_errors=True)
 
 
+def check_designgate_waiver_contract():
+    """DesignGate 保真稿软豁免契约：默认要保真稿，小需求可用 exceptions.yml 显式豁免。
+
+    守四条：
+      1. C端 spec 缺 hi-fi 且无豁免 → BLOCK（默认基线不松）
+      2. C端 spec 缺 hi-fi 但 exceptions.yml 声明 DesignGate 豁免(有 reason) → PASS
+      3. 无 design/ 但 spec 是 UI 需求且无豁免 → BLOCK 指向正门（洞1 不再静默放行）
+      4. 无 design/ 且 spec 无 UI 信号 → PASS（不误伤纯后端改动）
+    """
+    section("24b. DesignGate 保真稿软豁免契约")
+    tmp = Path(tempfile.mkdtemp(prefix="deliverhq-dg-waiver-"))
+    old_selftest = os.environ.get("DELIVERHQ_SELFTEST")
+    os.environ["DELIVERHQ_SELFTEST"] = "1"
+    try:
+        sys.path.insert(0, str(ROOT / "scripts"))
+        import importlib
+        import designgate as _dg
+        importlib.reload(_dg)
+
+        def make_cr(name, spec, with_design=False, waiver_reason=None, waiver_missing_reason=False):
+            cr = tmp / name
+            cr.mkdir(parents=True)
+            (cr / "acceptance-spec.md").write_text(spec, encoding="utf-8")
+            if with_design:
+                (cr / "design").mkdir()
+            if waiver_reason is not None or waiver_missing_reason:
+                reason_line = "" if waiver_missing_reason else ("      reason: %s\n" % waiver_reason)
+                (cr / "exceptions.yml").write_text(
+                    "schema: deliverhq-exceptions\nversion: 1\nexceptions:\n"
+                    "  - gate_override:\n      gate: DesignGate\n" + reason_line,
+                    encoding="utf-8")
+            return cr
+
+        H5 = "# spec\n\n做一个 H5 用户界面活动页\n"
+        checks = []
+
+        # 1. C端缺 hi-fi 无豁免 → BLOCK
+        p1, _, _ = _dg.check_designgate(str(make_cr("c-nohifi", H5, with_design=True)))
+        checks.append(("C端缺hi-fi无豁免应BLOCK", p1 is False))
+
+        # 2. C端缺 hi-fi + 豁免(reason) → PASS
+        p2, _, _ = _dg.check_designgate(str(
+            make_cr("c-waiver", H5, with_design=True, waiver_reason="纯文案微调无新增页面")))
+        checks.append(("C端缺hi-fi有豁免应PASS", p2 is True))
+
+        # 3. 无 design/ 但 H5 spec 无豁免 → BLOCK（指向正门）
+        p3, b3, _ = _dg.check_designgate(str(make_cr("nodir-ui", H5)))
+        checks.append(("无design但UI需求无豁免应BLOCK", p3 is False and any("exceptions.yml" in x for x in b3)))
+
+        # 4. 无 design/ 且无 UI 信号 → PASS（不误伤后端）
+        p4, _, _ = _dg.check_designgate(str(make_cr("nodir-backend", "# spec\n\n重构后端缓存逻辑\n")))
+        checks.append(("无design且无UI应PASS", p4 is True))
+
+        # 5. 豁免缺 reason → 不生效（仍 BLOCK）
+        p5, _, _ = _dg.check_designgate(str(
+            make_cr("c-badwaiver", H5, with_design=True, waiver_missing_reason=True)))
+        checks.append(("豁免缺reason不生效应BLOCK", p5 is False))
+
+        all_ok = True
+        for label, ok in checks:
+            print(f"  {PASS if ok else FAIL} {label}")
+            all_ok = all_ok and ok
+        return all_ok
+    except Exception as exc:
+        print(f"  {FAIL} DesignGate 软豁免契约异常: {exc}")
+        return False
+    finally:
+        if old_selftest is None:
+            os.environ.pop("DELIVERHQ_SELFTEST", None)
+        else:
+            os.environ["DELIVERHQ_SELFTEST"] = old_selftest
+        shutil.rmtree(str(tmp), ignore_errors=True)
+
+
 def check_predev_requires_architecture_contract():
     """检查 PreDevGate 不得绕过 ArchitectureGate。"""
     section("25. PreDevGate 架构门禁契约")
@@ -2340,6 +2414,7 @@ def main():
         results["evidence_loop_contract"] = check_evidence_loop_contract()
         results["architecturegate_confirmation_contract"] = check_architecturegate_confirmation_contract()
         results["designgate_mobile_keyword_contract"] = check_designgate_mobile_keyword_contract()
+        results["designgate_waiver_contract"] = check_designgate_waiver_contract()
         results["predev_requires_architecture_contract"] = check_predev_requires_architecture_contract()
         results["structure_governance_contract"] = check_structure_governance_contract()
         results["packaging_hygiene"] = check_packaging_hygiene()

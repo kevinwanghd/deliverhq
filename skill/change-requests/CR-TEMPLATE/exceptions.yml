@@ -3,13 +3,17 @@ version: 1
 
 # 例外管理：记录本 CR 中对 DeliverHQ 规则或门禁的豁免申请
 
-# 示例 1：跳过某个门禁检查
-# gate_override:
-#   gate: "DesignGate"
-#   reason: "B 端内部管理后台，视觉要求不高，仅低保真通过"
-#   approved_by: "Tech Lead"
-#   approved_date: "2026-06-11"
-#   conditions: "后续迭代补充高保真设计"
+# 示例 1：DesignGate 豁免（小需求无需保真稿的正门）
+#   默认所有前端（尤其 App / Web 页面）需保真稿；小需求确实不需要时在此显式声明，
+#   即可放行——留痕、可审计，区别于"不建 design/ 目录静默绕过"。
+#   要求：reason 必填；approved_by 选填（不填也放行，但会标记为"自我声明"）。
+#   写进下方 exceptions 列表，如：
+# - gate_override:
+#     gate: "DesignGate"
+#     reason: "纯文案/样式微调，无新增页面或交互，无需保真稿"
+#     approved_by: ""            # 选填
+#     approved_date: "2026-07-16"
+#     conditions: "如后续新增页面需补高保真"
 
 # 示例 2：豁免某条规则
 # rule_exception:
@@ -34,7 +38,7 @@ version: 1
 exceptions: []
 
 # 使用说明：
-# 1. 仅在确有合理理由时申请例外
-# 2. 必须有审批人与日期
+# 1. 仅在确有合理理由时申请例外；reason 必填
+# 2. 审批人/日期：多数例外应有；DesignGate 豁免的 approved_by 选填（小需求可自我声明，仍留痕）
 # 3. 需明确缓解措施或后续计划
 # 4. 例外不得违反 P0 规则（如：敏感信息硬编码）
