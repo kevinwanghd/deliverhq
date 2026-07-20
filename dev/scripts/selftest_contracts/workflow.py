@@ -8,6 +8,7 @@ CONTRACTS = (
     "evidence_loop_contract",
     "architecturegate_confirmation_contract",
     "designgate_mobile_keyword_contract",
+    "designgate_waiver_contract",
     "predev_requires_architecture_contract",
     "structure_governance_contract",
 )
