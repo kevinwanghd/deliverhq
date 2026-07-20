@@ -1,5 +1,13 @@
 # DeliverHQ 产品经理版
 
+安装时建议显式指定需求/项目目录：
+
+```text
+npx deliverhq product --path D:\Code\YourProject
+```
+
+未传 `--path` 时，安装器会提示确认当前目录，避免把 `.deliverhq/` 创建到错误位置。
+
 ## 在 Codex 里的常用口令
 
 把原型、截图、需求背景发给 Codex 后，可以直接说：
