@@ -108,3 +108,17 @@ deliverhq_integration:
     - "Background"
     - "需求描述"
     - "目标"
+
+arc:
+  enabled: false                # Phase 1 默认关闭
+  default_adapter: "mock"
+  adapters:
+    - name: mock
+      module: adapter_mock
+      class: MockAdapter
+      enabled: true
+    - name: claude-code
+      module: adapter_claude_code
+      class: ClaudeCodeAdapter
+      enabled: false            # 可选，默认不启用
+
