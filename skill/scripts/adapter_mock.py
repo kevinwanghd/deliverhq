@@ -48,6 +48,7 @@ class MockAdapter(BaseAdapter):
         result_yml = worktree / "agent-result.yml"
         result_yml.write_text(
             f"""task_id: {task_id}
+run_id: {run_id}
 status: done
 changed_files:
   - mock-output.txt
@@ -75,6 +76,10 @@ notes: "Mock adapter 固定输出"
             stdout_tail="DONE (mock)",
             stderr_tail="",
             adapter_name="mock",
+            summary_path=str(result_yml),
+            changed_files=["mock-output.txt"],
+            transcript_ref="mock://" + run_id,
+            budget_reason="",
         )
 
 
@@ -114,7 +119,7 @@ class ConfigurableMockAdapter(MockAdapter):
         # 根据配置决定是否写 agent-result.yml
         if self.mock_write_result_yml:
             result_yml = worktree / "agent-result.yml"
-            result_yml.write_text(f"task_id: {task_id}\nstatus: done\n")
+            result_yml.write_text(f"task_id: {task_id}\nrun_id: {run_id}\nstatus: done\n")
 
         return AgentRunResult(
             run_id=run_id,
@@ -124,4 +129,8 @@ class ConfigurableMockAdapter(MockAdapter):
             stdout_tail="",
             stderr_tail="",
             adapter_name="mock",
+            summary_path=str(worktree / "agent-result.yml") if self.mock_write_result_yml else "",
+            changed_files=[],
+            transcript_ref="mock://" + run_id,
+            budget_reason="" if self.mock_exit_kind != "timeout" else "timeout",
         )

@@ -12,6 +12,9 @@ import subprocess
 import sys
 import yaml
 from pathlib import Path
+from datetime import datetime, timezone
+import json
+import hashlib
 
 
 class RecoveryClass(Enum):
@@ -23,6 +26,22 @@ class RecoveryClass(Enum):
     OUT_OF_SCOPE = "arc:out_of_scope"
     BUDGET_EXHAUSTED = "arc:budget_exhausted"
     UNKNOWN = "arc:unknown"
+
+
+def record_retry(cr_path: Path, task_id: str, failure_details: dict) -> tuple[bool, str]:
+    """Record one failed attempt in the retry ledger; orchestration owns when to call this."""
+    recovery_class = _classify_failure(failure_details)
+    hypothesis = _generate_hypothesis(recovery_class, failure_details)
+    script_path = Path(__file__).parent / "retry_guard.py"
+    result = subprocess.run(
+        [sys.executable, str(script_path), str(cr_path), "record",
+         "--gate", f"arc:{task_id}", "--blocker", recovery_class.value,
+         "--hypothesis", hypothesis],
+        capture_output=True, text=True, timeout=30,
+    )
+    if result.returncode == 0:
+        return True, result.stdout.strip() or "retry recorded"
+    return False, result.stdout.strip() or result.stderr.strip() or "retry limit reached"
 
 
 def handle(
@@ -51,17 +70,22 @@ def handle(
     # 2. 生成假设
     hypothesis = _generate_hypothesis(recovery_class, failure_details)
 
-    # 3. 委托 retry_guard.py
+    # 3. 只读查询 retry_guard；恢复管理器绝不 record（避免重复计数）
     can_retry, retry_reason = _call_retry_guard(cr_path, task_id, recovery_class, hypothesis)
 
     if not can_retry:
-        return "NEEDS_HUMAN", retry_reason
+        next_state = "NEEDS_HUMAN"
+        _persist_recovery(cr_path, task_id, run_id, recovery_class, hypothesis, next_state, retry_reason, failure_details)
+        return next_state, retry_reason
 
     # 4. git stash（仅特定失败类型）
     if recovery_class in (RecoveryClass.NO_EVIDENCE, RecoveryClass.BUDGET_EXHAUSTED):
         _git_stash(cr_path, run_id)
 
-    return "READY", f"可重试（{hypothesis}）"
+    next_state = "READY"
+    reason = f"可重试（{hypothesis}）"
+    _persist_recovery(cr_path, task_id, run_id, recovery_class, hypothesis, next_state, reason, failure_details)
+    return next_state, reason
 
 
 def _classify_failure(failure_details: dict) -> RecoveryClass:
@@ -129,24 +153,38 @@ def _call_retry_guard(
     blocker_summary = f"{recovery_class.value} - {hypothesis}"
 
     result = subprocess.run(
-        [
-            sys.executable, str(script_path), str(cr_path), "record",
-            "--gate", gate_label,
-            "--blocker", blocker_summary,
-            "--hypothesis", hypothesis,
-        ],
+        [sys.executable, str(script_path), str(cr_path), "status"],
         capture_output=True,
         text=True,
         timeout=30,
     )
 
-    if result.returncode == 0:
-        return True, "可重试"
-    elif result.returncode == 1:
+    if result.returncode != 0:
+        return False, f"retry_guard status 执行错误: {result.stderr.strip()}"
+    output = (result.stdout or "").lower()
+    if "needs_human" in output or "重试耗尽" in output:
         return False, result.stdout.strip() or "重试次数耗尽"
-    else:
-        # 执行错误，保守处理
-        return False, f"retry_guard 执行错误: {result.stderr.strip()}"
+    return True, "retry_guard status: can_retry"
+
+
+def _persist_recovery(cr_path: Path, task_id: str, run_id: str, recovery_class: RecoveryClass,
+                      hypothesis: str, next_state: str, reason: str, failure_details: dict):
+    """Persist a tamper-evident recovery package and state, without retry writes."""
+    package = {
+        "schema_version": "arc-recovery/v1", "task_id": task_id, "run_id": run_id,
+        "recorded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "recovery_class": recovery_class.value, "hypothesis": hypothesis,
+        "next_state": next_state, "reason": reason, "failure_details": failure_details,
+    }
+    canonical = json.dumps(package, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    package["sha256"] = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    root = cr_path / "runtime" / "recovery"
+    root.mkdir(parents=True, exist_ok=True)
+    (root / f"{run_id}.json").write_text(json.dumps(package, ensure_ascii=False, indent=2), encoding="utf-8")
+    state = {"schema_version": "arc-recovery-state/v1", "task_id": task_id, "run_id": run_id,
+             "state": next_state, "recovery_class": recovery_class.value, "reason": reason,
+             "updated_at": package["recorded_at"], "sha256": package["sha256"]}
+    (root / "state.yml").write_text(yaml.safe_dump(state, allow_unicode=True, sort_keys=False), encoding="utf-8")
 
 
 def _git_stash(cr_path: Path, run_id: str):

@@ -110,7 +110,7 @@ deliverhq_integration:
     - "目标"
 
 arc:
-  enabled: false                # Phase 1 默认关闭
+  enabled: true                 # ARC Phase 1 已具备可恢复的单步运行闭环
   default_adapter: "mock"
   adapters:
     - name: mock

@@ -103,19 +103,25 @@ def build(cr_path: Path, task_id: str, run_id: str) -> Path:
     # 5. 生成完整内容
     content = "\n\n".join(sections)
 
-    # 6. 计算输入哈希
+    # 6. 计算输入哈希。哈希定义为移除哈希占位后的规范化包内容，避免自引用。
     input_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
     content = content.replace("input_hash: <pending>", f"input_hash: sha256:{input_hash}")
 
     # 7. 写文件
     runtime = cr_path / "runtime"
-    session_packs_dir = runtime / "session-packs"
-    session_packs_dir.mkdir(parents=True, exist_ok=True)
-
-    pack_path = session_packs_dir / f"{run_id}.md"
+    context_packs_dir = runtime / "context-packs"
+    context_packs_dir.mkdir(parents=True, exist_ok=True)
+    pack_path = context_packs_dir / f"{run_id}.md"
     pack_path.write_text(content, encoding="utf-8")
 
-    return pack_path
+    # 旧版客户端兼容：在传迁期间保留 session-packs 副本，但以 context-packs 为真实来源。
+    legacy_dir = runtime / "session-packs"
+    legacy_dir.mkdir(parents=True, exist_ok=True)
+    legacy_path = legacy_dir / pack_path.name
+    legacy_path.write_text(content, encoding="utf-8")
+
+    # 传统调用者仍收到旧路径；调度器和新客户端可使用同内容的 context-packs 规范路径。
+    return legacy_path
 
 
 def _load_plan(cr_path: Path) -> dict:
@@ -256,8 +262,18 @@ def _section_decisions(context_summary: dict) -> str:
 
 def _section_handoff(context_summary: dict) -> str:
     """生成交接摘要（可截断）。"""
-    # 简化：本节留空或取 context-summary 的最后部分
-    return ""
+    full_text = context_summary.get("full_text", "")
+    if not full_text:
+        return ""
+    lines = full_text.splitlines()
+    headings = [i for i, line in enumerate(lines) if line.lstrip().startswith("#")]
+    handoff_start = next((i for i in headings if "handoff" in lines[i].lower() or "交接" in lines[i]), None)
+    if handoff_start is not None:
+        next_heading = next((i for i in headings if i > handoff_start), len(lines))
+        handoff = "\n".join(lines[handoff_start:next_heading]).strip()
+    else:
+        handoff = "\n".join(lines[-min(40, len(lines)):]).strip()
+    return f"## Handoff Summary\n\n{handoff}\n" if handoff else ""
 
 
 def _section_prior_run(cr_path: Path, task_id: str, run_id: str) -> str:
