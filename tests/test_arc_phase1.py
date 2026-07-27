@@ -133,7 +133,7 @@ class TestMockAdapter(unittest.TestCase):
 
             result_yml = worktree / "agent-result.yml"
             self.assertTrue(result_yml.exists(), "agent-result.yml must be in worktree root")
-            content = result_yml.read_text()
+            content = result_yml.read_text(encoding="utf-8")
             self.assertIn("task_id: T2", content)
             self.assertIn("status: done", content)
 
@@ -148,7 +148,7 @@ class TestMockAdapter(unittest.TestCase):
 
             adapter.run(session_pack, worktree, run_id="T5-r2")
 
-            content = (worktree / "agent-result.yml").read_text()
+            content = (worktree / "agent-result.yml").read_text(encoding="utf-8")
             self.assertIn("task_id: T5", content)
 
     def test_run_creates_mock_output_txt(self):
@@ -248,7 +248,7 @@ class TestSessionPackBuilder(unittest.TestCase):
             self._make_cr(tmp)
 
             pack = self.m.build(tmp, "T1", "T1-r1")
-            content = pack.read_text()
+            content = pack.read_text(encoding="utf-8")
 
             self.assertIn("task_id: T1", content)
             self.assertIn("run_id: T1-r1", content)
@@ -259,7 +259,7 @@ class TestSessionPackBuilder(unittest.TestCase):
             self._make_cr(tmp, goal="Implement feature X")
 
             pack = self.m.build(tmp, "T1", "T1-r1")
-            content = pack.read_text()
+            content = pack.read_text(encoding="utf-8")
 
             self.assertIn("Implement feature X", content)
 
@@ -269,7 +269,7 @@ class TestSessionPackBuilder(unittest.TestCase):
             self._make_cr(tmp, files=["src/foo.py", "tests/test_foo.py"])
 
             pack = self.m.build(tmp, "T1", "T1-r1")
-            content = pack.read_text()
+            content = pack.read_text(encoding="utf-8")
 
             self.assertIn("src/foo.py", content)
             self.assertIn("tests/test_foo.py", content)
@@ -280,7 +280,7 @@ class TestSessionPackBuilder(unittest.TestCase):
             self._make_cr(tmp)
 
             pack = self.m.build(tmp, "T1", "T1-r1")
-            content = pack.read_text()
+            content = pack.read_text(encoding="utf-8")
 
             self.assertIn("Required Output", content)
             self.assertIn("agent-result.yml", content)
@@ -305,7 +305,7 @@ class TestSessionPackBuilder(unittest.TestCase):
             self._make_cr(tmp)
 
             pack = self.m.build(tmp, "T1", "T1-r1")
-            content = pack.read_text()
+            content = pack.read_text(encoding="utf-8")
 
             self.assertIn("input_hash: sha256:", content)
             self.assertNotIn("input_hash: <pending>", content)
@@ -320,11 +320,11 @@ class TestSessionPackBuilder(unittest.TestCase):
             os.environ["SOURCE_DATE_EPOCH"] = "1700000000"
             try:
                 pack1 = self.m.build(tmp, "T1", "T1-r1")
-                hash1 = [l for l in pack1.read_text().splitlines() if "input_hash" in l][0]
+                hash1 = [l for l in pack1.read_text(encoding="utf-8").splitlines() if "input_hash" in l][0]
 
                 # rebuild (overwrite)
                 pack2 = self.m.build(tmp, "T1", "T1-r1")
-                hash2 = [l for l in pack2.read_text().splitlines() if "input_hash" in l][0]
+                hash2 = [l for l in pack2.read_text(encoding="utf-8").splitlines() if "input_hash" in l][0]
 
                 self.assertEqual(hash1, hash2)
             finally:
