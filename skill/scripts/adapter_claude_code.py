@@ -58,9 +58,6 @@ class ClaudeCodeAdapter(BaseAdapter):
         """
         start = time.time()
 
-        # 构建命令
-        cmd = self.command + [str(session_pack)]
-
         # 环境变量（确保 UTF-8）
         env = os.environ.copy()
         env.update({
@@ -69,6 +66,14 @@ class ClaudeCodeAdapter(BaseAdapter):
         })
 
         try:
+            session_pack = Path(session_pack).resolve()
+            worktree = Path(worktree).resolve()
+            if not session_pack.is_file():
+                raise FileNotFoundError(f"session pack not found: {session_pack}")
+            if not worktree.is_dir():
+                raise FileNotFoundError(f"worktree not found: {worktree}")
+            # 必须在修改 cwd 前解析为绝对路径，否则相对 pack 会在 worktree 中失效。
+            cmd = self.command + [str(session_pack)]
             result = subprocess.run(
                 cmd,
                 cwd=str(worktree),
@@ -94,6 +99,9 @@ class ClaudeCodeAdapter(BaseAdapter):
                 stdout_tail=tail_lines(result.stdout, 50),
                 stderr_tail=tail_lines(result.stderr, 20),
                 adapter_name="claude-code",
+                summary_path=str(worktree / "agent-result.yml") if (worktree / "agent-result.yml").exists() else "",
+                transcript_ref=f"stdout://{run_id}",
+                budget_reason="",
             )
 
         except subprocess.TimeoutExpired as e:
@@ -111,4 +119,20 @@ class ClaudeCodeAdapter(BaseAdapter):
                 stdout_tail=tail_lines(stdout, 50),
                 stderr_tail=tail_lines(stderr, 20),
                 adapter_name="claude-code",
+                transcript_ref=f"timeout://{run_id}",
+                budget_reason="timeout",
+            )
+
+        except OSError as e:
+            elapsed = time.time() - start
+            return AgentRunResult(
+                run_id=run_id,
+                exit_kind="error",
+                exit_code=127,
+                elapsed_seconds=elapsed,
+                stdout_tail="",
+                stderr_tail=str(e),
+                adapter_name="claude-code",
+                transcript_ref=f"error://{run_id}",
+                budget_reason="",
             )

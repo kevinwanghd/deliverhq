@@ -67,6 +67,13 @@ const INSTALL_PROFILES = {
       'scripts/prd_validate.py',
       'scripts/prd_sync.py',
       'scripts/runtime_support.py',
+      'scripts/agent_adapter.py',
+      'scripts/adapter_mock.py',
+      'scripts/adapter_claude_code.py',
+      'scripts/session_pack_builder.py',
+      'scripts/evidence_verifier.py',
+      'scripts/recovery_manager.py',
+      'scripts/arc_scheduler.py',
     ],
     mappings: [
       ['product/AGENTS.md', 'AGENTS.md'],
@@ -116,7 +123,7 @@ const TARGETS = {
 };
 
 function parseArgs(argv) {
-  const VALUE_FLAGS = new Set(['path', 'home', 'target', 'profile', 'prd', 'out']);
+  const VALUE_FLAGS = new Set(['path', 'home', 'target', 'profile', 'prd', 'out', 'task', 'adapter', 'timeout']);
   const out = { _: [], flags: {} };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -784,6 +791,31 @@ function cmdBootstrap(flags) {
   }
 }
 
+function cmdArcRun(flags) {
+  const py = requirePythonWithPyYAML();
+  const script = path.join(SKILL_SRC, 'scripts', 'arc_scheduler.py');
+  const crPath = path.resolve(flags.path || process.cwd());
+  if (!flags.task) {
+    console.log(C.r('arc-run 需要 --task <task_id>'));
+    process.exit(1);
+  }
+  const args = [script, '--path', crPath, '--task', String(flags.task)];
+  if (flags.adapter) args.push('--adapter', String(flags.adapter));
+  if (flags.timeout) args.push('--timeout', String(flags.timeout));
+  try {
+    const out = execFileSync(py.cmd, args, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      maxBuffer: SELFTEST_MAX_BUFFER,
+      env: SUBPROCESS_ENV,
+    }).toString();
+    if (out.trim()) console.log(out.trim());
+  } catch (e) {
+    const out = (e.stdout ? e.stdout.toString() : '') + (e.stderr ? e.stderr.toString() : '');
+    if (out.trim()) console.log(out.trim());
+    process.exit(e.status || 1);
+  }
+}
+
 function help() {
   console.log(`DeliverHQ v${PACKAGE_JSON.version} — AI 交付防翻车治理框架（多 Agent 安装器）
 
@@ -828,7 +860,10 @@ function help() {
       Read-only unified entry: resolve active CR, target verb, and artifact preflight
 
   npx deliverhq bootstrap [--path <repo>] [--home <DeliverHQ dir>] [--json] [--apply]
-      Read-only brownfield discovery; --apply creates reviewable candidate artifacts
+       Read-only brownfield discovery; --apply creates reviewable candidate artifacts
+
+  npx deliverhq arc-run --path <CR dir> --task <task_id> [--adapter mock|claude-code] [--timeout <seconds>]
+       Run one recoverable ARC task and persist controller state, run evidence, and receipt
 
   npx deliverhq --version
       输出 npm 包版本
@@ -869,6 +904,7 @@ async function main() {
   if (cmd === 'prd-sync') return cmdPrdSync(flags);
   if (cmd === 'go') return cmdGo(_.slice(1), flags);
   if (cmd === 'bootstrap') return cmdBootstrap(flags);
+  if (cmd === 'arc-run') return cmdArcRun(flags);
   if (!cmd) { help(); return; }
   console.log(C.r(`未知命令: ${cmd}`));
   help();

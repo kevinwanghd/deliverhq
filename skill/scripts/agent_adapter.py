@@ -21,6 +21,14 @@ class AgentRunResult:
     stdout_tail: str               # stdout 最后 50 行
     stderr_tail: str               # stderr 最后 20 行
     adapter_name: str              # "mock" / "claude-code" / ...
+    summary_path: str = ""
+    changed_files: list[str] | None = None
+    transcript_ref: str = ""
+    budget_reason: str = ""
+
+    def __post_init__(self):
+        if self.changed_files is None:
+            self.changed_files = []
 
 
 class BaseAdapter(ABC):
