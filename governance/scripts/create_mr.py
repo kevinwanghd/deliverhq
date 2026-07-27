@@ -40,6 +40,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 
 from governance_common import ConfigError, load_config as load_shared_config, repository_state
 
@@ -426,6 +429,151 @@ def infer_title(args, base: str) -> str:
 # ============================================================
 # 提交 MR
 # ============================================================
+def _gitlab_api_request(
+    method: str,
+    base_url: str,
+    token: str,
+    path: str,
+    payload: dict | None = None,
+    query: dict | None = None,
+) -> dict | list:
+    base = base_url.rstrip("/")
+    encoded_query = urllib.parse.urlencode(query or {}, doseq=True)
+    url = f"{base}/api/v4{path}"
+    if encoded_query:
+        url = f"{url}?{encoded_query}"
+
+    data = None
+    headers = {
+        "PRIVATE-TOKEN": token,
+        "Accept": "application/json",
+    }
+    if payload is not None:
+        data = urllib.parse.urlencode(payload).encode("utf-8")
+        headers["Content-Type"] = "application/x-www-form-urlencoded"
+
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as response:
+            body = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"GitLab API {method} {path} 返回 {exc.code}: {body[:500]}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"GitLab API {method} {path} 连接失败: {exc.reason}") from exc
+
+    if not body:
+        return {}
+    try:
+        return json.loads(body)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"GitLab API {method} {path} 返回非 JSON: {body[:500]}") from exc
+
+
+def _require_gitlab_api_args(args) -> tuple[str, str, str]:
+    base_url = args.gitlab_url or os.environ.get("AGENTGATE_GITLAB_URL") or os.environ.get(
+        "CI_SERVER_URL"
+    )
+    project_id = args.gitlab_project_id or os.environ.get(
+        "AGENTGATE_GITLAB_PROJECT_ID"
+    ) or os.environ.get("CI_PROJECT_ID")
+    token = args.gitlab_token or os.environ.get("AGENTGATE_GITLAB_TOKEN")
+
+    missing = []
+    if not base_url:
+        missing.append("--gitlab-url/AGENTGATE_GITLAB_URL")
+    if not project_id:
+        missing.append("--gitlab-project-id/AGENTGATE_GITLAB_PROJECT_ID")
+    if not token:
+        missing.append("--gitlab-token/AGENTGATE_GITLAB_TOKEN")
+    if missing:
+        raise RuntimeError("缺少 GitLab API 参数: " + ", ".join(missing))
+    return base_url, project_id, token
+
+
+def gitlab_api_preflight(args) -> int:
+    try:
+        base_url, project_id, token = _require_gitlab_api_args(args)
+        project_path = urllib.parse.quote(str(project_id), safe="")
+        project = _gitlab_api_request("GET", base_url, token, f"/projects/{project_path}")
+    except RuntimeError as exc:
+        sys.stderr.write(f"[create-mr] GitLab API 预检失败: {exc}\n")
+        return 1
+
+    name = project.get("path_with_namespace") or project.get("name") or project_id
+    sys.stderr.write(f"[create-mr] GitLab API 预检通过: {name}\n")
+    return 0
+
+
+def submit_gitlab_api(title: str, description: str, target: str, args) -> int:
+    try:
+        base_url, project_id, token = _require_gitlab_api_args(args)
+        source = args.source_branch or current_branch()
+        project_path = urllib.parse.quote(str(project_id), safe="")
+
+        existing = _gitlab_api_request(
+            "GET",
+            base_url,
+            token,
+            f"/projects/{project_path}/merge_requests",
+            query={
+                "state": "opened",
+                "source_branch": source,
+                "target_branch": target,
+            },
+        )
+        create_payload = {
+            "source_branch": source,
+            "target_branch": target,
+            "title": title,
+            "description": description,
+            "remove_source_branch": "true" if args.remove_source_branch else "false",
+        }
+        update_payload = {
+            "target_branch": target,
+            "title": title,
+            "description": description,
+            "remove_source_branch": "true" if args.remove_source_branch else "false",
+        }
+
+        if isinstance(existing, list) and existing:
+            iid = existing[0].get("iid")
+            if not iid:
+                raise RuntimeError("GitLab API 返回的 MR 缺少 iid")
+            mr = _gitlab_api_request(
+                "PUT",
+                base_url,
+                token,
+                f"/projects/{project_path}/merge_requests/{iid}",
+                payload=update_payload,
+            )
+            action = "更新"
+        else:
+            mr = _gitlab_api_request(
+                "POST",
+                base_url,
+                token,
+                f"/projects/{project_path}/merge_requests",
+                payload=create_payload,
+            )
+            action = "创建"
+    except RuntimeError as exc:
+        sys.stderr.write(f"[create-mr] GitLab API 提交失败: {exc}\n")
+        return 1
+
+    web_url = mr.get("web_url") if isinstance(mr, dict) else None
+    iid = mr.get("iid") if isinstance(mr, dict) else None
+    sys.stderr.write(f"[create-mr] GitLab API 已{action} MR")
+    if iid:
+        sys.stderr.write(f" !{iid}")
+    if web_url:
+        sys.stderr.write(f": {web_url}")
+    sys.stderr.write("\n")
+    return 0
+
+
 def detect_cli() -> str | None:
     if shutil.which("glab"):
         return "glab"
@@ -473,7 +621,22 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="只打印描述, 不提交")
     ap.add_argument("--interactive", action="store_true",
                     help="生成草稿后打开编辑器, 保存后再提交")
+    ap.add_argument("--gitlab-api", action="store_true",
+                    help="使用 GitLab API v4 创建/更新 MR, 兼容 GitLab CE 11.4")
+    ap.add_argument("--gitlab-preflight", action="store_true",
+                    help="只检查 GitLab API v4 和项目/token 是否可用")
+    ap.add_argument("--gitlab-url", help="GitLab 地址, 也可用 AGENTGATE_GITLAB_URL")
+    ap.add_argument("--gitlab-project-id",
+                    help="GitLab project id 或 URL 编码路径, 也可用 AGENTGATE_GITLAB_PROJECT_ID")
+    ap.add_argument("--gitlab-token",
+                    help="GitLab Bot Personal Access Token, 也可用 AGENTGATE_GITLAB_TOKEN")
+    ap.add_argument("--source-branch", help="源分支, 默认当前分支")
+    ap.add_argument("--remove-source-branch", action="store_true",
+                    help="MR 合并后删除源分支")
     args = ap.parse_args()
+
+    if args.gitlab_preflight:
+        return gitlab_api_preflight(args)
 
     try:
         cfg = load_config(args.config)
@@ -534,11 +697,38 @@ def main() -> int:
         print(description)
         return 0
 
+    if args.gitlab_api:
+        return submit_gitlab_api(title, description, args.target_branch, args)
+
     cli = detect_cli()
     if not cli:
-        sys.stderr.write(
-            "[create-mr] 未找到 glab 或 gh CLI。已生成描述如下, 请手动创建 MR:\n\n"
-        )
+        # risk:untested reason:"fallback path for manual MR creation - needs env setup and browser interaction to test" owner:@wangwf reviewed:2026-07-26
+        # 尝试拼出带模板参数的 GitLab 创建 MR 链接（解决 GitLab 11.4 不自动加载模板的问题）
+        gitlab_url = getattr(args, "gitlab_url", None) or os.environ.get("AGENTGATE_GITLAB_URL") or os.environ.get("CI_SERVER_URL")
+        project_id = getattr(args, "gitlab_project_id", None) or os.environ.get("AGENTGATE_GITLAB_PROJECT_ID") or os.environ.get("CI_PROJECT_ID")
+        source = getattr(args, "source_branch", None) or current_branch()
+
+        if gitlab_url and project_id:
+            encoded_project = urllib.parse.quote(str(project_id), safe="")
+            encoded_source = urllib.parse.quote(source, safe="")
+            encoded_target = urllib.parse.quote(args.target_branch, safe="")
+            mr_url = (
+                f"{gitlab_url.rstrip('/')}/{project_id}/-/merge_requests/new"
+                f"?merge_request[source_branch]={encoded_source}"
+                f"&merge_request[target_branch]={encoded_target}"
+                f"&issuable_template=default"
+            )
+            sys.stderr.write(
+                "[create-mr] 未找到 glab 或 gh CLI。\n"
+                f"  请在浏览器中打开以下链接创建 MR（已预填模板）:\n"
+                f"  {mr_url}\n\n"
+                "  MR 描述已生成如下，复制粘贴到描述框后替换模板内容:\n\n"
+            )
+        else:
+            sys.stderr.write(
+                "[create-mr] 未找到 glab 或 gh CLI。已生成描述如下, 请手动创建 MR:\n"
+                "  提示: 若使用 GitLab 11.4，可在创建 MR 的 URL 末尾加 ?issuable_template=default 来加载模板。\n\n"
+            )
         print(f"标题: {title}\n")
         print(description)
         return 1
