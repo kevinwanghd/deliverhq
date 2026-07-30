@@ -148,6 +148,10 @@ jobs:
             echo "[node-test] 在 $DIR 运行 npm test"
             (
               cd "$DIR"
+              if ! node -e "const p=require('./package.json'); process.exit(p.scripts && p.scripts.test ? 0 : 1)"; then
+                echo "[node-test] $DIR has no test script, skipping."
+                exit 0
+              fi
               npm ci --prefer-offline --no-audit 2>/dev/null || npm install --no-audit
               npm test
             ) || OVERALL=1

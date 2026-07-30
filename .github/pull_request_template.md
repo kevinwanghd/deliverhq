@@ -1,10 +1,19 @@
+<!--
+MR 治理规范 v1 · 默认模板
+保留所有段落标题（## 开头的行），CI 会按标题解析。
+v1 阶段，本模板检查为软提示，不阻断合并；soft_deadline 后转硬阻断。
+详细规范见: docs/governance/mr-spec.md
+
+**重要：MR描述必须使用中文撰写**，包括所有段落内容。
+-->
+
 ## 背景
 
-<!-- 为什么需要这个变更？对应哪个目标(正向链路/逆向链路/治理)？ -->
+<!-- 为什么需要这个变更？口头需求也可，把背景写清楚即可。用中文描述。 -->
 
 ## 变更内容
 
-<!-- 这个 PR 改了什么。建议 3-7 条要点。 -->
+<!-- 这个 MR 改了什么。建议 3-7 条要点。用中文描述。 -->
 
 -
 -
@@ -12,37 +21,53 @@
 
 ## 不包含的内容
 
-<!-- 明确写出本 PR 不包含什么,避免范围蔓延。没有可写"无"。 -->
+<!-- 明确没有处理什么，避免 reviewer 误解范围。没有可写"无"。 -->
 
 -
 
-## 变更类型
-
-- [ ] 新能力(scripts/ 下新增脚本或 gate)
-- [ ] 治理规则调整(Gate 阈值、组合规则、不变式)
-- [ ] 文档/能力矩阵
-- [ ] 缺陷修复
-- [ ] 重构(行为不变)
+<!--
+关于 AI 使用声明：本规范不在 MR 描述里手填 AI-Usage。
+AI 使用程度由 git hook 在提交时自动采集并写入 commit trailer
+(AI-Usage / AI-Tools / AI-Lines)，CI 直接从 commit 读取。
+一次性安装 hook：bash governance/scripts/install-hooks.sh
+-->
 
 ## 自测确认
 
-- [ ] 本地 `cd skill && python scripts/selftest.py` **全绿**(粘贴 `通过: N/N` 行)
-- [ ] 若动了 Gate 数量/组合:同步更新了 `gate_composition_check.py` 的 FROZEN_GATES / ALLOWED_GATE_EDGES
-- [ ] 若新增脚本:在 `CAPABILITY-MATRIX.md` 登记,并加了对应 selftest 契约(正反例)
-- [ ] 若改了入口链文档(AGENTS/SKILL/CLAUDE/dir-graph/CONTEXT/MEMORY/REPO_MAP):`python scripts/token_budget.py` 仍在预算内
-- [ ] 改版本时:`VERSION.yml` / `package.json` / `README` / `CHANGELOG` 一并 bump(version_consistency 契约)
+<!-- 至少跑了什么、看到了什么。不要只写"已测试"。用中文描述。 -->
 
-## 测试证据
-
-<!-- 粘贴 selftest 的总结行,例如:通过: 34/34 -->
-
-```
-通过: __/__
-```
+- [ ] 本地构建通过：`命令`
+- [ ] 单元测试通过：`命令`
+- [ ] 手动验证场景：
+  1.
 
 ## 风险与回滚
 
-<!-- 低风险可写"低风险, revert 即可"；大变更需写具体风险和回滚路径。 -->
+<!--
+变更超过阈值（500 行 / 触及 ci|CODEOWNERS|charts|secret / 含 schema 变更）必填，否则可写"低风险, 无需特别说明"。
+用中文描述风险和回滚方案。
+-->
 
 - 风险点：
-- 回滚：
+- 应对/回滚：
+
+## 关联
+
+<!--
+可选。有就贴：
+- Issue: #
+- Requirement-ID: REQ-xxxx 或 CR-xxxx (DeliverHQ)
+- Spec / Design:
+-->
+
+-
+
+---
+
+<!--
+合并前自检（不阻断，仅提醒）：
+- [ ] 标题符合 <type>: <描述> 规范（feat/fix/refactor/perf/test/docs/chore/ci/security）
+- [ ] 无调试代码、无明文密钥
+- [ ] 触发风险注解扫描的代码已加 risk:* 注解 (见 docs/governance/risk-types.md)
+- [ ] commit trailer 的 AI-Usage 由 hook 自动生成 (装 hook: bash governance/scripts/install-hooks.sh)
+-->
