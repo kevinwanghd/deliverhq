@@ -11,9 +11,9 @@ permissions:
 
 jobs:
   agentgate:
-    uses: kevinwanghd/AgentGate/.github/workflows/agentgate.yml@main
+    uses: kevinwanghd/AgentGate/.github/workflows/agentgate.yml@github-stable
     secrets: inherit
     with:
       config-path: governance.config.yml
       agentgate-repository: kevinwanghd/AgentGate
-      agentgate-ref: main
+      agentgate-ref: github-stable
