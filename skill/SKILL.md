@@ -70,6 +70,7 @@ license: 见仓库
 - Roadmap: Routing Eval JSON 化、Context schema、MaintenanceGate、Dynamic Workflow
 - 已退役: Darwin Score / Quality Ratchet / Loop Mode（违反核心哲学，见 `_archived/`）
 
+<<<<<<< HEAD
 ### 2026-08 新增（企业微信"AI代码生成率94%"经验）
 
 #### 企业微信核心能力（已集成）
@@ -111,6 +112,10 @@ python skill/scripts/human_checkpoint.py HK-0 --cr-id CR-001 --context "当前�
 ```
 
 ---
+=======
+> **企业微信经验**：企业微信团队"AI代码生成率94%"经验已集成，详见 `CAPABILITY-MATRIX.md`。
+> 新增能力包括：三级知识库、五步定位法、Human Checkpoints、Evidence Gate、Red Lines 等。
+>>>>>>> 27dd5b6 (fix: 修复 selftest 失败的 2 个契约)
 
 ## 四种核心模式
 
