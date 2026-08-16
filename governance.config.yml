@@ -109,6 +109,234 @@ deliverhq_integration:
     - "需求描述"
     - "目标"
 
+# =============================================================================
+# RED LINES — AI 行为红线（来源：企业微信"AI代码生成率94%"经验）
+# =============================================================================
+# 核心原则：LLM "什么都敢说，什么都敢做"——用 YAML 红线给它戴紧箍。
+#
+# 红线分两级：
+#   critical：全流程必守，启动即加载，违反直接造成线上事故
+#   standard：按阶段加载，违反污染工程规范
+#
+# 触发即停 + 模板化报告：
+#   ⛔ 触发红线 RL-XX：<标题>
+#   当前情形：<具体说明>
+#   建议处理：<回退到哪个步骤 / 需要用户确认什么>
+# =============================================================================
+
+red_lines:
+  critical:
+    - id: RL-C01
+      title: 编译必须通过
+      description: "bazel build / flutter build / npm run build 退出码 0 是唯一判据"
+      enforcement: fail_closed
+      max_self_fix: 3
+      note: "AI 报'完成'但编译没过 = 失败；自修复超过 3 轮仍不过强制停下"
+    - id: RL-C02
+      title: 未按阶段执行
+      description: "后一阶段输入必须等于前一阶段产出，禁止跳过阶段"
+      enforcement: fail_closed
+      note: "顺序：设计稿→拆解→定位→实现→验证→模拟器→沉淀→提交"
+    - id: RL-C03
+      title: 先看后写
+      description: "禁止在未读懂现有代码模式前发明新写法"
+      enforcement: fail_closed
+      note: "必须先查 L2 模块 wiki + 读懂现有代码，再写新代码"
+    - id: RL-C04
+      title: 先模仿后发明
+      description: "禁止 AI 发明新模式，必须模仿项目已有的代码风格"
+      enforcement: fail_closed
+      note: "参照 L2 模块 wiki 里的文件登记表，确认风格一致"
+    - id: RL-C05
+      title: 禁止修改受保护路径
+      description: "dir-graph.yaml 中定义的 protected_paths 未批准不得修改"
+      enforcement: fail_closed
+      note: "涉及安全/认证/关键业务逻辑的路径必须人工审批"
+    - id: RL-C06
+      title: git commit 必须同步执行
+      description: "git commit 后 git log -1 hash 更新是唯一成功证据"
+      enforcement: fail_closed
+      note: "长跑命令不靠 stdout 报告成功，全靠落盘文件"
+
+  standard:
+    - id: RL-S01
+      title: UI 改动必须比对语义桥
+      description: "禁止硬编码字号/颜色，参照 L3 naming-conventions.md"
+      enforcement: warn
+      phase: implement
+    - id: RL-S02
+      title: 禁止语义联想扩大范围
+      description: "拦截点必须有具体引用依据，禁止凭语义联想扩大改动范围"
+      enforcement: warn
+      phase: implement
+      note: "允许的引用来源：设计稿标注(nodeId)、文档原文、用户原话"
+    - id: RL-S03
+      title: 跨会话知识必须沉淀
+      description: "每次需求开发后必须更新 TECH_SPEC.md"
+      enforcement: warn
+      phase: commit
+    - id: RL-S04
+      title: 禁止遗漏设计稿
+      description: "候选清单里每张设计稿都必须归宿明确，不允许'未归类'"
+      enforcement: warn
+      phase: breakdown
+    - id: RL-S05
+      title: 视觉对齐必须逐项核对
+      description: "UI 改动必须逐项核对数值，未对齐 ≥ 1 → FAIL"
+      enforcement: warn
+      phase: verify
+    - id: RL-S06
+      title: 禁止 LLM 手工分桶
+      description: "Figma 设计稿筛选必须用脚本直方图，禁止 LLM 凭手感分桶"
+      enforcement: warn
+      phase: breakdown
+    - id: RL-S07
+      title: 阶段内重试不超过 2 轮
+      description: "模拟器验证阶段内重试不超过 2 轮"
+      enforcement: warn
+      phase: simulator
+    - id: RL-S08
+      title: 设计稿筛选必须用脚本
+      description: "六类输入每类都有专用脚本通道，严禁通用 web_fetch"
+      enforcement: warn
+      phase: breakdown
+
+# =============================================================================
+# HUMAN CHECKPOINTS — 人工硬关卡
+# =============================================================================
+# 原则：信任但不放任。在关键节点强制等待人工确认。
+# =============================================================================
+
+human_checkpoints:
+  - id: HK-0
+    name: 现场快报
+    trigger: "接力入口进入后第一时间"
+    wait_for: "用户确认进度/改 N"
+    description: "跨会话恢复时，先确认当前进度和待处理项"
+  - id: HK-1
+    name: PENDING 条目确认
+    trigger: "需求拆解完成后"
+    wait_for: "用户'确认/改 xxx'"
+    description: "§7 翻译完成后，逐条确认需求范围"
+  - id: HK-2
+    name: 沉淀确认
+    trigger: "TECH_SPEC.md 落盘前"
+    wait_for: "用户'沉淀 ok/通过'"
+    description: "跨会话知识沉淀前，必须人工确认无误"
+  - id: HK-3
+    name: commit 文案确认
+    trigger: "git commit 前"
+    wait_for: "用户'提交/go'"
+    description: "三段式 commit + AI 署名 + 代码生成率必须人工确认"
+
+# =============================================================================
+# 8 阶段流水线（语义化阶段定义）
+# =============================================================================
+# 来源：企业微信团队"AI代码生成率94%"经验
+# 核心：每个阶段输入清晰、产出明确、退出标准可机器校验
+# =============================================================================
+
+pipeline_stages:
+  - id: 1-design
+    name: 设计稿
+    input: "Figma 链接"
+    output: "移动端候选稿清单 + PNG 概览"
+    soul_action: "脚本化直方图筛选，绝不允许 LLM 凭手感分桶"
+    exit_criteria: "候选稿清单完整，无遗漏"
+  - id: 2-breakdown
+    name: 拆解
+    input: "PRD + 设计稿 + CGI + TAPD"
+    output: "五列需求清单 + subtasks.json 接力台账"
+    soul_action: "多源收料 + 归宿校验（每张设计稿必须归到三类之一）"
+    exit_criteria: "每张设计稿有归宿，无未归类"
+  - id: 3-locate
+    name: 定位
+    input: "需求点"
+    output: "文件 + 行号 + 调用链"
+    soul_action: "五步定位法（见 scripts/five_step_locator.py）"
+    exit_criteria: "精确定位到文件+行号，有完整调用链"
+  - id: 4-implement
+    name: 实现
+    input: "调用链 + 上下文"
+    output: "代码改动"
+    soul_action: "自底向上：数据→解析→枚举→业务→UI→日志"
+    exit_criteria: "编译通过，自修复不超过 3 轮"
+  - id: 5-verify
+    name: 验证
+    input: "源码改动"
+    output: "编译报告（退出码 0）"
+    soul_action: "bazel build + 最多 3 轮自修复"
+    exit_criteria: "退出码 0，有 build_report.txt 证据"
+  - id: 6-simulator
+    name: 模拟器验证
+    input: "编译通过的产物"
+    output: "装机后的截图 + 日志"
+    soul_action: "人机秒级确认 + 阶段内重试 ≤ 2 轮"
+    exit_criteria: "截图+日志证据，runtime.log 日志关键字命中"
+  - id: 7沉淀
+    name: 沉淀
+    input: "git diff + 时间线"
+    output: "TECH_SPEC.md 单一事实源"
+    soul_action: "跨会话知识传承的载体"
+    exit_criteria: "TECH_SPEC.md 落盘，有 HK-2 确认"
+  - id: 8-commit
+    name: 提交
+    input: "全部产物"
+    output: "git commit + 分支"
+    soul_action: "三段式 commit + AI 署名 + 代码生成率"
+    exit_criteria: "git log -1 hash 更新，有 HK-3 确认"
+
+# =============================================================================
+# 提效指标（来源：企业微信团队实测数据）
+# =============================================================================
+
+efficiency_metrics:
+  breakdown:
+    traditional: "1-2 小时"
+    with_skill: "5-10 分钟"
+    improvement: "6-12x"
+    source: "多源脚本一站式拉取 + 自动归宿校验"
+  locate:
+    traditional: "30 分钟-2 小时"
+    with_skill: "5-15 分钟"
+    improvement: "4-24x"
+    source: "五步定位法 + project_wiki 索引"
+  implement:
+    traditional: "视复杂度"
+    with_skill: "-30%~50%"
+    improvement: "1.3-2x"
+    source: "先看后写 + 模仿已有减少返工"
+  compile:
+    traditional: "手动来回"
+    with_skill: "自动 3 轮"
+    improvement: "自动"
+    source: "build_verify.sh + 自修复"
+  simulator:
+    traditional: "手动装机 + 肉眼比对"
+    with_skill: "自动装机 + 截图 + 视觉对齐"
+    improvement: "自动"
+    source: "install_to_simulator.sh + A/B/C 诊断 + RL-30"
+  handover:
+    traditional: "重新读代码 1+ 小时"
+    with_skill: "5 分钟恢复现场"
+    improvement: "12x+"
+    source: "TECH_SPEC.md + subtasks.json"
+  commit:
+    traditional: "手写 commit 三段"
+    with_skill: "自动渲染 + 人工确认"
+    improvement: "自动"
+    source: "时间线 + 模板"
+
+# =============================================================================
+# TOKEN 压缩效果（来源：企业微信团队实测）
+# =============================================================================
+
+token_compression:
+  full_project_context: "10M+ tokens"
+  knowledge_base_context: "30K tokens"
+  ratio: "300x"
+  method: "三级知识库（L1/L2/L3）配合五步定位法"
+
 arc:
   enabled: true                 # ARC Phase 1 已具备可恢复的单步运行闭环
   default_adapter: "mock"
