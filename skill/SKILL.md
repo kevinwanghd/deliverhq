@@ -72,25 +72,42 @@ license: 见仓库
 
 ### 2026-08 新增（企业微信"AI代码生成率94%"经验）
 
+#### 企业微信核心能力（已集成）
+
 | 能力 | 脚本/文件 | 说明 |
 |------|-----------|------|
-| 三级知识库 | `docs/knowledge-base/` | L1总览(<5KB) → L2模块 → L3语义桥 |
-| 五步定位法 | `scripts/five_step_locator.py` | 五步收敛定位（300× Token 压缩） |
-| Human Checkpoint | `scripts/human_checkpoint.py` | HK-0/1/2/3 人工硬关卡 |
-| TECH_SPEC Manager | `scripts/tech_spec_manager.py` | 跨会话知识传承三件套 |
-| Evidence Gate | `scripts/evidence_gate.py` | sentinel 文件 = 唯一判据 |
-| Red Lines Check | `scripts/red_lines_check.py` | 红线检查工具 |
-| 需求语义翻译 | `references/article-translation.md` | 5 维搜索矩阵 + 硬关键词表 |
-| 运行时验证 | `references/dev-verification.md` | 编译+模拟器双闸 + A/B/C 诊断 |
-| 红线体系 | `references/red_lines/` | 6 条 Critical + 8 条 Standard |
+| 三级知识库 | `skill/docs/knowledge-base/` | L1总览(<5KB) → L2模块 → L3语义桥 |
+| 五步定位法 | `skill/scripts/five_step_locator.py` | 五步收敛定位（300× Token 压缩） |
+| Human Checkpoint | `skill/scripts/human_checkpoint.py` | HK-0/1/2/3 人工硬关卡 |
+| TECH_SPEC Manager | `skill/scripts/tech_spec_manager.py` | 跨会话知识传承三件套 |
+| Evidence Gate | `skill/scripts/evidence_gate.py` | sentinel 文件 = 唯一判据 |
+| Red Lines Check | `skill/scripts/red_lines_check.py` | 红线检查工具 |
+| 需求语义翻译 | `skill/references/article-translation.md` | 5 维搜索矩阵 + 硬关键词表 |
+| 运行时验证 | `skill/references/dev-verification.md` | 编译+模拟器双闸 + A/B/C 诊断 |
 
-**使用指南**：
+#### Red Lines 红线体系（已文档化）
+
+| 分类 | 位置 | 说明 |
+|------|------|------|
+| 单一真源 | `skill/references/red_lines/red_lines.yaml` | YAML DSL，包含6条Critical + 8条Standard |
+| Critical | `skill/references/red_lines/red_lines_critical.md` | 全局强制加载，启动即生效 |
+| 分阶段 | `skill/references/red_lines_by_stage/*.md` | 按阶段加载（breakdown/implement/verify/commit） |
+
+#### 使用指南
+
+**开发前检查红线**：
 ```bash
-# 查看红线
-python scripts/red_lines_check.py list
+python skill/scripts/red_lines_check.py report --phase implement
+```
 
-# 五步定位
-python scripts/five_step_locator.py "用户需求" --project-root .
+**执行五步定位**：
+```bash
+python skill/scripts/five_step_locator.py "用户需求描述" --project-root .
+```
+
+**人工硬关卡**：
+```bash
+python skill/scripts/human_checkpoint.py HK-0 --cr-id CR-001 --context "当前进度"
 ```
 
 ---
@@ -153,6 +170,10 @@ python scripts/five_step_locator.py "用户需求" --project-root .
 | `docs/decisions.md` | 设计阶段 | 历史架构决策 |
 | `docs/mistake-book.md` | QualityGate 失败后 | 错误案例库 |
 | `references/gotchas.md` | 遇到问题时 | 真实踩坑经验 |
+| `references/red_lines/red_lines_critical.md` | 启动时必读 | 6 条 Critical 红线（全局强制） |
+| `references/red_lines_by_stage/{phase}.md` | 进入阶段时读 | 该阶段的 Standard 红线 |
+| `references/article-translation.md` | 需求拆解时 | 需求语义翻译规则 |
+| `references/dev-verification.md` | 验证阶段 | 运行时验证闭环 |
 
 **原则**：不要一次性加载全部文件，只加载当前阶段必需文件。
 
