@@ -2,12 +2,13 @@
 """
 token_budget.py —— 入口链 token 预算审计（借 Matt Pocock token 经济一等指标）
 
-把"token 经济"从口号变成可测、可阻断的指标：度量**每轮都加载**的入口链文档体量，
+把"token 经济"从口号变成可测、可阻断的指标：度量**每轮都常驻 context**的入口链文档体量，
 设上界，超界即 fail（防入口文档无声膨胀回到 309 行 SKILL 的老路）。
 
 为什么只盯入口链：token 成本来自"每轮都进 context 的东西"，不是仓库总字数。
-按 AGENTS.md 的 Read order，入口链是每个 Agent 起步必读的文件集合（ENTRY_CHAIN）。
-深度 reference（references/*、docs/* 历史）是按需加载，不计入每轮预算。
+按 AGENTS.md 的《Read order（分层懒加载）》，每轮真正常驻的只有 skill 入口三件套 + STATE 指针
+（ENTRY_CHAIN）。dir-graph / docs/CONTEXT / docs/MEMORY / REPO_MAP / NOISE_FILTER 以及
+references/*、docs/* 历史都是**按阶段/按需加载**，不计入每轮预算（计入会把按需成本误算成常驻，失真）。
 
 token 估算：不依赖外部分词器（保持 agent 无关 + 零依赖），用保守近似
   tokens ≈ 中日韩字符数 + 其余字符数/4
@@ -31,24 +32,23 @@ from runtime_support import configure_console
 ROOT = Path(__file__).resolve().parent.parent
 configure_console()
 
-# 每轮必读的入口链（对应 AGENTS.md "Read order" 1-6 的稳定常驻部分 + SKILL 入口）。
-# CAPABILITY-MATRIX.md 是 read-order #8 的"能力状态唯一真相源"——按需查的 lookup，
-# 不是每轮常驻，故不计入每轮预算（计入会把一张大查表算成常驻成本，失真）。
-# references/*、docs 历史同样按需加载，不在此列。
+# 每轮真正常驻 context 的入口链（对应 AGENTS.md《Read order（分层懒加载）》的常驻部分）：
+#   - skill 入口三件套（SKILL.md / AGENTS.md / CLAUDE.md）：进入 skill 时加载、随后常驻
+#   - STATE.md：唯一"每轮必读"的极小指针（~100 tokens）
+# 以下均为按需/按阶段加载，故 **不** 计入每轮预算（计入会把按需成本误算成常驻，失真）：
+#   dir-graph.yaml / docs/CONTEXT.md / docs/MEMORY.md / REPO_MAP.md / NOISE_FILTER.yml /
+#   CAPABILITY-MATRIX.md（能力状态查表）/ references/*（含 agent-roles.md）/ docs 历史。
 ENTRY_CHAIN = [
-    "AGENTS.md",
     "SKILL.md",
+    "AGENTS.md",
     "CLAUDE.md",
-    "dir-graph.yaml",
-    "docs/CONTEXT.md",
-    "docs/MEMORY.md",
-    "REPO_MAP.md",
-    "NOISE_FILTER.yml",
+    "STATE.md",
 ]
 
 # 入口链总 token 上界。超界 = 入口又开始膨胀，须裁剪或下沉到 references/。
-# 调高须显式改此值并说明理由（与 capability_tiers 的 CORE_MAX 同思路）。
-ENTRY_CHAIN_TOKEN_BUDGET = 11000
+# 收紧到 6500：反映"入口只留三件套 + STATE 指针"的分层懒加载现实（原 11000 对应旧的
+# 8 文件常驻链，实为膨胀的合法化）。调高须显式改此值并说明理由（同 capability_tiers 的 CORE_MAX）。
+ENTRY_CHAIN_TOKEN_BUDGET = 6500
 
 _CJK = re.compile(r"[一-鿿぀-ヿ가-힯]")
 

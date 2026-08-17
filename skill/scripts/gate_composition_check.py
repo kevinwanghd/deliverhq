@@ -66,6 +66,13 @@ NON_GATE_ALLOWLIST = {
     "gate_composition_check",  # 本脚本自身
     "gate_cache",            # Gate 缓存机制（fingerprint 计算，非 Gate 本身）
     "gate_wrapper",          # Gate 执行包装器（缓存集成，非 Gate 本身）
+    # 企业微信经验新增脚本（辅助工具，非 Gate）
+    "check_project_wiki_stale",  # 知识库陈旧检测
+    "evidence_gate",             # Evidence Gate 辅助
+    "five_step_locator",         # 五步定位法
+    "human_checkpoint",          # 人工硬关卡
+    "red_lines_check",           # 红线检查
+    "tech_spec_manager",         # TECH_SPEC 管理
 }
 
 # ── 约束 2：允许的 gate->gate 依赖边（显式白名单）────────────────

@@ -13,7 +13,7 @@ DeliverHQ/                          # 治理根目录
 ├── MIGRATION.md                    # 迁移到其他平台指南
 ├── ROLLBACK.md                     # 回滚操作指南
 │
-├── attention.md                   # 轻量控制文件（每轮必读：治理车道/风险触发/知识落点）
+├── attention.md                   # 轻量控制文件（路由/不确定车道时读：治理车道/风险触发/知识落点）
 ├── STATE.md                        # 机器维护的 CR 状态汇总（handoff_state.py 刷新）
 ├── capabilities.yml                # 机器可读能力注册表（渲染 CAPABILITY-MATRIX.md）
 │
@@ -97,13 +97,17 @@ DeliverHQ/                          # 治理根目录
 
 ## 文件分类
 
-### 入口文件（Agent 启动时读取）
+### 入口文件（按需加载，非启动全量读）
+> 启动/每轮只强制读 `STATE.md`。下表其余文件按"何时读取"列的触发条件按需拉，勿在入口一次性全读。
 | 优先级 | 文件 | 何时读取 |
 |---|---|---|
+| 0 | STATE.md | **每轮必读**（唯一强制项，~100 tokens） |
 | 1 | SKILL.md | 首次加载 Skill 时 |
-| 2 | AGENTS.md | 执行任何操作前 |
-| 3 | dir-graph.yaml | 需要权限/路径信息时 |
+| 2 | AGENTS.md | 首次进入 skill / 不确定行为规则时（通常已在上下文） |
+| 3 | dir-graph.yaml | 需要权限/路径信息、改文件前 |
 | 4 | docs/CONTEXT.md | 需要项目背景时 |
+| 5 | references/agent-roles.md | 扮演某个 Agent 时（只读对应那一节） |
+| 6 | CAPABILITY-MATRIX.md | 查某能力状态/是否 default_enabled 时 |
 
 ### 组织记忆文件（持续更新）
 | 文件 | 更新时机 | 更新者 |

@@ -1,0 +1,19 @@
+name: AgentGate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+jobs:
+  agentgate:
+    uses: kevinwanghd/AgentGate/.github/workflows/agentgate.yml@github-stable
+    secrets: inherit
+    with:
+      config-path: governance.config.yml
+      agentgate-repository: kevinwanghd/AgentGate
+      agentgate-ref: github-stable

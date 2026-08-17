@@ -1,8 +1,8 @@
 # DeliverHQ Attention
 
-This is the lightweight, always-read control file for this project's DeliverHQ
-governance space. Keep it short; durable implementation details belong in
-`docs/`, `references/`, or the relevant script.
+Lightweight lane/risk control file. Read it **when routing a request or unsure which
+lane applies** — not every turn (the only per-turn file is `STATE.md`). Keep it short;
+durable implementation details belong in `docs/`, `references/`, or the relevant script.
 
 ## Governance Lanes
 
@@ -15,11 +15,11 @@ governance space. Keep it short; durable implementation details belong in
 
 Default lane: `standard`
 
-## Read First
+## Load On Demand (not upfront)
 
-- `REPO_MAP.md`
-- `COMMANDS.yml`
-- Current CR under `change-requests/`, when one exists
+- `REPO_MAP.md` — when you need the module map
+- `COMMANDS.yml` — when you need the authoritative command
+- Current CR under `change-requests/` — when advancing that CR
 
 ## Risk Triggers
 
