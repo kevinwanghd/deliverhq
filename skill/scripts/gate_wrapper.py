@@ -25,6 +25,7 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from gate_cache import should_skip_gate, update_gate_fingerprint, invalidate_downstream_gates
 from execution_runtime import run_script
 from runtime_support import configure_console
+from common import Color
 
 configure_console()
 
@@ -40,13 +41,6 @@ GATE_SCRIPTS = {
     "writeback": "writeback_gate.py",
 }
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    BLUE = '\033[94m'
-    RED = '\033[91m'
-    END = '\033[0m'
 
 
 def extract_cr_path(args: list) -> Path:

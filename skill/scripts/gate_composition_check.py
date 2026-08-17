@@ -30,17 +30,11 @@ Gate 套 Gate"的治理债：
 import re
 import sys
 from pathlib import Path
+from common import Color
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
 
-
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    END = "\033[0m"
 
 
 # ── 约束 1：冻结 Gate 集合（单一事实源）──────────────────────────

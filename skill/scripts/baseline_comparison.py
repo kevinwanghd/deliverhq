@@ -25,6 +25,7 @@ import yaml
 sys.dont_write_bytecode = True
 
 from runtime_support import configure_console, ensure_cr_runtime_dirs
+from common import load_yaml
 
 configure_console()
 
@@ -38,7 +39,7 @@ def _load_host_repo_root() -> Path:
     if graph_path.exists():
         try:
             data = {}
-            for doc in yaml.safe_load_all(graph_path.read_text(encoding="utf-8")):
+            for doc in load_yaml_all(graph_path.read_text(encoding="utf-8")):
                 if isinstance(doc, dict):
                     data.update(doc)
             relative_root = data.get("workspace", {}).get("host_repo_root")
@@ -99,7 +100,7 @@ def load_verification_manifest(cr_path: Path) -> Tuple[Optional[Dict], Optional[
     if not manifest_path.exists():
         return None, "verification-manifest.yml 不存在"
     try:
-        return yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}, None
+        return load_yaml(manifest_path), None
     except Exception as exc:
         return None, f"解析 verification-manifest.yml 失败: {exc}"
 

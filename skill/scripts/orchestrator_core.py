@@ -188,7 +188,7 @@ def _has_gate_cache(cr_path: Path, verb: str) -> bool:
         return False
     try:
         import yaml
-        data = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
+        data = load_yaml(state_path)
         gates = data.get("gates", {})
         # 该动词链里任一 gate 有 fingerprint 就算命中缓存
         verb_steps = VERBS.get(verb, [])
@@ -990,6 +990,7 @@ def route_situation(situation: str = None):
 
 
 from orchestrator_routing import (
+from common import load_yaml
     VERBS,
     VERB_CONDITIONAL_STEPS,
     VERB_DESCRIPTIONS,

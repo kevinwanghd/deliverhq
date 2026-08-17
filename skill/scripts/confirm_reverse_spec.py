@@ -24,6 +24,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
+from common import load_yaml
 
 try:
     import yaml
@@ -33,7 +34,7 @@ except ImportError:
 
 
 def load(path):
-    return yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
+    return load_yaml(path)
 
 
 def save(path, data):

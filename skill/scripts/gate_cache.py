@@ -22,6 +22,7 @@ sys.dont_write_bytecode = True
 from pathlib import Path
 from typing import List, Optional
 import yaml
+from common import load_yaml
 
 
 # Gate 依赖关系定义（哪些文件影响哪个 Gate）
@@ -149,7 +150,7 @@ def should_skip_gate(cr_path: Path, gate_name: str) -> bool:
 
     try:
         with open(state_path, 'r', encoding='utf-8') as f:
-            state = yaml.safe_load(f) or {}
+            state = load_yaml(f)
     except Exception:
         return False
 
@@ -185,7 +186,7 @@ def update_gate_fingerprint(cr_path: Path, gate_name: str, status: str):
     try:
         if state_path.exists():
             with open(state_path, 'r', encoding='utf-8') as f:
-                state = yaml.safe_load(f) or {}
+                state = load_yaml(f)
         else:
             state = {}
     except Exception:
@@ -241,7 +242,7 @@ def invalidate_downstream_gates(cr_path: Path, changed_gate: str):
 
     try:
         with open(state_path, 'r', encoding='utf-8') as f:
-            state = yaml.safe_load(f) or {}
+            state = load_yaml(f)
 
         gates = state.get('gates', {})
 

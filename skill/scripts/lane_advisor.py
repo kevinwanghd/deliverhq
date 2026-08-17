@@ -33,6 +33,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from common import load_yaml
 
 try:
     import yaml
@@ -63,7 +64,7 @@ def _count_changed_files(cr_dir):
     trace = cr_dir / "traceability.yml"
     if trace.exists():
         try:
-            data = yaml.safe_load(trace.read_text(encoding="utf-8")) or {}
+            data = load_yaml(trace)
             for key, val in data.items():
                 if not isinstance(val, dict):
                     continue
@@ -76,7 +77,7 @@ def _count_changed_files(cr_dir):
         plan = cr_dir / "plan.yml"
         if plan.exists():
             try:
-                data = yaml.safe_load(plan.read_text(encoding="utf-8")) or {}
+                data = load_yaml(plan)
                 for t in data.get("tasks", []) or []:
                     for f in (t.get("files", []) or []):
                         files.add(f)

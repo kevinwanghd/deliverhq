@@ -31,15 +31,8 @@ grill.py —— 需求澄清拷问（借 Matt Pocock grilling，填 DeliverHQ �
 
 import sys
 from pathlib import Path
+from common import Color
 
-
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    CYAN = "\033[96m"
-    END = "\033[0m"
 
 
 def resolve_request_path(arg: str) -> tuple[Path, Path]:

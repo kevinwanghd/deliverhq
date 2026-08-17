@@ -25,6 +25,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
+from common import Color
 
 # =============================================================================
 # 配置
@@ -42,13 +43,6 @@ WIKI_DIRS = [
 ]
 
 # 颜色
-class Color:
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    GREEN = '\033[92m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
-
 
 # =============================================================================
 # 核心函数

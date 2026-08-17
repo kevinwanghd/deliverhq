@@ -11,11 +11,9 @@ from pathlib import Path
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
+from common import Color
 
 configure_console()
-
-class Color:
-    GREEN = '\033[92m'; YELLOW = '\033[93m'; RED = '\033[91m'; BLUE = '\033[94m'; END = '\033[0m'
 
 TEMPLATE_VAR = re.compile(r'\{\{[^}]+\}\}')
 

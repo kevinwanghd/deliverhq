@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple
 
 from cr_state import ensure_state, set_worktree_path, update_gate_from_result
 from runtime_support import configure_console
+from common import Color
 
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 WORKTREE_SCRIPT = DELIVERHQ_ROOT / "scripts" / "worktree_manager.py"
@@ -26,13 +27,6 @@ VALID_LANES = {"fast", "standard", "high-risk"}
 
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def _is_git_repo(path: Path) -> bool:

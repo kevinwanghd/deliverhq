@@ -18,6 +18,7 @@ except ImportError:
     sys.exit(2)
 
 from runtime_support import configure_console
+from common import load_yaml
 
 configure_console()
 
@@ -106,7 +107,7 @@ def write_report(project_root: Path, out_dir: Path, findings, top_dirs):
 
 def write_candidate_profile(project_root: Path, deliverhq_dir: Path, top_dirs: List[str]):
     profile_template = DELIVERHQ_ROOT / "structure-profiles" / "fullstack-web.yml"
-    data = yaml.safe_load(profile_template.read_text(encoding="utf-8")) or {}
+    data = load_yaml(profile_template)
     data.setdefault("legacy", {})
     data["legacy"]["mode"] = "progressive"
     data["legacy"]["legacy_paths"] = [name for name in top_dirs if name in LEGACY_DIR_NAMES]

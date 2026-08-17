@@ -11,17 +11,11 @@ import os
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
+from common import Color
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def detect_rules_writeback_intent(report_text):
