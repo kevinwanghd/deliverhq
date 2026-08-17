@@ -79,8 +79,8 @@ def check_git_merged(cr_path):
         )
         uncommitted = result.stdout.strip()
         return len(uncommitted) == 0, uncommitted
-    except:
-        return None, "git 检查失败"
+    except Exception as exc:
+        return None, f"git 检查失败: {exc}"
 
 def check_writeback_gate(cr_path):
     """WritebackGate 检查"""

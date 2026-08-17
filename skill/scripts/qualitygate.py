@@ -8,6 +8,7 @@ QualityGate - 质量门禁检查
 import argparse
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -140,13 +141,16 @@ def normalize_verification_command(command: str) -> str:
 
 
 def execute_verification_command(command, working_dir='.', timeout=300):
-    """执行验证命令"""
+    """执行验证命令（安全版本：使用 shell=False 防止注入）"""
 
     try:
+        # 处理 python/python3 路径兼容性问题
         command = normalize_verification_command(command)
+        # 安全：使用 shlex.split 将命令转换为列表，避免 shell 注入
+        cmd_list = shlex.split(command) if isinstance(command, str) else command
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_list,
+            shell=False,
             cwd=working_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

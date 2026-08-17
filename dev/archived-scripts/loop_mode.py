@@ -140,9 +140,12 @@ class LoopMode:
             # 真实执行：如果 task 有 check_command，执行它
             if hasattr(task, 'check_command') and task.check_command:
                 import subprocess
+                import shlex
+                # 安全：使用 shell=False 防止命令注入
+                cmd_list = shlex.split(task.check_command) if isinstance(task.check_command, str) else task.check_command
                 result = subprocess.run(
-                    task.check_command,
-                    shell=True,
+                    cmd_list,
+                    shell=False,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     universal_newlines=True,
