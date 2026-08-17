@@ -16,6 +16,7 @@ import yaml
 import os
 from pathlib import Path
 from datetime import datetime, timezone
+from common import load_yaml
 
 
 TOKEN_BUDGET = 160_000  # 字符数（40K token × 4 chars/token）
@@ -129,7 +130,7 @@ def _load_plan(cr_path: Path) -> dict:
     plan_path = cr_path / "plan.yml"
     if not plan_path.exists():
         raise ValueError(f"plan.yml 不存在: {plan_path}")
-    return yaml.safe_load(plan_path.read_text(encoding="utf-8"))
+    return load_yaml(plan_path)
 
 
 def _find_task(plan: dict, task_id: str) -> dict:

@@ -83,7 +83,7 @@ def load_evidence_if_needed(cr_path: Path, filename: str, debug: bool = False) -
             if filename.endswith('.json'):
                 return json.load(f)
             elif filename.endswith(('.yml', '.yaml')):
-                return yaml.safe_load(f)
+                return load_yaml(f)
             else:
                 return {"content": f.read()}
     except Exception:
@@ -147,7 +147,7 @@ def load_traceability_summary(cr_path: Path, full_load: bool = False) -> Optiona
         summary = get_file_summary(traceability_path, max_lines=20)
         if summary:
             try:
-                return yaml.safe_load(summary)
+                return load_yaml(summary)
             except Exception:
                 return {"__summary__": summary}
         return None
@@ -155,13 +155,14 @@ def load_traceability_summary(cr_path: Path, full_load: bool = False) -> Optiona
     # 加载全文
     try:
         with open(traceability_path, 'r', encoding='utf-8') as f:
-            return yaml.safe_load(f)
+            return load_yaml(f)
     except Exception:
         return None
 
 
 # 兼容性：环境变量控制是否启用延迟加载
 import os
+from common import load_yaml
 LAZY_LOAD_ENABLED = os.getenv('DELIVERHQ_LAZY_LOAD', '1') == '1'
 DEBUG_MODE = os.getenv('DELIVERHQ_DEBUG', '0') == '1'
 

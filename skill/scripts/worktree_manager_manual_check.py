@@ -51,8 +51,8 @@ def test_create_worktree():
         # Cleanup
         try:
             manager.cleanup("CR-TEST", force=True)
-        except:
-            pass
+        except Exception:
+            pass  # Cleanup failures are non-critical
 
 
 def test_list_worktrees():
@@ -81,8 +81,8 @@ def test_list_worktrees():
         # Cleanup
         try:
             manager.cleanup("CR-TEST1", force=True)
-        except:
-            pass
+        except Exception:
+            pass  # Cleanup failures are non-critical
 
 
 def test_max_worktrees_limit():
@@ -167,8 +167,8 @@ def test_duplicate_worktree():
         # Cleanup
         try:
             manager.cleanup("CR-TEST", force=True)
-        except:
-            pass
+        except Exception:
+            pass  # Cleanup failures are non-critical
 
 
 def test_cleanup_without_force():
@@ -198,8 +198,8 @@ def test_cleanup_without_force():
         # Cleanup
         try:
             manager.cleanup("CR-TEST", force=True)
-        except:
-            pass
+        except Exception:
+            pass  # Cleanup failures are non-critical
 
 
 def test_worktree_isolation():

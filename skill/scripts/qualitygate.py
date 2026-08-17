@@ -8,6 +8,7 @@ QualityGate - 质量门禁检查
 import argparse
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -18,18 +19,13 @@ import yaml
 from baseline_comparison import compare_after_baseline
 from cr_state import ensure_state, update_gate_from_result
 from runtime_support import configure_console
+from common import Color
+from common import load_yaml
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def parse_quality_report(report_path):
@@ -109,7 +105,7 @@ def load_verification_manifest(cr_path):
 
     try:
         with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest = yaml.safe_load(f)
+            manifest = load_yaml(f)
         return manifest, None
     except Exception as exc:
         return None, f'解析 verification-manifest.yml 失败: {exc}'
@@ -140,13 +136,16 @@ def normalize_verification_command(command: str) -> str:
 
 
 def execute_verification_command(command, working_dir='.', timeout=300):
-    """执行验证命令"""
+    """执行验证命令（安全版本：使用 shell=False 防止注入）"""
 
     try:
+        # 处理 python/python3 路径兼容性问题
         command = normalize_verification_command(command)
+        # 安全：使用 shlex.split 将命令转换为列表，避免 shell 注入
+        cmd_list = shlex.split(command) if isinstance(command, str) else command
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_list,
+            shell=False,
             cwd=working_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,

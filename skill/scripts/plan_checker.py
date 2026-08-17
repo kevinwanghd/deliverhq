@@ -33,14 +33,9 @@ except ImportError:
     sys.exit(2)
 
 from runtime_support import configure_console
+from common import Color
+from common import load_yaml
 
-
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    END = "\033[0m"
 
 
 GRANULARITY_FILE_LIMIT = 8
@@ -118,7 +113,7 @@ def load_plan(plan_path):
     if not plan_path.exists():
         return None, "plan.yml 不存在: %s" % plan_path
     try:
-        data = yaml.safe_load(plan_path.read_text(encoding="utf-8")) or {}
+        data = load_yaml(plan_path)
     except Exception as e:
         return None, "解析 plan.yml 失败: %s" % e
     return data, None

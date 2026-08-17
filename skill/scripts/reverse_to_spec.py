@@ -23,6 +23,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
+from common import load_yaml
 
 try:
     import yaml
@@ -34,7 +35,7 @@ except ImportError:
 def load_candidates(path):
     if not path.exists():
         return None
-    return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return load_yaml(path)
 
 
 def _confirmed_real(candidates):

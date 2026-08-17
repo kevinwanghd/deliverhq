@@ -12,6 +12,7 @@ Baseline Comparison - 基线对比机制
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -24,6 +25,7 @@ import yaml
 sys.dont_write_bytecode = True
 
 from runtime_support import configure_console, ensure_cr_runtime_dirs
+from common import load_yaml
 
 configure_console()
 
@@ -37,7 +39,7 @@ def _load_host_repo_root() -> Path:
     if graph_path.exists():
         try:
             data = {}
-            for doc in yaml.safe_load_all(graph_path.read_text(encoding="utf-8")):
+            for doc in load_yaml_all(graph_path.read_text(encoding="utf-8")):
                 if isinstance(doc, dict):
                     data.update(doc)
             relative_root = data.get("workspace", {}).get("host_repo_root")
@@ -98,7 +100,7 @@ def load_verification_manifest(cr_path: Path) -> Tuple[Optional[Dict], Optional[
     if not manifest_path.exists():
         return None, "verification-manifest.yml 不存在"
     try:
-        return yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}, None
+        return load_yaml(manifest_path), None
     except Exception as exc:
         return None, f"解析 verification-manifest.yml 失败: {exc}"
 
@@ -106,16 +108,25 @@ def load_verification_manifest(cr_path: Path) -> Tuple[Optional[Dict], Optional[
 def _resolve_working_dir(path_str: str) -> Path:
     path = Path(path_str)
     if path.is_absolute():
-        return path
-    base_dir = HOST_REPO_ROOT if HOST_REPO_ROOT.exists() else DELIVERHQ_ROOT
-    return (base_dir / path).resolve()
+        resolved = path.resolve()
+    else:
+        base_dir = HOST_REPO_ROOT if HOST_REPO_ROOT.exists() else DELIVERHQ_ROOT
+        resolved = (base_dir / path).resolve()
+    # 安全验证：确保路径在允许范围内（防止 path traversal）
+    allowed_roots = [HOST_REPO_ROOT.resolve(), DELIVERHQ_ROOT.resolve(), Path.cwd().resolve()]
+    if not any(str(resolved).startswith(str(root)) for root in allowed_roots if root.exists()):
+        # 如果路径不在允许范围内，默认使用项目根目录
+        return DELIVERHQ_ROOT.resolve()
+    return resolved
 
 
 def _run_command(name: str, category: str, command: str, working_dir: str, timeout: int) -> CommandResult:
     resolved_cwd = _resolve_working_dir(working_dir)
+    # 安全：使用 shell=False 防止命令注入
+    cmd_list = shlex.split(command) if isinstance(command, str) else command
     proc = subprocess.run(
-        command,
-        shell=True,
+        cmd_list,
+        shell=False,
         cwd=resolved_cwd,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

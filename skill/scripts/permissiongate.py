@@ -13,6 +13,7 @@ import yaml
 
 from cr_state import ensure_state, update_gate_from_result
 from runtime_support import configure_console
+from common import load_yaml
 
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = DELIVERHQ_ROOT.parent
@@ -25,7 +26,7 @@ def _load_dir_graph():
         return []
 
     data = {}
-    for doc in yaml.safe_load_all(graph_path.read_text(encoding="utf-8")):
+    for doc in load_yaml_all(graph_path.read_text(encoding="utf-8")):
         if isinstance(doc, dict):
             data.update(doc)
     protected_paths = data.get("protected_paths", []) or []
@@ -43,7 +44,7 @@ def _load_exceptions(cr_path: Path):
     if not exceptions_path.exists():
         return []
 
-    data = yaml.safe_load(exceptions_path.read_text(encoding="utf-8")) or {}
+    data = load_yaml(exceptions_path)
     return data.get("exceptions", []) or []
 
 

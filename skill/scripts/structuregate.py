@@ -16,6 +16,8 @@ from typing import Dict, List, Tuple
 import yaml
 
 from runtime_support import configure_console
+from common import Color
+from common import load_yaml
 
 configure_console()
 
@@ -27,18 +29,11 @@ TEST_MARKERS = ("test", "spec")
 CONFIG_MARKERS = ("config", "settings")
 
 
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    END = "\033[0m"
-
 
 def load_profile(path: Path) -> Dict:
     if not path.exists():
         raise FileNotFoundError("STRUCTURE-PROFILE.yml 不存在: %s" % path)
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    data = load_yaml(path)
     if data.get("schema") != "deliverhq-structure-profile":
         raise ValueError("STRUCTURE-PROFILE.yml schema 必须为 deliverhq-structure-profile")
     return data

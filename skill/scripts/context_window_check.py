@@ -12,13 +12,7 @@ import yaml
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
+from common import Color
 
 configure_console()
 
@@ -34,7 +28,7 @@ def _handoff_evidence(content):
     if not match:
         return None
     try:
-        return yaml.safe_load(match.group(1)) or {}
+        return load_yaml(match.group(1))
     except yaml.YAMLError:
         return {"_invalid_yaml": True}
 
