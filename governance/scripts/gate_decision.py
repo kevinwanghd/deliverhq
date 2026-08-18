@@ -102,11 +102,17 @@ def build_gate_result(
     if failed:
         reasons.append("required_check_failed")
 
-    required_approvals = 2 if risk_level == "critical" else 0
-    if risk_level == "critical":
-        reasons.append("critical_risk_requires_human_approval")
-    if valid_approvals < required_approvals:
-        reasons.append("approval_missing")
+    # 单人维护者模式：跳过审批要求
+    single_maintainer = bool(auto.get("single_maintainer_mode", False))
+    if single_maintainer:
+        required_approvals = 0
+        reasons.append("single_maintainer_mode_skip_approval")
+    else:
+        required_approvals = 2 if risk_level == "critical" else 0
+        if risk_level == "critical":
+            reasons.append("critical_risk_requires_human_approval")
+        if valid_approvals < required_approvals:
+            reasons.append("approval_missing")
 
     checks_pass = not missing and not failed
     pass_result = checks_pass and not critical_paths and not is_protected_branch and valid_approvals >= required_approvals

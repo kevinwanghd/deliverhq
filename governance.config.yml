@@ -94,6 +94,12 @@ testing:
     - hack
     - for now
 
+    - for now
+
+auto_merge:
+  enabled: true
+  single_maintainer_mode: true
+
 deliverhq_integration:
   enabled: true
   records_dirs:
