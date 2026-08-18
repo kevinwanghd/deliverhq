@@ -247,15 +247,18 @@ jobs:
           echo "merge_action=$MERGE_ACTION" >> "$GITHUB_OUTPUT"
           echo "GateResult:"; cat gate-result.json
           # 门禁失败时让 job 也失败（不只是写 merge_action）
+          # 但 single_maintainer_mode 下，WAIT 可以通过（跳过审批要求）
+          SINGLE_MAINTAINER="$(python -c 'import json; reasons=json.load(open("gate-result.json", encoding="utf-8")).get("blocking_reasons",[]); print("yes" if "single_maintainer_mode_skip_approval" in reasons else "no")')"
           if [ "$MERGE_ACTION" != "AUTO_MERGE" ]; then
             echo "门禁决策: $MERGE_ACTION，不允许自动合并。"
-            # block_list = ["BLOCK", "WAIT", "MANUAL_MERGE"]
             if [ "$MERGE_ACTION" = "BLOCK" ]; then
               echo "BLOCK — 立即阻断，禁止合并。"
               exit 1
-            elif [ "$MERGE_ACTION" = "WAIT" ]; then
+            elif [ "$MERGE_ACTION" = "WAIT" ] && [ "$SINGLE_MAINTAINER" != "yes" ]; then
               echo "WAIT — 需人工审批或满足前置条件。"
               exit 1
+            elif [ "$MERGE_ACTION" = "WAIT" ] && [ "$SINGLE_MAINTAINER" = "yes" ]; then
+              echo "WAIT (single_maintainer_mode) — 跳过审批要求，允许合并。"
             fi
             # MANUAL_MERGE / 其他：让 job 通过，auto-merge job 会自动跳过
           fi
