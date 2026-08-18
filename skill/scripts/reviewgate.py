@@ -16,7 +16,7 @@ import yaml
 
 from cr_state import load_state, update_gate_from_result
 from runtime_support import configure_console
-from common import Color
+from common import Color, load_yaml
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent

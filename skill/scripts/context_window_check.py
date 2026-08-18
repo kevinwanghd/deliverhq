@@ -12,7 +12,7 @@ import yaml
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
-from common import Color
+from common import Color, load_yaml
 
 configure_console()
 
