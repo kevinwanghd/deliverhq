@@ -211,7 +211,7 @@ def check_cr_readiness(cr_path, lane='standard'):
 
     baseline_commands = []
     baseline_artifacts = []
-    if state.lane in {'standard', 'high-risk'}:
+    if state.lane in {'standard', 'high-risk'} and os.environ.get("DELIVERHQ_SELFTEST", "0") != "1":
         print(f"\n{Color.BLUE}[Baseline Before]{Color.END}")
         _, baseline_errors, baseline_commands = capture_baseline(cr_path, "before")
         baseline_artifacts.append("evidence/baseline-before.json")
@@ -221,6 +221,9 @@ def check_cr_readiness(cr_path, lane='standard'):
             blockers.extend(baseline_errors)
         else:
             print(f"  {Color.GREEN}✓{Color.END} baseline-before 已生成")
+    elif state.lane in {'standard', 'high-risk'}:
+        print(f"\n{Color.BLUE}[Baseline Before]{Color.END}")
+        print(f"  {Color.BLUE}ℹ️  selftest 模式跳过 baseline 采集{Color.END}")
 
     if blockers:
         print(f"{Color.RED}❌ BLOCKED - 以下问题阻断开发：{Color.END}")
