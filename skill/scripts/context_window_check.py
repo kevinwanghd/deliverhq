@@ -28,7 +28,13 @@ def _handoff_evidence(content):
     if not match:
         return None
     try:
-        return load_yaml(match.group(1))
+        raw_yaml = match.group(1)
+        if not raw_yaml.strip():
+            return {"_invalid_yaml": True}
+        data = yaml.safe_load(raw_yaml)
+        if data is None:
+            return {"_invalid_yaml": True}
+        return data
     except yaml.YAMLError:
         return {"_invalid_yaml": True}
 
