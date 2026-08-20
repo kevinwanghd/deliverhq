@@ -23,6 +23,7 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+from common import load_yaml
 
 # =============================================================================
 # 配置
@@ -196,7 +197,7 @@ def load_yaml_robust(path: Path) -> dict:
     import yaml
     try:
         with open(path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
+            return load_yaml(f)
     except Exception:
         return {}
 

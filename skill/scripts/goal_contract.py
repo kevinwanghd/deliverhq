@@ -21,6 +21,8 @@ goal_contract.py —— Goal Contract 校验器
 
 import sys
 from pathlib import Path
+from common import Color
+from common import load_yaml
 
 try:
     import yaml
@@ -28,13 +30,6 @@ except ImportError:
     print("需要 PyYAML：pip install PyYAML")
     sys.exit(2)
 
-
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    END = "\033[0m"
 
 
 # 模糊目标黑名单（必须改成可验证目标）
@@ -53,7 +48,7 @@ def load_contract(path):
     if not path.exists():
         return None, "goal-contract.yml 不存在: %s" % path
     try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        data = load_yaml(path)
     except Exception as e:
         return None, "解析失败: %s" % e
     return data, None

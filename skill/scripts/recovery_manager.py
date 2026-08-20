@@ -15,6 +15,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import json
 import hashlib
+from common import load_yaml
 
 
 class RecoveryClass(Enum):
@@ -225,7 +226,7 @@ def _get_worktree_path(cr_path: Path) -> Path | None:
     if not state_path.exists():
         return None
 
-    state = yaml.safe_load(state_path.read_text(encoding="utf-8"))
+    state = load_yaml(state_path)
     worktree_path = state.get("worktree_path")
 
     return Path(worktree_path) if worktree_path else None

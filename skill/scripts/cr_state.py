@@ -16,6 +16,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from runtime_support import write_gate_evidence
+from common import load_yaml
 
 STATE_FILE = "state.yml"
 DEFAULT_LANE = "standard"
@@ -235,8 +236,7 @@ def load_state(cr_path: Path) -> Optional[CRStateSnapshot]:
     if not state_file.exists():
         return None
 
-    with open(state_file, "r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
+    data = load_yaml(state_file)
 
     gate_status = data.get("gate_status", {}) or {}
     transitions = [StateTransition(**item) for item in data.get("transitions", []) or []]

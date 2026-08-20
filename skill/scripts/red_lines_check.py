@@ -23,6 +23,8 @@ import sys
 import yaml
 from pathlib import Path
 from typing import Optional
+from common import Color
+from common import load_yaml
 
 # =============================================================================
 # 配置
@@ -89,13 +91,6 @@ DEFAULT_STANDARD_RED_LINES = [
 ]
 
 # 颜色
-class Color:
-    RED = '\033[91m'
-    YELLOW = '\033[93m'
-    GREEN = '\033[92m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
-
 
 # =============================================================================
 # 核心函数
@@ -113,7 +108,7 @@ def load_red_lines(config_path: Path = None) -> dict:
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+            config = load_yaml(f)
 
         red_lines = {"critical": [], "standard": []}
 

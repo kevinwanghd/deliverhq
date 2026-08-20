@@ -10,15 +10,9 @@ from pathlib import Path
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
+from common import Color, load_yaml
 
 configure_console()
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 ASCII_TOKEN_RE = re.compile(r'(?<![A-Za-z0-9])(?:Android|iOS|iPhone|iPad|Flutter|React Native|RN|ReactNative|Harmony|HarmonyOS|Mini Program)(?![A-Za-z0-9])')
 
@@ -75,7 +69,7 @@ def detect_ui_type(cr_path):
     if metadata_path.exists():
         try:
             import yaml
-            metadata = yaml.safe_load(metadata_path.read_text(encoding='utf-8')) or {}
+            metadata = load_yaml(metadata_path)
             ui_type = str(metadata.get('ui_type', '')).strip()
             platform = str(metadata.get('platform', '')).strip().lower()
             is_mobile = platform in ('android', 'ios', 'flutter', 'rn', 'react-native', 'harmony', 'miniprogram', 'mobile') \
@@ -131,7 +125,7 @@ def load_design_waiver(cr_path):
         return None
     try:
         import yaml
-        data = yaml.safe_load(exc_path.read_text(encoding='utf-8')) or {}
+        data = load_yaml(exc_path)
     except Exception:
         return None
     if not isinstance(data, dict):

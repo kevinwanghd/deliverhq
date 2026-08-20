@@ -19,6 +19,7 @@ from typing import List, Optional, Tuple
 
 from cr_state import ensure_state, set_worktree_path, update_gate_from_result
 from runtime_support import configure_console
+from common import Color
 
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 WORKTREE_SCRIPT = DELIVERHQ_ROOT / "scripts" / "worktree_manager.py"
@@ -26,13 +27,6 @@ VALID_LANES = {"fast", "standard", "high-risk"}
 
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def _is_git_repo(path: Path) -> bool:
@@ -92,9 +86,13 @@ def prepare_dev_phase(cr_path: str, lane: Optional[str] = None) -> bool:
         print(f"{Color.BLUE}state.yml 标记 pre_dev=pass，仍重新运行 pre_dev_gate.py 以现实校验。{Color.END}")
     else:
         print(f"{Color.YELLOW}PreDevGate 未显示 PASS，运行 pre_dev_gate.py。{Color.END}")
+    env = {**dict(os.environ), "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
+    if os.environ.get("DELIVERHQ_SELFTEST"):
+        env["DELIVERHQ_SELFTEST"] = "1"
     result = subprocess.run(
         [sys.executable, str(DELIVERHQ_ROOT / "scripts" / "pre_dev_gate.py"), cr_dir.name, "--lane", lane],
         cwd=str(DELIVERHQ_ROOT),
+        env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         universal_newlines=True,

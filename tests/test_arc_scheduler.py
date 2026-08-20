@@ -8,6 +8,8 @@ import yaml
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Add skill/scripts to path for common module imports
+sys.path.insert(0, str(ROOT / "skill" / "scripts"))
 SCRIPT = ROOT / "skill" / "scripts" / "arc_scheduler.py"
 spec = importlib.util.spec_from_file_location("arc_scheduler", SCRIPT)
 arc_scheduler = importlib.util.module_from_spec(spec)

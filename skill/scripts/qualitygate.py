@@ -8,6 +8,7 @@ QualityGate - 质量门禁检查
 import argparse
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -18,18 +19,13 @@ import yaml
 from baseline_comparison import compare_after_baseline
 from cr_state import ensure_state, update_gate_from_result
 from runtime_support import configure_console
+from common import Color
+from common import load_yaml
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def parse_quality_report(report_path):
@@ -108,8 +104,9 @@ def load_verification_manifest(cr_path):
         return None, 'verification-manifest.yml 不存在'
 
     try:
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest = yaml.safe_load(f)
+        manifest = load_yaml(manifest_path)
+        if not manifest:
+            return None, 'verification-manifest.yml 解析结果为空'
         return manifest, None
     except Exception as exc:
         return None, f'解析 verification-manifest.yml 失败: {exc}'
@@ -140,13 +137,16 @@ def normalize_verification_command(command: str) -> str:
 
 
 def execute_verification_command(command, working_dir='.', timeout=300):
-    """执行验证命令"""
+    """执行验证命令（安全版本：使用 shell=False 防止注入）"""
 
     try:
+        # 处理 python/python3 路径兼容性问题
         command = normalize_verification_command(command)
+        # 安全：使用 shlex.split 将命令转换为列表，避免 shell 注入
+        cmd_list = shlex.split(command) if isinstance(command, str) else command
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_list,
+            shell=False,
             cwd=working_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -401,7 +401,7 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
             print(f"{Color.YELLOW}  ⚠ must_haves 校验跳过: {exc}{Color.END}")
 
     baseline_artifacts: List[str] = []
-    if lane in {'standard', 'high-risk'} and manifest and not blockers:
+    if lane in {'standard', 'high-risk'} and manifest and not blockers and os.environ.get("DELIVERHQ_SELFTEST", "0") != "1":
         print(f"\n{Color.BLUE}[Baseline Comparison]{Color.END}")
         baseline_passed, baseline_blockers, baseline_commands = compare_after_baseline(cr_path)
         commands_run.extend(baseline_commands)
@@ -412,6 +412,9 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
             for item in baseline_blockers:
                 print(f"{Color.RED}  ✗ {item}{Color.END}")
             blockers.extend(baseline_blockers)
+    elif lane in {'standard', 'high-risk'} and manifest and not blockers:
+        print(f"\n{Color.BLUE}[Baseline Comparison]{Color.END}")
+        print(f"  {Color.BLUE}ℹ️  selftest 模式跳过 baseline 对比{Color.END}")
 
     print(f"\n{Color.BLUE}=== QualityGate 结果 ==={Color.END}")
     if blockers:

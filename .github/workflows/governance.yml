@@ -194,15 +194,40 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          RISK_SCAN: ${{ needs.risk-scan.result == 'success' && 'pass' || 'fail' }}
+          SECRET_SCAN: ${{ needs.secret-scan.result == 'success' && 'pass' || 'fail' }}
+          MR_VALIDATE: ${{ needs.mr-validate.result == 'success' && 'pass' || 'fail' }}
+          TEST_CHECK: ${{ needs.test-check.result == 'success' && 'pass' || 'fail' }}
+          PYTHON_TEST: ${{ needs.python-test.result == 'success' && 'pass' || needs.python-test.result == 'skipped' && 'skip' || 'fail' }}
+          NODE_TEST: ${{ needs.node-test.result == 'success' && 'pass' || needs.node-test.result == 'skipped' && 'skip' || 'fail' }}
+          SELFTEST: ${{ needs.selftest.result == 'success' && 'pass' || 'fail' }}
         run: |
           set -euo pipefail
           git fetch -q origin "$BASE_REF"
           git cat-file -e "$HEAD_SHA^{commit}"
           SOURCE_SHA="$HEAD_SHA"
           POLICY_SHA="$(git rev-parse "${SOURCE_SHA}:governance.config.yml")"
-          cat > /tmp/agentgate-evidence.json <<'JSON'
-          {"schema_version":"v1","checks":{"risk-scan":"pass","secret-scan":"pass","mr-validate":"pass","test-check":"pass","selftest":"pass"}}
-          JSON
+          # 动态生成 evidence：从 needs 上下文读取各 job 实际结果
+          python - <<'PY' > /tmp/agentgate-evidence.json
+          import json
+          import os
+          checks = {
+              "risk-scan": os.environ["RISK_SCAN"],
+              "secret-scan": os.environ["SECRET_SCAN"],
+              "mr-validate": os.environ["MR_VALIDATE"],
+              "test-check": os.environ["TEST_CHECK"],
+              "python-test": os.environ["PYTHON_TEST"],
+              "node-test": os.environ["NODE_TEST"],
+              "selftest": os.environ["SELFTEST"],
+          }
+          print(json.dumps({
+              "schema_version": "agentgate.io/ci-evidence/v1",
+              "source_sha": os.environ["HEAD_SHA"],
+              "target_sha": os.environ["BASE_SHA"],
+              "policy_sha": os.environ.get("POLICY_SHA", ""),
+              "checks": checks,
+          }, ensure_ascii=False))
+          PY
           set +e
           python governance/scripts/gate_decision.py \
             --evidence /tmp/agentgate-evidence.json \
@@ -221,6 +246,22 @@ jobs:
           MERGE_ACTION="$(python -c 'import json; print(json.load(open("gate-result.json", encoding="utf-8"))["merge_action"])')"
           echo "merge_action=$MERGE_ACTION" >> "$GITHUB_OUTPUT"
           echo "GateResult:"; cat gate-result.json
+          # 门禁失败时让 job 也失败（不只是写 merge_action）
+          # 但 single_maintainer_mode 下，WAIT 可以通过（跳过审批要求）
+          SINGLE_MAINTAINER="$(python -c 'import json; reasons=json.load(open("gate-result.json", encoding="utf-8")).get("blocking_reasons",[]); print("yes" if "single_maintainer_mode_skip_approval" in reasons else "no")')"
+          if [ "$MERGE_ACTION" != "AUTO_MERGE" ]; then
+            echo "门禁决策: $MERGE_ACTION，不允许自动合并。"
+            if [ "$MERGE_ACTION" = "BLOCK" ]; then
+              echo "BLOCK — 立即阻断，禁止合并。"
+              exit 1
+            elif [ "$MERGE_ACTION" = "WAIT" ] && [ "$SINGLE_MAINTAINER" != "yes" ]; then
+              echo "WAIT — 需人工审批或满足前置条件。"
+              exit 1
+            elif [ "$MERGE_ACTION" = "WAIT" ] && [ "$SINGLE_MAINTAINER" = "yes" ]; then
+              echo "WAIT (single_maintainer_mode) — 跳过审批要求，允许合并。"
+            fi
+            # MANUAL_MERGE / 其他：让 job 通过，auto-merge job 会自动跳过
+          fi
 
   # Merge Bot: 只在 GateResult == AUTO_MERGE 时启用平台自动合并
   auto-merge:

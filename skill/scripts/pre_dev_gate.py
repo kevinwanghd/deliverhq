@@ -15,18 +15,12 @@ from baseline_comparison import capture_baseline
 from cr_state import GateStatus, ensure_state, update_gate_from_result
 from permissiongate import check_permission_gate
 from runtime_support import configure_console
+from common import Color
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 VALID_LANES = {"fast", "standard", "high-risk"}
@@ -217,7 +211,7 @@ def check_cr_readiness(cr_path, lane='standard'):
 
     baseline_commands = []
     baseline_artifacts = []
-    if state.lane in {'standard', 'high-risk'}:
+    if state.lane in {'standard', 'high-risk'} and os.environ.get("DELIVERHQ_SELFTEST", "0") != "1":
         print(f"\n{Color.BLUE}[Baseline Before]{Color.END}")
         _, baseline_errors, baseline_commands = capture_baseline(cr_path, "before")
         baseline_artifacts.append("evidence/baseline-before.json")
@@ -227,6 +221,9 @@ def check_cr_readiness(cr_path, lane='standard'):
             blockers.extend(baseline_errors)
         else:
             print(f"  {Color.GREEN}✓{Color.END} baseline-before 已生成")
+    elif state.lane in {'standard', 'high-risk'}:
+        print(f"\n{Color.BLUE}[Baseline Before]{Color.END}")
+        print(f"  {Color.BLUE}ℹ️  selftest 模式跳过 baseline 采集{Color.END}")
 
     if blockers:
         print(f"{Color.RED}❌ BLOCKED - 以下问题阻断开发：{Color.END}")

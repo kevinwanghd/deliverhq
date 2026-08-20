@@ -23,6 +23,7 @@ import argparse
 import sys
 import yaml
 from pathlib import Path
+from common import load_yaml
 
 # =============================================================================
 # 配置
@@ -127,7 +128,7 @@ def load_checkpoints_config(config_path: Path = DEFAULT_CONFIG_PATH) -> dict:
 
     try:
         with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+            config = load_yaml(f)
         if config and "human_checkpoints" in config:
             # 用配置文件覆盖默认配置
             custom = {}

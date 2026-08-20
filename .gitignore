@@ -1,7 +1,69 @@
+# DeliverHQ .gitignore
+# Generated artifacts
 *.tgz
+*.log
+*.tmp
+*.swp
+*~
+
+# Dependencies
 node_modules/
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Environment & Secrets
+.env
+.env.*
+.envrc
+*.pem
+*.key
+credentials.json
+secrets.yml
+secrets.yaml
+api-keys.yml
+api-keys.yaml
+
+# Local config (per-machine overrides)
+.local/
+.local.yml
+.local.yaml
+config.local.yml
+config.local.yaml
+
+# DeliverHQ specific
 .governance/
+.deliverhq/
+runtime/
+session-packs/
+evidence/
+*.result.json
+*.report.md
+*.gate-cache
+
+# IDE & Editor
+.DS_Store
+.vscode/
+.idea/
+*.iml
+*.sublime-*
+.emacs.desktop
+.emacs.desktop.lock
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Temporary
 tmp/
+temp/
+*.bak

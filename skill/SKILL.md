@@ -72,28 +72,7 @@ license: 见仓库
 
 ### 2026-08 新增（企业微信"AI代码生成率94%"经验）
 
-| 能力 | 脚本/文件 | 说明 |
-|------|-----------|------|
-| 三级知识库 | `docs/knowledge-base/` | L1总览(<5KB) → L2模块 → L3语义桥 |
-| 五步定位法 | `scripts/five_step_locator.py` | 五步收敛定位（300× Token 压缩） |
-| Human Checkpoint | `scripts/human_checkpoint.py` | HK-0/1/2/3 人工硬关卡 |
-| TECH_SPEC Manager | `scripts/tech_spec_manager.py` | 跨会话知识传承三件套 |
-| Evidence Gate | `scripts/evidence_gate.py` | sentinel 文件 = 唯一判据 |
-| Red Lines Check | `scripts/red_lines_check.py` | 红线检查工具 |
-| 需求语义翻译 | `references/article-translation.md` | 5 维搜索矩阵 + 硬关键词表 |
-| 运行时验证 | `references/dev-verification.md` | 编译+模拟器双闸 + A/B/C 诊断 |
-| 红线体系 | `references/red_lines/` | 6 条 Critical + 8 条 Standard |
-
-**使用指南**：
-```bash
-# 查看红线
-python scripts/red_lines_check.py list
-
-# 五步定位
-python scripts/five_step_locator.py "用户需求" --project-root .
-```
-
----
+企业微信经验沉淀的核心能力已集成进 DeliverHQ，具体脚本与能力矩阵见 `CAPABILITY-MATRIX.md`，不再在本文档重复列举。关键能力包括：三级知识库（`docs/knowledge-base/`）、五步定位法（`five_step_locator.py`）、Human Checkpoint（`human_checkpoint.py`）、Evidence Gate（`evidence_gate.py`）、Red Lines Check（`red_lines_check.py`）等。
 
 ## 四种核心模式
 

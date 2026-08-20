@@ -27,6 +27,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
+from common import load_yaml
 
 try:
     import yaml
@@ -47,7 +48,7 @@ def load_ledger(cr_dir):
     if not p.exists():
         return {"entries": []}
     try:
-        return yaml.safe_load(p.read_text(encoding="utf-8")) or {"entries": []}
+        return load_yaml(p) or {"entries": []}
     except Exception:
         return {"entries": []}
 
@@ -75,7 +76,7 @@ def _max_retries(cr_dir):
     gc = cr_dir / "goal-contract.yml"
     if gc.exists():
         try:
-            data = yaml.safe_load(gc.read_text(encoding="utf-8")) or {}
+            data = load_yaml(gc)
             mr = (data.get("on_failure", {}) or {}).get("max_retries")
             if isinstance(mr, int) and mr >= 1:
                 return mr

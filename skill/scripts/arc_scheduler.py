@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 import yaml
+from common import load_yaml
 
 
 class ArcState(str, Enum):
@@ -83,7 +84,7 @@ class ArcScheduler:
     def _read_state(self) -> dict[str, Any]:
         source = self.state_path if self.state_path.exists() else self.legacy_state_path
         if source.exists():
-            loaded = yaml.safe_load(source.read_text(encoding="utf-8")) or {}
+            loaded = load_yaml(source)
             if isinstance(loaded, dict) and isinstance(loaded.get("tasks"), dict):
                 changed = False
                 for task_id, record in loaded["tasks"].items():
@@ -92,7 +93,7 @@ class ArcScheduler:
                         receipt_run_id = None
                         if receipt.exists():
                             try:
-                                receipt_run_id = (yaml.safe_load(receipt.read_text(encoding="utf-8")) or {}).get("run_id")
+                                receipt_run_id = (load_yaml(receipt)).get("run_id")
                             except (OSError, yaml.YAMLError):
                                 receipt_run_id = None
                         if receipt_run_id and receipt_run_id == record.get("run_id"):
@@ -105,7 +106,7 @@ class ArcScheduler:
                     self._write_state(loaded)
                 return loaded
         plan_path = self.cr_path / "plan.yml"
-        plan = yaml.safe_load(plan_path.read_text(encoding="utf-8")) if plan_path.exists() else {}
+        plan = load_yaml(plan_path) if plan_path.exists() else {}
         tasks: dict[str, Any] = {}
         for task in (plan or {}).get("tasks", []):
             task_id = str(task.get("task_id", ""))
@@ -137,7 +138,7 @@ class ArcScheduler:
 
     def _tasks_from_plan(self) -> dict[str, dict[str, Any]]:
         plan_path = self.cr_path / "plan.yml"
-        plan = yaml.safe_load(plan_path.read_text(encoding="utf-8")) if plan_path.exists() else {}
+        plan = load_yaml(plan_path) if plan_path.exists() else {}
         return {str(t.get("task_id")): t for t in (plan or {}).get("tasks", []) if t.get("task_id")}
 
     def select_task(self, requested_task: str | None = None) -> str | None:
@@ -235,7 +236,7 @@ class ArcScheduler:
     def _worktree(self) -> Path:
         state_path = self.cr_path / "state.yml"
         if state_path.exists():
-            data = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
+            data = load_yaml(state_path)
             if data.get("worktree_path"):
                 path = Path(data["worktree_path"])
                 if not path.is_absolute():

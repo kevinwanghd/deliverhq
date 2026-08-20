@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from common import load_yaml
 
 
 def _now() -> str:
@@ -52,7 +53,7 @@ def verify(cr_path: Path, task_id: str, run_id: str) -> tuple[bool, dict]:
         return False, details
     paths.append(str(result_path))
     try:
-        agent_result = yaml.safe_load(result_path.read_text(encoding="utf-8"))
+        agent_result = load_yaml(result_path)
     except Exception as exc:
         blockers.append(f"agent-result.yml 解析失败: {exc}")
         _, details = _result(False, blockers, warnings, paths)
@@ -109,7 +110,7 @@ def _validate_agent_result(value: Any, task_id: str) -> list[str]:
 def _get_worktree_path(cr_path: Path) -> Path | None:
     state_path = cr_path / "state.yml"
     if not state_path.exists(): return None
-    try: state = yaml.safe_load(state_path.read_text(encoding="utf-8")) or {}
+    try: state = load_yaml(state_path)
     except Exception: return None
     value = state.get("worktree_path")
     if not value:
@@ -140,7 +141,7 @@ def _manifest_commands(manifest: Any) -> list[dict[str, Any]]:
 
 
 def _check_verification_manifest(cr_path: Path, agent_result: dict, worktree: Path | None = None) -> tuple[bool, str, dict]:
-    try: manifest = yaml.safe_load((cr_path / "verification-manifest.yml").read_text(encoding="utf-8"))
+    try: manifest = load_yaml(cr_path / "verification-manifest.yml")
     except Exception as exc: return False, f"解析失败: {exc}", {}
     worktree = worktree or _get_worktree_path(cr_path)
     if not worktree: return False, "缺少 worktree_path", {}
@@ -220,7 +221,7 @@ def _write_receipt(cr_path: Path, task_id: str, run_id: str, agent_result: dict,
 
 
 def _check_file_scope(cr_path: Path, task_id: str, agent_result: dict) -> tuple[bool, str]:
-    try: plan = yaml.safe_load((cr_path / "plan.yml").read_text(encoding="utf-8")) or {}
+    try: plan = load_yaml(cr_path / "plan.yml")
     except Exception as exc: return False, f"plan 解析失败: {exc}"
     task = next((t for t in plan.get("tasks", []) if isinstance(t, dict) and t.get("task_id") == task_id), None)
     if not task: return False, f"task {task_id} 在 plan.yml 中未找到"

@@ -24,17 +24,12 @@ from pathlib import Path
 import yaml
 
 from runtime_support import configure_console
+from common import Color
+from common import load_yaml
 
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def load_sub_crs(epic_path: Path) -> dict:
@@ -43,7 +38,7 @@ def load_sub_crs(epic_path: Path) -> dict:
     if sub_crs_file.exists():
         try:
             with open(sub_crs_file, 'r', encoding='utf-8') as f:
-                data = yaml.safe_load(f) or {}
+                data = load_yaml(f)
                 # 确保 sub_crs 是列表
                 if 'sub_crs' not in data:
                     data['sub_crs'] = []
@@ -115,7 +110,7 @@ def create_sub_cr(epic_id: str, title: str, depends_on: list[str] = None):
         state_file = epic_path / 'state.yml'
         if state_file.exists():
             with open(state_file, 'r', encoding='utf-8') as f:
-                state = yaml.safe_load(f) or {}
+                state = load_yaml(f)
                 sub_crs_data['title'] = state.get('title', epic_id)
 
     # 生成子 CR ID
@@ -278,7 +273,7 @@ def check_epic_status(epic_id: str):
 
         if state_file.exists():
             with open(state_file, 'r', encoding='utf-8') as f:
-                state = yaml.safe_load(f) or {}
+                state = load_yaml(f)
                 statuses[sub_id] = state.get('current_state', 'unknown')
         else:
             statuses[sub_id] = 'missing'

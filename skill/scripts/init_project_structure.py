@@ -13,6 +13,7 @@ from pathlib import Path
 import yaml
 
 from runtime_support import configure_console
+from common import load_yaml
 
 configure_console()
 
@@ -26,7 +27,7 @@ def load_profile(profile_name: str):
     profile_path = PROFILE_DIR / (profile_name + ".yml")
     if not profile_path.exists():
         raise FileNotFoundError("unknown structure profile: %s" % profile_name)
-    return profile_path, yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
+    return profile_path, load_yaml(profile_path)
 
 
 def ensure_dir(path: Path):

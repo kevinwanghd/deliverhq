@@ -28,6 +28,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from common import load_yaml
 
 try:
     import yaml
@@ -122,7 +123,7 @@ def check_must_haves(cr_dir, root):
     if not manifest_path.exists():
         return None, ["verification-manifest.yml 不存在"]
     try:
-        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        manifest = load_yaml(manifest_path)
     except Exception as e:
         return None, ["解析 verification-manifest.yml 失败: %s" % e]
 

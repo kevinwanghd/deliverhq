@@ -33,6 +33,7 @@ Loop Engineering 原则的具体落地：不是"让 Agent 干到完成"，而是
 import json
 import sys
 from pathlib import Path
+from common import Color
 
 try:
     import yaml
@@ -40,13 +41,6 @@ except ImportError:
     print("需要 PyYAML：pip install PyYAML")
     sys.exit(2)
 
-
-class Color:
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    RED = "\033[91m"
-    BLUE = "\033[94m"
-    END = "\033[0m"
 
 
 # 必需 evidence 及其缺失时的 next_action（与 reviewgate 口径一致）

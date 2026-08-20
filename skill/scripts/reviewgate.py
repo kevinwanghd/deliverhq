@@ -16,19 +16,13 @@ import yaml
 
 from cr_state import load_state, update_gate_from_result
 from runtime_support import configure_console
+from common import Color, load_yaml
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 PROJECT_ROOT = DELIVERHQ_ROOT.parent
 configure_console()
 
-
-class Color:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    END = '\033[0m'
 
 
 def _read_text(path: Path) -> str:
@@ -95,7 +89,7 @@ def parse_review_provenance(content: str) -> Dict[str, object]:
 
     raw = "schema: deliverhq-review-provenance" + match.group("body")
     try:
-        payload = yaml.safe_load(raw) or {}
+        payload = load_yaml(raw)
     except Exception:
         return {"_parse_error": True}
     return payload if isinstance(payload, dict) else {"_parse_error": True}
@@ -143,7 +137,7 @@ def _load_traceability(cr_path: Path):
         return None, 'traceability.yml 不存在'
 
     try:
-        return yaml.safe_load(_read_text(trace_path)) or {}, None
+        return load_yaml(_read_text(trace_path)), None
     except Exception as exc:
         return None, f'解析 traceability.yml 失败: {exc}'
 
