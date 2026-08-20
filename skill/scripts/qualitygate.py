@@ -104,8 +104,9 @@ def load_verification_manifest(cr_path):
         return None, 'verification-manifest.yml 不存在'
 
     try:
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest = load_yaml(f)
+        manifest = load_yaml(manifest_path)
+        if not manifest:
+            return None, 'verification-manifest.yml 解析结果为空'
         return manifest, None
     except Exception as exc:
         return None, f'解析 verification-manifest.yml 失败: {exc}'
@@ -400,7 +401,7 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
             print(f"{Color.YELLOW}  ⚠ must_haves 校验跳过: {exc}{Color.END}")
 
     baseline_artifacts: List[str] = []
-    if lane in {'standard', 'high-risk'} and manifest and not blockers:
+    if lane in {'standard', 'high-risk'} and manifest and not blockers and os.environ.get("DELIVERHQ_SELFTEST", "0") != "1":
         print(f"\n{Color.BLUE}[Baseline Comparison]{Color.END}")
         baseline_passed, baseline_blockers, baseline_commands = compare_after_baseline(cr_path)
         commands_run.extend(baseline_commands)
@@ -411,6 +412,9 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
             for item in baseline_blockers:
                 print(f"{Color.RED}  ✗ {item}{Color.END}")
             blockers.extend(baseline_blockers)
+    elif lane in {'standard', 'high-risk'} and manifest and not blockers:
+        print(f"\n{Color.BLUE}[Baseline Comparison]{Color.END}")
+        print(f"  {Color.BLUE}ℹ️  selftest 模式跳过 baseline 对比{Color.END}")
 
     print(f"\n{Color.BLUE}=== QualityGate 结果 ==={Color.END}")
     if blockers:

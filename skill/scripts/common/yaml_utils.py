@@ -11,10 +11,10 @@ import yaml
 
 def load_yaml(path: Union[str, Path]) -> Dict[str, Any]:
     """
-    安全加载单个 YAML 文件
+    安全加载单个 YAML 文件或解析 YAML 字符串内容
 
     Args:
-        path: YAML 文件路径
+        path: YAML 文件路径，或包含 YAML 内容的字符串
 
     Returns:
         解析后的字典，文件不存在或解析失败时返回空字典
@@ -23,8 +23,16 @@ def load_yaml(path: Union[str, Path]) -> Dict[str, Any]:
     - 统一使用 UTF-8 编码
     - 统一返回空字典而非 None
     - 统一异常处理
+    - 支持传入文件路径（Path/str）或 YAML 字符串内容
     """
     try:
+        # 如果是字符串（而非路径），直接解析为 YAML
+        if isinstance(path, str) and not Path(path).exists():
+            # 可能是 YAML 字符串内容，不是文件路径
+            if not path.startswith('/') and not path.startswith('.') and not path.startswith('~'):
+                return yaml.safe_load(path) or {}
+            # 可能是路径但不存在
+            return {}
         p = Path(path)
         if not p.exists():
             return {}

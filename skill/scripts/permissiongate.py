@@ -13,7 +13,7 @@ import yaml
 
 from cr_state import ensure_state, update_gate_from_result
 from runtime_support import configure_console
-from common import load_yaml
+from common import load_yaml, load_yaml_all
 
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 PROJECT_ROOT = DELIVERHQ_ROOT.parent

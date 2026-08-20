@@ -25,7 +25,7 @@ import yaml
 sys.dont_write_bytecode = True
 
 from runtime_support import configure_console, ensure_cr_runtime_dirs
-from common import load_yaml
+from common import load_yaml, load_yaml_all
 
 configure_console()
 

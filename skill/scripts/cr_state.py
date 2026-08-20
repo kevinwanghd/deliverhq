@@ -236,8 +236,7 @@ def load_state(cr_path: Path) -> Optional[CRStateSnapshot]:
     if not state_file.exists():
         return None
 
-    with open(state_file, "r", encoding="utf-8") as f:
-        data = load_yaml(f)
+    data = load_yaml(state_file)
 
     gate_status = data.get("gate_status", {}) or {}
     transitions = [StateTransition(**item) for item in data.get("transitions", []) or []]

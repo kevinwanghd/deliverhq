@@ -26,7 +26,8 @@ def lint_dir_graph(path: Path):
         return ["dir-graph.yaml 不存在"], warnings
 
     try:
-        documents = list(load_yaml_all(path.read_text(encoding="utf-8")))
+        content = path.read_text(encoding="utf-8")
+        documents = [doc for doc in yaml.safe_load_all(content) if doc]
         data = documents[0] if documents else {}
     except Exception as exc:
         return ["dir-graph.yaml 解析失败: %s" % exc], warnings
