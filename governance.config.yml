@@ -163,6 +163,12 @@ red_lines:
       description: "git commit 后 git log -1 hash 更新是唯一成功证据"
       enforcement: fail_closed
       note: "长跑命令不靠 stdout 报告成功，全靠落盘文件"
+    - id: RL-C07
+      title: 对抗式审查后才能提交
+      description: "每次 CR 实现完成后、commit 前必须运行对抗式审查，有 blocking_findings 必须解决"
+      enforcement: fail_closed
+      note: "对抗式审查报告（adversarial_review_report.md）存在且 verdict=PASS 才是唯一放行判据"
+      script: "python DeliverHQ/scripts/adversarial_review.py {cr_id} --check-only"
 
   standard:
     - id: RL-S01
@@ -229,6 +235,11 @@ human_checkpoints:
     trigger: "TECH_SPEC.md 落盘前"
     wait_for: "用户'沉淀 ok/通过'"
     description: "跨会话知识沉淀前，必须人工确认无误"
+  - id: HK-2.5
+    name: 对抗式审查
+    trigger: "TECH_SPEC 落盘后、commit 前 — 对抗式审查报告生成后"
+    wait_for: "用户'审查通过/有 blocking/暂停'"
+    description: "对抗式审查报告必须通过，RL-C07 强制要求；CRITICAL/HIGH findings 未解决不得继续"
   - id: HK-3
     name: commit 文案确认
     trigger: "git commit 前"
@@ -279,12 +290,19 @@ pipeline_stages:
     output: "装机后的截图 + 日志"
     soul_action: "人机秒级确认 + 阶段内重试 ≤ 2 轮"
     exit_criteria: "截图+日志证据，runtime.log 日志关键字命中"
-  - id: 7沉淀
+  - id: 7-沉淀
     name: 沉淀
     input: "git diff + 时间线"
     output: "TECH_SPEC.md 单一事实源"
     soul_action: "跨会话知识传承的载体"
     exit_criteria: "TECH_SPEC.md 落盘，有 HK-2 确认"
+  - id: 7.5-对抗式审查
+    name: 对抗式审查
+    input: "对抗式审查报告 + diff"
+    output: "adversarial_review_report.md"
+    soul_action: "扮演恶意用户，找怎么搞崩系统的路径；追问：这个方案真的应该这么解吗？"
+    exit_criteria: "verdict=PASS，无 blocking_findings"
+    gate: "RL-C07 必须"
   - id: 8-commit
     name: 提交
     input: "全部产物"

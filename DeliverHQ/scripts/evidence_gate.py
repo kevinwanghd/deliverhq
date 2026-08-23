@@ -54,6 +54,12 @@ EVIDENCE_TYPES = {
         "sentinel_files": ["runtime.log", "screenshot.png"],
         "command": None,
         "success_indicator": "log_keyword_matched"
+    },
+    "adversarial_review": {
+        "description": "对抗式审查",
+        "sentinel_files": ["adversarial_review_report.md"],
+        "command": None,
+        "success_indicator": "verdict_pass"
     }
 }
 
@@ -150,6 +156,10 @@ def record_evidence(
     if evidence_type == "git_commit" and commit_hash:
         evidence["commit_hash"] = commit_hash
         evidence["verified"] = True
+
+    # adversarial_review 不校验文件 hash（报告在审查过程中会多次修改）
+    if evidence_type == "adversarial_review":
+        evidence["skip_hash_check"] = True
 
     # 保存
     evidence_file.write_text(
@@ -255,6 +265,41 @@ def verify_evidence(
                     "actual": current_hash,
                     "passed": False
                 })
+
+    # adversarial_review verdict 验证
+    if evidence_type == "adversarial_review" and evidence.get("sentinel_file"):
+        report_path = Path(evidence["sentinel_file"])
+        if report_path.exists():
+            content = report_path.read_text(encoding="utf-8")
+            verdict_match = None
+            import re
+            m = re.search(r"verdict[*_]*\s*:\s*(PASS|FAIL)", content, re.IGNORECASE)
+            if m:
+                verdict_match = m.group(1)
+            result["checks"].append({
+                "check": "adversarial_review_verdict",
+                "verdict": verdict_match,
+                "passed": verdict_match == "PASS"
+            })
+            if verdict_match == "PASS":
+                result["verified"] = True
+            elif verdict_match == "FAIL":
+                result["verified"] = False
+                # 额外列出 blocking findings
+                blockings = re.findall(r"\[(CRITICAL|HIGH)\]\s+([^\n]+)", content)
+                if blockings:
+                    result["checks"].append({
+                        "check": "blocking_findings",
+                        "findings": [f"{sev}: {name.strip()}" for sev, name in blockings],
+                        "passed": False
+                    })
+        return result
+
+    # 文件 sentinel 验证（跳过 adversarial_review）
+    if evidence.get("skip_hash_check"):
+        result["checks"].append({"check": "sentinel_exists", "passed": True})
+        result["verified"] = True
+        return result
 
     # 更新 evidence 记录
     evidence["verified"] = result["verified"]

@@ -84,6 +84,30 @@ TECH_SPEC.md 沉淀内容预览：
 """,
         "auto_proceed_allowed": False
     },
+    "HK-2.5": {
+        "name": "对抗式审查",
+        "description": "TECH_SPEC 落盘后、commit 前 — 对抗式审查必须通过",
+        "wait_for": "用户'审查通过/有 blocking/暂停'",
+        "prompt": """
+对抗式审查报告已生成，请逐条确认：
+
+### 审查结论
+{adversarial_summary}
+
+### 发现列表
+{findings_list}
+
+请确认：
+1. 是否有 CRITICAL / HIGH 级别的 blocking findings？
+2. 这些 findings 是否已解决或已知晓风险？
+3. 可以继续提交吗？
+
+- 输入 '通过' → 审查通过，继续 commit
+- 输入 '有 blocking: 具体说明' → 有未解决的 blocking findings，暂停提交
+- 输入 '暂停' → 停下，等人工处理
+""",
+        "auto_proceed_allowed": False
+    },
     "HK-3": {
         "name": "commit 文案确认",
         "description": "git commit 前",

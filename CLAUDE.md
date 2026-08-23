@@ -287,6 +287,31 @@ python governance/scripts/agentgate.py mr prepare \
 5. **提交**：`AI-Usage` 和 `Tested` trailer 由 git hook 自动写入，**你不需要手填**
 6. **创建 MR**：调 `create_mr.py --why "<任务背景>"` 自动生成并本地校验中文 MR 描述，自动提交 MR；如 token/CLI 不可用，使用脚本打印的链接和描述人工创建
 
+### 对抗式审查（每次实现后必须执行，RL-C07）
+
+**来源**：数字生命卡兹克 Vibe Coding Prompt 技巧。核心两句话：
+> 第一性原理的核心：回到最根本的事实重新推导。
+> 对抗式审查的核心：永远需要一个站在你对面的力量来告诉你，你可能是错的。
+
+**三类视角**（每次 CR 实现后执行 `python DeliverHQ/scripts/adversarial_review.py CR-xxx --scope .`）：
+
+1. **第一性原理审查**（生成侧）
+   - 打断 AI 类比推理，逼回问题本质
+   - "这个问题真的应该这么解吗？"
+   - 治标 vs 治本——是否在用补丁掩盖深层架构隐患？
+
+2. **恶意用户审查**（验证侧）
+   - 如果我是恶意用户，会如何搞崩这个系统？
+   - 边界数据、极端输入、资源耗尽、并发攻击
+   - OOM 死循环、未来时间污染、性能炸弹
+
+3. **架构健康审查**
+   - 模块边界是否清晰？数据流有没有隐蔽循环依赖？
+   - 技术债是否在加速积累？
+   - 多 Agent 并发审查效果更好（正向设计 + 反向审查并行）
+
+**Gate 判据**：报告存在 + verdict=PASS（无 blocking findings）。FAIL 时 HK-2.5 关卡阻断，Agent 必须先解决 blocking findings。
+
 ---
 
 ## 自动创建 MR（核心：MR 描述是开发产物，不是事后填表）
