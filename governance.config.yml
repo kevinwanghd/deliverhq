@@ -164,11 +164,12 @@ red_lines:
       enforcement: fail_closed
       note: "长跑命令不靠 stdout 报告成功，全靠落盘文件"
     - id: RL-C07
-      title: 对抗式审查后才能提交
-      description: "每次 CR 实现完成后、commit 前必须运行对抗式审查，有 blocking_findings 必须解决"
+      title: Reviewer Agent 独立审查后才能提交
+      description: "每次 CR 实现完成后、commit 前必须运行 Reviewer Agent（独立 Session），有 blocking_findings 必须解决"
       enforcement: fail_closed
-      note: "对抗式审查报告（adversarial_review_report.md）存在且 verdict=PASS 才是唯一放行判据"
-      script: "python DeliverHQ/scripts/adversarial_review.py {cr_id} --check-only"
+      note: "Reviewer Agent 从独立 Session 启动，只拿 spec-output.json（SpecGate 产物），不拿 Main Agent Context。报告（adversarial_review_report.md）存在且 verdict=PASS 才是唯一放行判据"
+      script: "python DeliverHQ/scripts/reviewer_agent.py {cr_id} --check-only"
+      requires: "spec-output.json  # SpecGate 产物，Reviewer Agent 的唯一输入"
 
   standard:
     - id: RL-S01
@@ -360,6 +361,116 @@ token_compression:
   knowledge_base_context: "30K tokens"
   ratio: "300x"
   method: "三级知识库（L1/L2/L3）配合五步定位法"
+
+# =============================================================================
+# DELIVERY TIER — 分层治理体系（来源：Nexad Agent Harness 实践）
+# =============================================================================
+# 核心逻辑：用户可控度决定 Harness 严格度
+#
+# Tier 基于代码路径自动检测，Agent 在 Plan 阶段声明 Tier，
+# 后续每个 Gate（Reviewer Agent / Evidence Gate）按 Tier 选择检查清单。
+#
+# 关键原则：Harness 的严格度需要同时匹配模型能力和交付风险。
+#   - 模型能力是一个维度
+#   - 业务暴露是另一个维度 → Delivery Tier 是后者的具体实现
+# =============================================================================
+
+delivery_tiers:
+  - id: T0
+    name: 生产核心路径
+    description: "面向未知用户的生产 API / 核心业务流程"
+    user_profile: "默认陌生/恶意用户"
+    enforcement: "最高标准"
+    checkpoints:
+      - HK-0          # 现场快报
+      - HK-1          # PENDING 确认
+      - HK-2          # 沉淀确认
+      - HK-2.5        # 对抗式审查（RL-C07）
+      - HK-3          # commit 确认
+    rl_check: "all"   # 检查全部 RL 红线
+    human_approval: true
+    auto_merge: false
+    check_depth:
+      adversarial_review: "full"     # 三类视角全部检查
+      risk_scan: "deep"             # 详细风险模式扫描
+      llm_review: true              # 强制 LLM 增强审查（如果配置了）
+    examples:
+      - "投放执行/封号/花钱的核心路径"
+      - "用户认证/支付/数据删除"
+      - "外部 API 暴露"
+
+  - id: T1
+    name: 客户 Preview
+    description: "关系密切的合作伙伴 / 客户预览环境"
+    user_profile: "已知合作伙伴，可信但需审计"
+    enforcement: "安全 + 可观测性"
+    checkpoints:
+      - HK-2.5        # 对抗式审查（RL-C07）
+      - HK-3          # commit 确认
+    rl_check: "critical_only"  # 仅 RL-Critical 红线
+    human_approval: false
+    auto_merge: true
+    check_depth:
+      adversarial_review: "standard"  # 第一性原理 + 恶意用户，不做全量架构审查
+      risk_scan: "standard"
+      llm_review: false
+    examples:
+      - "客户 Preview 环境部署"
+      - "内部管理后台（可信用户）"
+
+  - id: T2
+    name: 内部系统
+    description: "完全可控的内部用户"
+    user_profile: "产研团队成员"
+    enforcement: "基础防护"
+    checkpoints:
+      - HK-2.5        # 对抗式审查（RL-C07，--skip-scan 模式）
+    rl_check: "critical_only"
+    human_approval: false
+    auto_merge: true
+    check_depth:
+      adversarial_review: "fast"     # 跳过正则扫描，只做 RL 合规 + 第一性原理
+      risk_scan: "basic"
+      llm_review: false
+    examples:
+      - "内部分析/报表生成"
+      - "工具类脚本"
+
+  - id: T3
+    name: Dev / EVL
+    description: "产研人员在开发/验证环境"
+    user_profile: "开发者本人，完全可控"
+    enforcement: "最小约束"
+    checkpoints: []
+    rl_check: "RL-C01_only"   # 只要求编译通过
+    human_approval: false
+    auto_merge: true
+    check_depth:
+      adversarial_review: "none"       # 不做对抗式审查
+      risk_scan: "none"
+      llm_review: false
+    examples:
+      - "探索性代码/实验性 PR"
+      - "个人工具/临时脚本"
+      - "概念验证（PoC）"
+
+# Tier 检测规则（按路径自动推断）
+tier_detection:
+  rules:
+    - pattern: "**/投放/**/*.cs"
+      tier: T0
+    - pattern: "**/payment*/**/*.cs"
+      tier: T0
+    - pattern: "**/auth*/**/*.cs"
+      tier: T0
+    - pattern: "**/admin*/**/*.cs"
+      tier: T1
+    - pattern: "**/preview*/**/*.cs"
+      tier: T1
+    - pattern: "**/scripts/**"
+      tier: T3
+    - pattern: "**/dev/**"
+      tier: T3
 
 arc:
   enabled: true                 # ARC Phase 1 已具备可恢复的单步运行闭环
