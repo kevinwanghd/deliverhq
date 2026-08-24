@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 TECH_SPEC Manager — 跨会话知识传承
 
