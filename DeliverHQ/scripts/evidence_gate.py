@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 """
 Evidence Gate — sentinel 文件 = 唯一判据
 
@@ -199,6 +199,30 @@ def verify_evidence(
         "checks": []
     }
 
+    # adversarial_review verdict 验证（Gate 核心判据，跳过文件 hash）
+    if evidence_type == "adversarial_review" and evidence.get("sentinel_file"):
+        report_path = Path(evidence["sentinel_file"])
+        if report_path.exists():
+            content = report_path.read_text(encoding="utf-8")
+            import re
+            m = re.search(r"verdict[*_]*\s*:\s*(PASS|FAIL)", content, re.IGNORECASE)
+            verdict = m.group(1) if m else None
+            result["checks"].append({
+                "check": "adversarial_review_verdict",
+                "verdict": verdict,
+                "passed": verdict == "PASS"
+            })
+            result["verified"] = verdict == "PASS"
+            if verdict == "FAIL":
+                blockings = re.findall(r"\[(CRITICAL|HIGH)\]\s+([^\n]+)", content)
+                if blockings:
+                    result["checks"].append({
+                        "check": "blocking_findings",
+                        "findings": [f"{sev}: {name.strip()}" for sev, name in blockings],
+                        "passed": False
+                    })
+        return result
+
     # git commit 验证
     if evidence_type == "git_commit":
         _, current_hash, _ = run_git_command(
@@ -229,8 +253,8 @@ def verify_evidence(
                 "passed": False
             })
 
-    # 文件 sentinel 验证
-    elif evidence.get("sentinel_file"):
+    # git commit / adversarial_review 已在上面单独处理，通用 sentinel 仅处理 build/test/runtime
+    elif evidence.get("sentinel_file") and evidence_type != "adversarial_review":
         file_path = Path(evidence["sentinel_file"])
         if not file_path.exists():
             result["checks"].append({
@@ -266,26 +290,21 @@ def verify_evidence(
                     "passed": False
                 })
 
-    # adversarial_review verdict 验证
+    # adversarial_review verdict 验证（Gate 核心判据，跳过文件 hash）
     if evidence_type == "adversarial_review" and evidence.get("sentinel_file"):
         report_path = Path(evidence["sentinel_file"])
         if report_path.exists():
             content = report_path.read_text(encoding="utf-8")
-            verdict_match = None
             import re
             m = re.search(r"verdict[*_]*\s*:\s*(PASS|FAIL)", content, re.IGNORECASE)
-            if m:
-                verdict_match = m.group(1)
+            verdict = m.group(1) if m else None
             result["checks"].append({
                 "check": "adversarial_review_verdict",
-                "verdict": verdict_match,
-                "passed": verdict_match == "PASS"
+                "verdict": verdict,
+                "passed": verdict == "PASS"
             })
-            if verdict_match == "PASS":
-                result["verified"] = True
-            elif verdict_match == "FAIL":
-                result["verified"] = False
-                # 额外列出 blocking findings
+            result["verified"] = verdict == "PASS"
+            if verdict == "FAIL":
                 blockings = re.findall(r"\[(CRITICAL|HIGH)\]\s+([^\n]+)", content)
                 if blockings:
                     result["checks"].append({
@@ -295,7 +314,7 @@ def verify_evidence(
                     })
         return result
 
-    # 文件 sentinel 验证（跳过 adversarial_review）
+    # adversarial_review 特殊分支已 return，以下是通用 sentinel 验证
     if evidence.get("skip_hash_check"):
         result["checks"].append({"check": "sentinel_exists", "passed": True})
         result["verified"] = True
@@ -358,73 +377,40 @@ def check_all_evidence(cr_id: str) -> dict:
 # =============================================================================
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Evidence Gate — sentinel 文件 = 唯一判据",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-示例：
-  python evidence_gate.py check --cr-id CR-001
-  python evidence_gate.py record --cr-id CR-001 --type build --file build_report.txt
-  python evidence_gate.py record --cr-id CR-001 --type git_commit --commit-hash abc123
-  python evidence_gate.py verify --cr-id CR-001 --type build
-  python evidence_gate.py verify --cr-id CR-001 --type git_commit --expected-commit abc123
+    # argparse subparsers break when sys.argv[0] contains path separators on Windows
+    sys.argv[0] = Path(sys.argv[0]).name
 
-核心原则：
-  - 长跑命令不靠 stdout 报告成功，全靠落盘文件
-  - git commit 用 git log -1 hash 更新验证
-  - 全部由文件证明，不靠 AI 自报
-        """
-    )
-    subparsers = parser.add_subparsers(dest="command", help="子命令")
+    # Manual command dispatch (subparsers unreliable on some Python/Windows combos)
+    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+        _print_usage()
+        sys.exit(0 if len(sys.argv) >= 2 else 1)
 
-    # check
-    p_check = subparsers.add_parser("check", help="检查所有 evidence")
-    p_check.add_argument("--cr-id", required=True, help="CR 编号")
-
-    # record
-    p_record = subparsers.add_parser("record", help="记录 evidence")
-    p_record.add_argument("--cr-id", required=True, help="CR 编号")
-    p_record.add_argument("--type", required=True,
-                         choices=list(EVIDENCE_TYPES.keys()),
-                         help="evidence 类型")
-    p_record.add_argument("--file", help="sentinel 文件路径")
-    p_record.add_argument("--commit-hash", help="git commit hash")
-    p_record.add_argument("--command", help="执行的命令")
-    p_record.add_argument("--note", help="备注")
-
-    # verify
-    p_verify = subparsers.add_parser("verify", help="验证 evidence")
-    p_verify.add_argument("--cr-id", required=True, help="CR 编号")
-    p_verify.add_argument("--type", required=True,
-                         choices=list(EVIDENCE_TYPES.keys()),
-                         help="evidence 类型")
-    p_verify.add_argument("--expected-hash", help="期望的文件 hash")
-    p_verify.add_argument("--expected-commit", help="期望的 commit hash")
-
-    args = parser.parse_args()
-
-    if args.command is None:
-        parser.print_help()
+    command = sys.argv[1]
+    if command not in ("check", "record", "verify"):
+        _print_usage()
         sys.exit(1)
 
-    result = None
+    # Build parser for each subcommand's options only
+    parser = _build_parser(command)
+    args = parser.parse_args(sys.argv[2:])
 
-    if args.command == "check":
+    result = None
+    if command == "check":
         result = check_all_evidence(args.cr_id)
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
-    elif args.command == "record":
+    elif command == "record":
         result = record_evidence(
             args.cr_id,
             args.type,
             sentinel_file=args.file,
             commit_hash=args.commit_hash,
-            command=args.command,
+            command=None,
             note=args.note
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
 
-    elif args.command == "verify":
+    elif command == "verify":
         result = verify_evidence(
             args.cr_id,
             args.type,
@@ -432,13 +418,40 @@ def main():
             expected_commit=args.expected_commit
         )
         print(json.dumps(result, ensure_ascii=False, indent=2))
-
-        # 退出码
         sys.exit(0 if result.get("verified", False) else 1)
 
     if result and "error" in result and not result["success"]:
         print(f"❌ {result['error']}")
         sys.exit(1)
+
+
+def _print_usage():
+    print("Evidence Gate — sentinel 文件 = 唯一判据")
+    print()
+    print("用法：")
+    print("  python evidence_gate.py check --cr-id CR-001")
+    print("  python evidence_gate.py record --cr-id CR-001 --type build --file build.txt")
+    print("  python evidence_gate.py verify --cr-id CR-001 --type build")
+    print()
+    print("命令：check / record / verify")
+
+
+def _build_parser(command):
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cr-id", required=True)
+    if command == "record":
+        parser.add_argument("--type", required=True,
+            choices=["build", "test", "git_commit", "runtime", "adversarial_review"])
+        parser.add_argument("--file")
+        parser.add_argument("--commit-hash")
+        parser.add_argument("--note")
+    elif command == "verify":
+        parser.add_argument("--type", required=True,
+            choices=["build", "test", "git_commit", "runtime", "adversarial_review"])
+        parser.add_argument("--expected-hash")
+        parser.add_argument("--expected-commit")
+    return parser
 
 
 if __name__ == "__main__":

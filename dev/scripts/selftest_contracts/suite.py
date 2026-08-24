@@ -331,6 +331,7 @@ def check_cr_template_gates():
         "pre_dev_gate.py", "dev_phase.py", "reviewgate.py", "qualitygate.py",
         "deploygate.py", "writeback_gate.py", "permissiongate.py",
         "workflow_router.py", "cr_state.py", "gate_json_output.py", "dir_graph_lint.py", "structuregate.py", "init_project_structure.py", "scan_legacy_structure.py",
+        "evidence_gate.py", "adversarial_review.py", "human_checkpoint.py",
     ]
     all_ok = True
     for gate in gates:
