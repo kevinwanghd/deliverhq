@@ -318,6 +318,13 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, h
     home_dir = Path(home).resolve() if home else DELIVERHQ_ROOT  # 产物落点：DeliverHQ home
     target_dir = home_dir / "change-requests" / cr_id
 
+    # P2-4: 自动记录本次 CR 创建的完整命令，方便后续追溯
+    import sys
+    _created_by_command = " ".join([sys.executable, Path(__file__).name, cr_id, cr_name] +
+        ([requester] if requester else []) +
+        ([f"--lane={lane}"] if lane != "standard" else []) +
+        (["--worktree"] if use_worktree else []))
+
     if target_dir.exists():
         _print(f"❌ 错误: {target_dir} 已存在")
         return False
@@ -366,11 +373,20 @@ def main():
     configure_console()
     if len(sys.argv) < 3:
         _print("用法: python init_cr.py <CR-ID> <CR-NAME> [REQUESTER] [--home <项目根>/DeliverHQ] [--lane fast|standard|high-risk] [--worktree|--no-worktree]")
-        _print("\n示例:")
-        _print("  python DeliverHQ/scripts/init_cr.py CR-001 '实现用户登录日志功能' '产品经理'")
-        _print("  python init_cr.py CR-002 '修复分页查询Bug' --home /path/to/proj/DeliverHQ --lane fast")
-        _print("\n说明: --home 可省略。脚本会自动定位 DeliverHQ 目录(agent 无关):")
-        _print("  --home > 环境变量 DELIVERHQ_HOME > 向上找已有 DeliverHQ/ > 项目根/DeliverHQ > cwd/DeliverHQ")
+        _print("\n创建 CR 完整示例:")
+        _print("  # 标准流程（standard lane + worktree）:")
+        _print("  python init_cr.py CR-001 '实现用户登录日志功能' '产品经理'")
+        _print("")
+        _print("  # 快速修复（fast lane，无 worktree）:")
+        _print("  python init_cr.py CR-002 '修复分页Bug' --lane fast --no-worktree")
+        _print("")
+        _print("  # 指定 DeliverHQ 目录:")
+        _print("  python init_cr.py CR-003 '新功能开发' --home /path/to/project/DeliverHQ")
+        _print("")
+        _print("说明:")
+        _print("  - 模板来源: 自动使用 skill/change-requests/CR-TEMPLATE/")
+        _print("  - 产物落点: <home>/change-requests/<CR-ID>/")
+        _print("  - --home 省略时自动定位: --home > DELIVERHQ_HOME > 向上找 DeliverHQ/ > cwd/DeliverHQ")
         sys.exit(1)
 
     try:

@@ -3,7 +3,7 @@
 自动更新错误案例库。
 
 同一 CR + Gate + failure hash 不重复追加；重复出现时更新 count / last_seen。
-当同类失败出现 3 次以上，生成 rules.md candidate 标记，供人工转规则。
+当同类失败出现 3 次以上，自动创建 rules-candidates.md 条目（P2-2 链路闭环）。
 """
 
 
@@ -12,7 +12,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 
 def _fingerprint(cr_id: str, gate_type: str, failure_reason: str) -> str:
@@ -87,6 +87,76 @@ def _update_existing(content: str, fp: str, today: str) -> Tuple[str, bool, int]
     return content[:start] + block + content[end:], True, new_count
 
 
+def _auto_promote_to_candidate(cr_id: str, gate_type: str, failure_reason: str) -> bool:
+    """同类错误重复 3 次后，自动在 rules-candidates.md 创建候选条目（P2-2）。
+
+    Args:
+        cr_id: 触发错误的 CR ID
+        gate_type: 门禁类型
+        failure_reason: 失败原因摘要（取前 200 字符）
+
+    Returns:
+        是否成功创建候选条目
+    """
+    script_dir = Path(__file__).parent
+    candidate_path = script_dir.parent / "docs" / "rules-candidates.md"
+
+    if not candidate_path.exists():
+        print(f"⚠️ rules-candidates.md 不存在，跳过自动晋升")
+        return False
+
+    today = datetime.now().strftime("%Y-%m-%d")
+
+    # 从 failure_reason 推断触发条件（取前 100 字符作为规则摘要）
+    trigger_summary = failure_reason[:100].strip()
+    proposed_rule = f"禁止: {trigger_summary}" if trigger_summary else "同类错误再次出现时需避免"
+
+    # 从 gate_type 推断检测方法
+    detection = "static" if gate_type in {"SpecGate", "QualityGate", "ReviewGate"} else "manual"
+
+    # 构建候选条目
+    new_entry = f"""
+## Candidate Rule: {trigger_summary[:60]}
+
+- **Source CR**: {cr_id}
+- **Trigger**: 同类错误在 QualityGate/SpecGate 重复 3 次触发自动晋升
+- **Proposed Rule**: {proposed_rule}
+- **Scope**: {gate_type} 相关检查
+- **Detection**: {detection}
+- **Promotion Recommendation**: 基于 {cr_id} 的失败案例自动生成，建议评审后晋升
+- **Promotion Status**:
+- **Promoted To**:
+- **Promoted On**:
+"""
+
+    try:
+        content = candidate_path.read_text(encoding="utf-8")
+
+        # 检查是否已有相同触发条件的候选条目（避免重复创建）
+        if trigger_summary[:60] in content:
+            print(f"ℹ️ 相同候选规则已存在，跳过重复创建")
+            return True
+
+        # 追加到 "## Active Candidates" 部分
+        if "## Active Candidates" in content:
+            content = content.replace(
+                "## Active Candidates",
+                f"## Active Candidates{new_entry}",
+                1  # 只替换第一个，避免意外替换
+            )
+        else:
+            # 如果没有 Active Candidates 部分，创建它
+            content = content.rstrip() + f"\n\n## Active Candidates{new_entry}\n"
+
+        candidate_path.write_text(content, encoding="utf-8")
+        print(f"✅ 已自动创建 rules-candidates.md 候选条目（来源: {cr_id}）")
+        print(f"   建议后续运行 promote_rule_candidate.py 晋升为正式规则")
+        return True
+    except Exception as exc:
+        print(f"⚠️ 自动晋升失败: {exc}")
+        return False
+
+
 def update_mistake_book(cr_id: str, gate_type: str, failure_reason: str, root_cause: str = None, improvement: str = None):
     script_dir = Path(__file__).parent
     mistake_book_path = script_dir.parent / "docs" / "mistake-book.md"
@@ -105,6 +175,9 @@ def update_mistake_book(cr_id: str, gate_type: str, failure_reason: str, root_ca
         print(f"✅ 已更新重复错误 {fp}：count={count}, last_seen={today}")
         if count >= 3:
             print("ℹ️  该失败已重复 3 次以上，已标记 rules_candidate=true")
+            # P2-2: 触发自动晋升链路
+            print("🔄 正在自动创建 rules-candidates.md 候选条目...")
+            _auto_promote_to_candidate(cr_id, gate_type, failure_reason)
         return True
 
     entry = _entry_block(cr_id, gate_type, failure_reason, root_cause, improvement, fp, today)

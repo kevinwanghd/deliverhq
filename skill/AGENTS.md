@@ -1,6 +1,25 @@
 # AGENTS.md — DeliverHQ Behavior Entry
 
-## Read order（分层懒加载 — 入口只读一个极小指针，其余按需）
+> **核心概念**：本文档中的 "Agent" 实际指 **Phase（阶段）**——工作流中的步骤节点。
+> 每个阶段有明确的输入/输出规范和 Gate 握手协议，但并非独立的 Agent 实例。
+> 真正的多 Agent 协作（如并行 worktree、subagent 验证）会在具体实现中单独标注。
+
+```
+DeliverHQ 流程图（单人多阶段，不是多 Agent 系统）
+────────────────────────────────────────────────────────
+  Spec ──▶ SpecGate ──▶ Design ──▶ DesignGate
+                            │
+                    ArchitectureGate ──▶ Context ──▶ Dev
+                                                          │
+                              PermissionGate ◀── (high-risk)
+                                                          │
+                             Review ──▶ Test ──▶ Quality
+                                                    │
+                                           WritebackGate ──▶ Archive
+────────────────────────────────────────────────────────
+每个节点是阶段（Phase），不是独立 Agent
+Gate 是质量门禁，不是任务分发器
+```
 
 > **入口纪律**：会话启动/每轮只强制读 **1 个文件**（`STATE.md`，~100 tokens）。
 > 其余文件**按阶段/按需**加载，禁止在入口一次性全量吃进上下文。
@@ -64,6 +83,25 @@
 ## 10 Agent phases
 Spec → Design (if UI) → SpecGate/DesignGate → Architecture → ArchitectureGate → Context → Dev → PermissionGate (high-risk) → Review → Test → Quality → Writeback → Memory → WritebackGate → Archive.
 
+### CR 创建命令（统一入口）
+
+每个 CR 必须通过 `init_cr.py` 创建，确保使用统一模板：
+
+```bash
+# 标准流程（自动使用 CR-TEMPLATE）
+python skill/scripts/init_cr.py CR-001 "需求标题" [REQUESTER]
+
+# 快速修复（fast lane）
+python skill/scripts/init_cr.py CR-002 "Bug 修复" --lane fast
+
+# 指定 DeliverHQ 目录
+python skill/scripts/init_cr.py CR-003 "新功能" --home /path/to/project/DeliverHQ
+```
+
+- **模板来源**：`skill/change-requests/CR-TEMPLATE/`（自动使用，无需手动复制）
+- **产物落点**：`<home>/change-requests/<CR-ID>/`
+- **Lane 选择**：`fast`（小改动）/ `standard`（常规）/ `high-risk`（高风险，需人工审批）
+
 > ArchitectureGate（第二道人工门禁）：编码前必须有 `architecture-design.md` 并经人工确认。
 > 缺架构设计或未替换模板变量 → BLOCKED；未人工确认 → 警告。对应 `python scripts/architecturegate.py`。
 
@@ -123,6 +161,9 @@ Spec → Design (if UI) → SpecGate/DesignGate → Architecture → Architectur
 
 ### Test 阶段（+1）
 - 上述 6 个 + `test-plan.md`
+
+> **Roadmap 功能（不在本文档承诺范围内）**：Legacy Scan（逆向需求发现）是 roadmap 状态，
+> 详见 `CAPABILITY-MATRIX.md` 中的 `default_enabled` 列。当前默认 pipeline 不包含此功能。
 
 ### Quality 阶段（+2）
 - 上述 7 个 + `quality-report.md` + `docs/rules.md`
