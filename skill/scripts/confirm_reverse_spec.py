@@ -22,7 +22,7 @@ confirm_reverse_spec.py —— 逆向需求人工裁决辅助
 
 import argparse
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from common import load_yaml
 
@@ -33,6 +33,9 @@ except ImportError:
     sys.exit(2)
 
 
+DEFAULT_TIMEOUT_HOURS = 48
+
+
 def load(path):
     return load_yaml(path)
 
@@ -40,6 +43,29 @@ def load(path):
 def save(path, data):
     with open(path, "w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+
+def check_timeout(candidates_data, timeout_hours=DEFAULT_TIMEOUT_HOURS):
+    """检查是否有未裁决条目超过超时时间。
+
+    Returns:
+        List of (candidate, hours_pending) tuples that have exceeded timeout.
+    """
+    timed_out = []
+    now = datetime.now()
+    for c in candidates_data.get("candidates", []) or []:
+        hd = c.get("human_decision", {}) or {}
+        if c.get("review_required") and hd.get("status") == "unconfirmed":
+            created = hd.get("created_at") or c.get("created_at")
+            if created:
+                try:
+                    created_dt = datetime.fromisoformat(created)
+                    pending_hours = (now - created_dt).total_seconds() / 3600
+                    if pending_hours >= timeout_hours:
+                        timed_out.append((c.get("id"), c.get("source", {}).get("module", ""), pending_hours))
+                except Exception:
+                    pass
+    return timed_out
 
 
 def list_pending(data):
@@ -95,6 +121,10 @@ def main():
     parser.add_argument("--criteria", help="验收条件（confirm/modify 必填）")
     parser.add_argument("--note", help="备注（reject 建议填，说明为何是 bug/债）")
     parser.add_argument("--by", default="human", help="裁决人")
+    parser.add_argument("--timeout-hours", type=int, default=DEFAULT_TIMEOUT_HOURS,
+                        help=f"超时小时数（默认 {DEFAULT_TIMEOUT_HOURS}）")
+    parser.add_argument("--check-timeout", action="store_true",
+                        help="检查超时并列出超时的待裁决条目")
     args = parser.parse_args()
 
     path = Path(args.candidates)
@@ -104,7 +134,18 @@ def main():
 
     data = load(path)
 
-    if args.list or not args.action:
+    # P1-3: 超时检查
+    if args.check_timeout or args.list:
+        timed_out = check_timeout(data, args.timeout_hours)
+        if timed_out:
+            print(f"\n⏰ 以下条目已超过 {args.timeout_hours} 小时未裁决（需升级）:")
+            for cid, module, hours in timed_out:
+                escalation = "⚠️" if hours >= args.timeout_hours * 2 else "🔴"
+                print(f"  {escalation} {cid} | {module} | {hours:.0f}h pending")
+        elif args.check_timeout:
+            print(f"✅ 所有待裁决条目均在 {args.timeout_hours}h 内")
+
+    if args.list or (not args.action and not args.check_timeout):
         list_pending(data)
         return
 
