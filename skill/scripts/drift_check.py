@@ -100,14 +100,44 @@ def check_drift(cr_dir, root):
     section = _anchor_section(prd_text, anchor) or ''
     is_reverse = bool(re.search(r'(状态|status)[^\n]*reverse-engineered', section))
 
+    # P1-4: suggested_fix 字段
+    suggested_fix = None
     if recorded != cur:
         msg = 'reconcile: %s (cr_hash %s vs current %s)' % (anchor, recorded or '∅', cur)
         if is_reverse:
             warnings.append('%s [reverse-engineered 锚点，仅警告]' % msg)
         else:
+            # confirmed 锚点：判断应该改 PRD 还是改 CR
+            suggested_fix = _suggest_fix_direction(cr_dir, prd_dir=prd.parent, anchor=anchor)
             warnings.append('%s [confirmed 锚点 → SpecGate NEED_HUMAN_DECISION]' % msg)
+            warnings.append('  💡 建议: %s' % suggested_fix)
 
     return blockers, warnings
+
+
+def _suggest_fix_direction(cr_dir, prd_dir, anchor):
+    """判断 drift 修复方向。
+
+    heuristic:
+    - 若 acceptance-spec.md 最近更新 > PRD.md 更新时间 → 建议更新 PRD
+    - 若 PRD.md 最近更新 > acceptance-spec.md 更新时间 → 建议更新 CR 的 prd_hash
+    - 若无法判断 → 提示人工裁决
+    """
+    spec = cr_dir / 'acceptance-spec.md'
+    prd = prd_dir / 'PRD.md'
+
+    try:
+        spec_mtime = spec.stat().st_mtime
+        prd_mtime = prd.stat().st_mtime
+
+        if prd_mtime > spec_mtime:
+            return "更新 CR 的 prd_hash（PRD 已修改，同步到 acceptance-spec）"
+        elif spec_mtime > prd_mtime:
+            return "更新 PRD（CR 已更新，需同步 PRD 锚点）"
+    except Exception:
+        pass
+
+    return "人工裁决（判断是 PRD 变了还是 CR 记录有误）"
 
 
 def main():

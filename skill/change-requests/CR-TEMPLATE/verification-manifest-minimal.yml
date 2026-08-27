@@ -1,0 +1,24 @@
+# Verification Manifest - Minimal Template
+# 最低门槛版本：3 字段通过 QualityGate
+# 通过后建议补全完整版（见 verification-manifest.yml）
+
+# === 必填字段 ===
+verification:
+  # 测试命令（QualityGate 会真跑）
+  test_command: "npm test"        # 或 pytest / dotnet test / 等
+
+  # 覆盖率门槛（数字，表示百分比）
+  coverage_threshold: 80
+
+  # 开发者签名（防止\"声明完成但没跑\"）
+  signature:
+    developer: "你的名字"
+    date: "{{date}}"
+    confirmed: true              # true = 确认已跑过 test_command 并通过
+
+# === 可选：后续建议补全 ===
+# 补全后删除本节，或将 mode 改为 full
+upgrade_suggestions:
+  - "添加 build 验证命令"
+  - "添加 lint 检查"
+  - "添加 must_haves 断言"
