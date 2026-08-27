@@ -287,7 +287,7 @@ def _create_runtime_dirs(target_dir: Path):
             _print(f"  - {directory.relative_to(target_dir)}")
 
 
-def _create_worktree(cr_id: str, project_root: Path):
+def _create_worktree(cr_id: str, project_root: Path, fail_on_error: bool = True):
     _print("\n🌲 创建 worktree...")
     result = subprocess.run(
         [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
@@ -302,9 +302,15 @@ def _create_worktree(cr_id: str, project_root: Path):
         _print(f"📂 切换到 worktree: cd .claude/worktrees/{cr_id}")
         return project_root / ".claude" / "worktrees" / cr_id
 
-    _print(f"⚠️  Worktree 创建失败: {result.stderr.strip()}")
-    _print(f"   可以稍后手动创建: python scripts/worktree_manager.py create {cr_id}")
-    return None
+    error_msg = f"Worktree 创建失败: {result.stderr.strip()}"
+    if fail_on_error:
+        _print(f"❌ 错误: {error_msg}")
+        _print(f"   修复后手动创建: python scripts/worktree_manager.py create {cr_id}")
+        raise RuntimeError(error_msg)
+    else:
+        _print(f"⚠️  {error_msg}")
+        _print(f"   可以稍后手动创建: python scripts/worktree_manager.py create {cr_id}")
+        return None
 
 
 def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, home=None, full_template=False):
@@ -355,9 +361,17 @@ def init_cr(cr_id, cr_name, requester="", lane="standard", use_worktree=False, h
 
     if use_worktree:
         project_root = home_dir.parent  # home_dir 是 <项目根>/DeliverHQ，项目根是其父目录
-        worktree_path = _create_worktree(cr_id, project_root)
-        if worktree_path is not None:
-            set_worktree_path(target_dir, str(worktree_path.resolve()))
+        try:
+            worktree_path = _create_worktree(cr_id, project_root, fail_on_error=True)
+            if worktree_path is not None:
+                set_worktree_path(target_dir, str(worktree_path.resolve()))
+        except RuntimeError:
+            # P0-3: worktree 失败时阻止 CR 创建（已创建的目录由 caller 清理或手动处理）
+            _print(f"\n❌ CR 创建被阻止：worktree 创建失败")
+            _print(f"   修复环境后重新运行 init_cr，或手动执行:")
+            _print(f"   python scripts/worktree_manager.py create {cr_id}")
+            _print(f"   然后编辑 {target_dir}/state.yml 添加 worktree_path")
+            return False
 
     _print("\n📋 下一步:")
     _print(f"1. 编辑 {target_dir}/request.md 填写需求")

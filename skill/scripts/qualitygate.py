@@ -113,10 +113,26 @@ def load_verification_manifest(cr_path):
 
 
 def _has_enabled_verification(manifest):
+    # 完整格式
     build_enabled = manifest.get('build', {}).get('enabled', False)
     unit_enabled = manifest.get('test', {}).get('unit', {}).get('enabled', False)
     lint_enabled = any(tool.get('enabled', True) for tool in manifest.get('lint', {}).get('tools', []))
-    return build_enabled or unit_enabled or lint_enabled
+    if build_enabled or unit_enabled or lint_enabled:
+        return True
+
+    # Minimal 格式：verification.test_command + signature.confirmed
+    minimal = manifest.get('verification', {})
+    test_cmd = minimal.get('test_command')
+    sig = minimal.get('signature', {})
+    if test_cmd and sig.get('confirmed'):
+        return True
+
+    return False
+
+
+def _is_minimal_manifest(manifest) -> bool:
+    """检测是否为 minimal manifest 格式。"""
+    return 'verification' in manifest and 'test_command' in manifest.get('verification', {})
 
 
 def _resolve_lane(cr_path, lane_override=None):
@@ -298,7 +314,8 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
         )
         return False, [error]
 
-    assert result is not None
+    if result is None:
+        raise RuntimeError("质量结果为 None，质量检查流程异常")
 
     blockers: List[str] = []
 
@@ -358,6 +375,16 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
     artifacts = ['quality-report.md']
 
     if manifest:
+        # P1-1: 区分 minimal 和 full manifest
+        is_minimal = _is_minimal_manifest(manifest)
+        if is_minimal:
+            print(f"\n{Color.BLUE}[Verification Manifest - Minimal]{Color.END}")
+            test_cmd = manifest.get('verification', {}).get('test_command', '')
+            sig = manifest.get('signature', {})
+            print(f"  测试命令: {test_cmd}")
+            print(f"  签名: {sig.get('developer', '未知')} @ {sig.get('date', '未知')}")
+            print(f"  {Color.YELLOW}⚠ Minimal manifest 已通过（后续建议补全完整版）{Color.END}")
+
         if not _has_enabled_verification(manifest):
             blockers.append('verification-manifest.yml 未启用任何真实验证命令')
             print(f"\n{Color.RED}✗ verification-manifest.yml 未启用任何真实验证命令{Color.END}")

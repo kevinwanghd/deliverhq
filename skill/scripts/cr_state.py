@@ -470,9 +470,46 @@ def set_worktree_path(cr_path: Path, worktree_path: Optional[str]) -> CRStateSna
     return state
 
 
-def format_state_report(state: CRStateSnapshot) -> str:
+def _blocked_duration_hours(state: CRStateSnapshot) -> Optional[int]:
+    """计算 CR 被阻塞的时长（小时）。"""
+    if state.current_state != CRState.BLOCKED and not state.blocked_by:
+        return None
+    if not state.updated_at:
+        return None
+    try:
+        updated = datetime.fromisoformat(state.updated_at)
+        delta = datetime.now() - updated
+        return int(delta.total_seconds() / 3600)
+    except Exception:
+        return None
+
+
+def _next_gate_suggestion(state: CRStateSnapshot) -> Optional[str]:
+    """根据当前状态生成下一步建议命令。"""
+    next_gate = state.next_required_gate or state.next_gate
+    if not next_gate:
+        return None
+
+    cr_path_hint = f"<CR目录>"  # caller should replace with actual path
+
+    suggestions = {
+        "spec": "python scripts/specgate.py <CR目录>",
+        "design": "python scripts/designgate.py <CR目录>",
+        "architecture": "python scripts/architecturegate.py <CR目录>",
+        "context": "python scripts/context_window_check.py <CR目录>",
+        "pre_dev": "python scripts/pre_dev_gate.py <CR目录>",
+        "review": "python scripts/reviewgate.py <CR目录>",
+        "quality": "python scripts/qualitygate.py <CR目录>",
+        "deploy": "python scripts/deploygate.py <CR目录>",
+        "writeback": "python scripts/writeback_gate.py <CR目录>",
+    }
+    return suggestions.get(next_gate)
+
+
+def format_state_report(state: CRStateSnapshot, cr_path: Optional[Path] = None) -> str:
     """格式化状态报告。"""
 
+    cr_display = cr_path.name if cr_path else state.cr_id
     report = [
         "╔════════════════════════════════════════════════════════╗",
         f"║  CR 状态快照: {state.cr_id}",
@@ -487,12 +524,37 @@ def format_state_report(state: CRStateSnapshot) -> str:
 
     if state.last_gate:
         report.append(f"最后执行 Gate: {state.last_gate}")
+
+    # 阻塞信息
     if state.blocking_reason:
         report.append(f"🚫 阻塞原因: {state.blocking_reason}")
     if state.blocked_by:
         report.append(f"🚧 blocked_by: {', '.join(state.blocked_by)}")
+
+    # 阻塞时长
+    blocked_hours = _blocked_duration_hours(state)
+    if blocked_hours is not None:
+        if blocked_hours >= 48:
+            report.append(f"⏰ 卡点已达 {blocked_hours} 小时 ⚠️")
+        else:
+            report.append(f"⏰ 卡点时长: {blocked_hours} 小时")
+
+    # 下一个 Gate
     if state.next_required_gate:
         report.append(f"📍 下一个 Gate: {state.next_required_gate}")
+
+    # 下一步建议
+    next_cmd = _next_gate_suggestion(state)
+    if next_cmd and cr_path:
+        actual_cmd = next_cmd.replace("<CR目录>", str(cr_path))
+        report.append("")
+        report.append("💡 下一步建议:")
+        report.append(f"   {actual_cmd}")
+    elif next_cmd:
+        report.append("")
+        report.append("💡 下一步建议:")
+        report.append(f"   {next_cmd}")
+
     if state.requires_human:
         report.append("⚠️  需要人工确认")
 
@@ -528,6 +590,6 @@ if __name__ == "__main__":
     state = load_state(cr_path)
 
     if state:
-        print(format_state_report(state))
+        print(format_state_report(state, cr_path))
     else:
         print(f"⚠️  未找到状态文件: {cr_path}/state.yml")
