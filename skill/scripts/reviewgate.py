@@ -324,7 +324,8 @@ def check_reviewgate(cr_path):
         )
         return False, blockers
 
-    assert result is not None
+    if result is None:
+        raise RuntimeError("审查结果为 None，审查流程异常")
     print(f"{Color.BLUE}[审查报告]{Color.END}")
     print(f"  审查结论: {result['verdict']}")
 

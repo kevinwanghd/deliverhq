@@ -245,6 +245,8 @@ def main() -> int:
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
         print(f"[risk-merge-decision] ERROR: {exc}", file=sys.stderr)
         return 2
+
+    # decision 在此处定义，确保在 try 块成功执行后使用
     if decision["status"] == "PASS":
         return 0
     if decision["status"] == "WAITING_APPROVAL":
