@@ -304,6 +304,27 @@ def transition_state(
     return state
 
 
+def _check_phase_docs_on_transition(cr_path: Path, new_phase: str) -> List[str]:
+    """Gate 通过后检查下一阶段所需的文档是否存在（P2-1）。
+
+    Returns:
+        缺失文档列表。为避免阻断现有流程，仅返回警告，不抛出异常。
+    """
+    try:
+        from pathlib import Path as PP
+        import sys
+        sys.path.insert(0, str(Path(__file__).parent))
+        from validate_phase_docs import validate_phase_docs
+        passed, blockers, _ = validate_phase_docs(cr_path, new_phase)
+        if blockers:
+            print(f"\n⚠️ [PhaseDocs] 进入阶段 {new_phase} 前需补充文档:")
+            for b in blockers:
+                print(f"    - {b}")
+        return blockers
+    except Exception:
+        return []  # 检查失败不影响主流程
+
+
 def update_gate_status(
     cr_path: Path,
     gate_name: str,
@@ -342,6 +363,8 @@ def update_gate_status(
         if state_after_pass:
             state.current_state = _coerce_state(state_after_pass)
         if current_phase:
+            # P2-1: 阶段切换前检查文档是否就绪（仅警告，不阻断）
+            _check_phase_docs_on_transition(cr_path, current_phase)
             state.current_phase = current_phase
         if current_owner:
             state.current_owner = current_owner
