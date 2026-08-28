@@ -139,6 +139,8 @@ class QuestionBank:
 # 歧义检测
 # ---------------------------------------------------------------------------
 
+# risk:todo-no-context reason:TODO literal in FUZZY_WORDS/PLACEHOLDER_PATTERNS is detection pattern data, not real TODO owner:kevin reviewed:2026-08-28
+
 FUZZY_WORDS = [
     "可能", "大概", "优化", "改进", "完善", "调整",
     "也许", "似乎", "差不多", "基本上", "原则上",
@@ -148,6 +150,7 @@ FUZZY_WORDS = [
 ]
 
 PLACEHOLDER_PATTERNS = [
+    # risk:todo-no-context reason:TODO regex in PLACEHOLDER_PATTERNS is detection pattern, not real TODO owner:kevin reviewed:2026-08-28
     r"\[待确认\]",
     r"\[NEEDS?\s+CLARIFICATION",
     r"\{\{.*?\}\}",
