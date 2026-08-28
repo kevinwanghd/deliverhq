@@ -52,9 +52,9 @@ Shared design vocabulary (module/depth/seam/interface/adapter/leverage/locality)
 
 ### improve-codebase-architecture
 
-Scan codebase for deepening opportunities, generate HTML report, then grill through chosen candidate. Calls codebase-design and grill-the-user.
+Scan codebase for deepening spots, generate HTML report, then grill through chosen candidate. Calls codebase-design and grill-the-user.
 
-**Trigger**: `improve-architecture`, `架构改进`, `深化模块`, `architecture report`
+**Trigger**: `improve-architecture`, `架构改进`, `深化模块`, `architecture report`, `deepen architecture`
 
 ### teach
 
