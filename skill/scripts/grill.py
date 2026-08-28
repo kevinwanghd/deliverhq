@@ -139,25 +139,34 @@ class QuestionBank:
 # 歧义检测
 # ---------------------------------------------------------------------------
 
-# risk:todo-no-context reason:"TODO literal in FUZZY_WORDS/PLACEHOLDER_PATTERNS is detection data, not real TODO" owner:kevin reviewed:2026-08-28
 
+# risk-begin
+# type: todo-no-context
+# reason: "fuzzy word list contains TBD-like terms, not real unresolved items"
+# owner: kevin
+# reviewed: 2026-08-28
 FUZZY_WORDS = [
-    # risk:todo-no-context reason:"TODO literal in FUZZY_WORDS is detection data, not real TODO" owner:kevin reviewed:2026-08-28
     "可能", "大概", "优化", "改进", "完善", "调整",
     "也许", "似乎", "差不多", "基本上", "原则上",
     "待定", "TBD", "TODO", "后续", "再议",
     "待确认", "需讨论", "视情况", "灵活处理",
     "尽快", "适当", "合理", "正常", "常规",
 ]
+# risk-end
 
+# risk-begin
+# type: todo-no-context
+# reason: "placeholder regex patterns contain TBD-like strings, not real unresolved items"
+# owner: kevin
+# reviewed: 2026-08-28
 PLACEHOLDER_PATTERNS = [
-    # risk:todo-no-context reason:"TODO regex in PLACEHOLDER_PATTERNS is detection pattern, not real TODO" owner:kevin reviewed:2026-08-28
     r"\[待确认\]",
     r"\[NEEDS?\s+CLARIFICATION",
     r"\{\{.*?\}\}",
     r"<.*?>",
     r"TODO",
 ]
+# risk-end
 
 
 def detect_fuzzy_phrases(content: str) -> list[str]:
