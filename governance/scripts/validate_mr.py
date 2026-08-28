@@ -342,8 +342,8 @@ def resolve_mode(cfg: dict, force_soft: bool) -> tuple[str, str]:
 # risk:untested reason:"has test coverage in tests.test_regressions.ChineseContentValidationTests but CI can't see .governance/test-evidence.jsonl" owner:@wangwf reviewed:2026-07-26
 def _check_chinese_content(text: str) -> bool:
     """检查文本是否包含足够的中文内容（至少20个中文字符）。"""
-    # 统计中文字符（CJK统一表意文字）
-    chinese_chars = re.findall(r'[一-鿿]', text)
+    # 统计中文字符（CJK统一表意文字，使用完整的 Unicode 区间）
+    chinese_chars = re.findall(r'[\u4e00-\u9fff]', text)
     return len(chinese_chars) >= 20
 
 
