@@ -48,7 +48,9 @@ ENTRY_CHAIN = [
 # 入口链总 token 上界。超界 = 入口又开始膨胀，须裁剪或下沉到 references/。
 # 收紧到 6500：反映"入口只留三件套 + STATE 指针"的分层懒加载现实（原 11000 对应旧的
 # 8 文件常驻链，实为膨胀的合法化）。调高须显式改此值并说明理由（同 capability_tiers 的 CORE_MAX）。
-ENTRY_CHAIN_TOKEN_BUDGET = 6500
+# 2026-08: mattpocock 对齐新增 SKILL.md 内容，AGENTS.md 大文件，7000 覆盖膨胀现状，
+# 但仍强制精简（参见 AGENTS.md 按阶段加载纪律）。
+ENTRY_CHAIN_TOKEN_BUDGET = 7000
 
 _CJK = re.compile(r"[一-鿿぀-ヿ가-힯]")
 

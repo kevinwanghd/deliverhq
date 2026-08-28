@@ -19,6 +19,7 @@ risk_annotations:
     - "skill/change-requests/**"
     - "skill/examples/**"
     - "skill/docs/superpowers/**"
+    - "skill/scripts/grill.py"   # TODO data lists: FUZZY_WORDS / PLACEHOLDER_PATTERNS contain TODO string literals for detection, not real TODOs
     - "**/node_modules/**"
     - "**/dist/**"
     - "**/build/**"

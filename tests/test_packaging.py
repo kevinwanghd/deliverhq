@@ -31,7 +31,8 @@ class NpmPackagingTests(unittest.TestCase):
 
     def test_packaged_file_budget_is_enforced(self):
         self.assertLessEqual(len(self.files), 260)
-        self.assertLessEqual(self.pack["unpackedSize"], 1_280_000)
+        # 预算：1.25MB → 1.3MB → 1.35MB（mattpocock/skills 对齐新增 skill 文件 + PR#56 热修内容）
+        self.assertLessEqual(self.pack["unpackedSize"], 1_350_000)
 
     def test_internal_working_material_is_excluded(self):
         # 开发资产已物理移到仓库根 dev/（不在 skill/ 内，天然不进包）。
