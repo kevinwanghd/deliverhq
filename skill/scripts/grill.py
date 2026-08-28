@@ -141,10 +141,10 @@ class QuestionBank:
 
 
 # risk-begin
-# type: todo-no-context
-# reason: "fuzzy word list contains TBD-like terms, not real unresolved items"
-# owner: kevin
-# reviewed: 2026-08-28
+# risk:type=todo-no-context
+# risk:reason="fuzzy word list contains TBD-like terms, not real unresolved items"
+# risk:owner=kevin
+# risk:reviewed=2026-08-28
 FUZZY_WORDS = [
     "可能", "大概", "优化", "改进", "完善", "调整",
     "也许", "似乎", "差不多", "基本上", "原则上",
@@ -155,10 +155,10 @@ FUZZY_WORDS = [
 # risk-end
 
 # risk-begin
-# type: todo-no-context
-# reason: "placeholder regex patterns contain TBD-like strings, not real unresolved items"
-# owner: kevin
-# reviewed: 2026-08-28
+# risk:type=todo-no-context
+# risk:reason="placeholder regex patterns contain TBD-like strings, not real unresolved items"
+# risk:owner=kevin
+# risk:reviewed=2026-08-28
 PLACEHOLDER_PATTERNS = [
     r"\[待确认\]",
     r"\[NEEDS?\s+CLARIFICATION",
