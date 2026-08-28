@@ -1,0 +1,35 @@
+{
+  "name": "deliverhq-skills",
+  "version": "0.1.0",
+  "description": "DeliverHQ skills aligned with mattpocock/skills format. AI delivery anti-rollback governance framework + code review, TDD, domain modeling, architecture improvement, and meta skills (handoff, grilling, teaching).",
+  "author": {
+    "name": "DeliverHQ",
+    "url": "https://github.com/kevinwanghd/deliverhq"
+  },
+  "homepage": "https://github.com/kevinwanghd/deliverhq",
+  "repository": "https://github.com/kevinwanghd/deliverhq",
+  "license": "MIT",
+  "keywords": [
+    "delivery",
+    "governance",
+    "code-review",
+    "tdd",
+    "spec",
+    "domain-modeling",
+    "handoff",
+    "grilling",
+    "architecture"
+  ],
+  "skills": [
+    "./skills/engineering/handoff",
+    "./skills/engineering/code-review",
+    "./skills/engineering/tdd",
+    "./skills/engineering/grill-with-docs",
+    "./skills/engineering/grill-the-user",
+    "./skills/engineering/to-spec",
+    "./skills/engineering/domain-modeling",
+    "./skills/engineering/codebase-design",
+    "./skills/engineering/improve-codebase-architecture",
+    "./skills/engineering/teach"
+  ]
+}

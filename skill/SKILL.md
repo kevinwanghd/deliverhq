@@ -211,3 +211,34 @@ python scripts/specgate.py change-requests/CR-001/acceptance-spec.md     # 3. �
 ---
 
 **版本**：v5.20.0 ｜ **一句话**：文档门禁 + 证据驱动 + 对抗式验证（信证据不信声明）；日常 CR 用 5 个动词收口。
+
+## Matt Pocock Skills 对齐层
+
+DeliverHQ 同步吸收 mattpocock/skills 格式，在 `skills/` 下建立了独立 skill 库。
+两者关系：
+
+| 层 | 位置 | 作用 |
+|---|---|---|
+| 主入口 | `SKILL.md`（根） | DeliverHQ 治理流程的唯一入口 |
+| mattpocock 对齐 | `skills/engineering/` | 格式对齐 + 能力补全 |
+| 脚本实现 | `scripts/*.py` | 可执行的后端 |
+
+mattpocock 对齐 skill：
+
+- `handoff` — 会话交接（集成 `handoff_state.py`）
+- `code-review` — 双轴审查（ReviewGate 核心）
+- `tdd` — 红绿重构（QualityGate 集成）
+- `grill-with-docs` — 文档约束式烤问
+- `to-spec` — 对话合成 acceptance-spec
+- `domain-modeling` — 领域模型构建
+- `codebase-design` — 架构词汇（module/depth/seam）
+- `improve-codebase-architecture` — 架构深化（HTML 报告 + grilling）
+- `teach` — 跨会话教学
+- `grill-the-user` — 结构化烤问循环
+
+Skill 之间互相引用形成网络：
+`to-spec` → `grill-with-docs` → `domain-modeling` → `codebase-design`
+`improve-codebase-architecture` → `codebase-design` + `grill-the-user`
+`handoff` → `handoff_state.py`（状态恢复）
+
+可用 `skill_view(name='handoff')` 等加载具体 skill。
