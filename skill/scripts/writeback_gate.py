@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 import subprocess
 import os
+import re
+from typing import List
 
 from cr_state import update_gate_from_result
 from runtime_support import configure_console
@@ -61,6 +63,41 @@ def candidate_rules_ready(candidate_path):
     if "## Candidate Rule:" not in active_section:
         return False, "docs/rules-candidates.md 缺少候选规则条目"
     return True, ""
+
+
+def _check_mistake_book_for_promotion(cr_id: str) -> List[str]:
+    """P2-2: 检查 mistake-book 中与本 CR 相关的条目，提示晋升候选。
+
+    Returns:
+        建议晋升的条目列表
+    """
+    script_dir = Path(__file__).parent
+    mistake_book_path = script_dir.parent / "docs" / "mistake-book.md"
+
+    if not mistake_book_path.exists():
+        return []
+
+    try:
+        content = mistake_book_path.read_text(encoding='utf-8')
+
+        # 查找与本 CR 相关的错误条目
+        related_entries: List[str] = []
+
+        # 提取所有错误条目块
+        blocks = re.split(r'\n### 错误：', content)
+        for block in blocks[1:]:  # 跳过第一个空块
+            if f"- **{cr_id}**" in block or f"CR-ID**： {cr_id}" in block:
+                # 检查是否已标记为 rules_candidate=true
+                if '**rules_candidate**：true' in block or '**rules_candidate**： true' in block:
+                    # 提取错误描述前 60 字符作为摘要
+                    lines = block.strip().split('\n')
+                    if lines:
+                        summary = lines[0][:60]
+                        related_entries.append(summary)
+
+        return related_entries
+    except Exception:
+        return []
 
 def check_git_merged(cr_path):
     """检查代码是否已合并（简化版：检查是否有未提交变更）"""
@@ -168,6 +205,19 @@ def check_writeback_gate(cr_path):
         warnings.append("writeback-report.md 未明确说明是否产生规则候选")
     else:
         print(f"  {Color.GREEN}✓{Color.END} 报告已明确声明本次无新规则")
+
+    # P2-2: 检查 mistake-book 中与本 CR 相关的候选晋升条目
+    print(f"\n{Color.BLUE}[Mistake Book 晋升候选检查]{Color.END}")
+    cr_id_for_check = Path(cr_path).name
+    related_mistakes = _check_mistake_book_for_promotion(cr_id_for_check)
+    if related_mistakes:
+        print(f"  {Color.YELLOW}⚠{Color.END} 发现 {len(related_mistakes)} 条与本 CR 相关的 mistake-book 条目已标记为候选:")
+        for entry in related_mistakes[:5]:  # 最多显示 5 条
+            print(f"    - {entry[:60]}...")
+        print(f"  {Color.YELLOW}建议: 运行 promote_rule_candidate.py 晋升相关条目{Color.END}")
+        warnings.append(f"存在 {len(related_mistakes)} 条待晋升的 mistake-book 条目")
+    else:
+        print(f"  {Color.GREEN}✓{Color.END} mistake-book 中无与本 CR 直接相关的待晋升条目")
 
     # 检查 4: 可追溯性
     print(f"\n{Color.BLUE}[可追溯性]{Color.END}")
