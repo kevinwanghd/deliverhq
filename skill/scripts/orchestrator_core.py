@@ -21,7 +21,7 @@ from runtime_support import configure_console
 # validate_verbs() 会据此跳过派生校验而非误报。
 try:
     from gate_composition_check import FROZEN_GATES as _FROZEN_GATES
-except Exception:  # pragma: no cover - 防御性退化
+except ImportError:  # pragma: no cover - 防御性退化，仅捕获导入错误
     _FROZEN_GATES = {}
 
 import os as _os

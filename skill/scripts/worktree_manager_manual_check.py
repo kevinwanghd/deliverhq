@@ -17,12 +17,18 @@ from worktree_manager import WorktreeManager, WorktreeStatus
 
 def run_command(cmd):
     """Run shell command"""
+    # 转换为列表形式，避免 shell=True 安全风险
+    if isinstance(cmd, str):
+        cmd_list = cmd.split()
+    else:
+        cmd_list = list(cmd)
     result = subprocess.run(
-        cmd,
-        shell=True,
+        cmd_list,
+        shell=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        universal_newlines=True
+        text=True,
+        timeout=30
     )
     return result.returncode == 0, result.stdout, result.stderr
 
@@ -115,8 +121,8 @@ def test_max_worktrees_limit():
         for cr_id in created:
             try:
                 manager.cleanup(cr_id, force=True)
-            except:
-                pass
+            except Exception as e:
+                pass  # Cleanup failures are non-critical
 
 
 def test_invalid_cr_id():
@@ -236,8 +242,8 @@ def test_worktree_isolation():
         for cr_id in ["CR-TS1", "CR-TS2"]:
             try:
                 manager.cleanup(cr_id, force=True)
-            except:
-                pass
+            except Exception as e:
+                pass  # Cleanup failures are non-critical
 
 
 def run_all_tests():

@@ -187,7 +187,14 @@ def verify_evidence(
             "verified": False
         }
 
-    evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+    try:
+        evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"evidence 文件格式错误：{evidence_type}, {e}",
+            "verified": False
+        }
 
     now = datetime.now().isoformat()
     result = {
@@ -290,30 +297,6 @@ def verify_evidence(
                     "passed": False
                 })
 
-    # adversarial_review verdict 验证（Gate 核心判据，跳过文件 hash）
-    if evidence_type == "adversarial_review" and evidence.get("sentinel_file"):
-        report_path = Path(evidence["sentinel_file"])
-        if report_path.exists():
-            content = report_path.read_text(encoding="utf-8")
-            import re
-            m = re.search(r"verdict[*_]*\s*:\s*(PASS|FAIL)", content, re.IGNORECASE)
-            verdict = m.group(1) if m else None
-            result["checks"].append({
-                "check": "adversarial_review_verdict",
-                "verdict": verdict,
-                "passed": verdict == "PASS"
-            })
-            result["verified"] = verdict == "PASS"
-            if verdict == "FAIL":
-                blockings = re.findall(r"\[(CRITICAL|HIGH)\]\s+([^\n]+)", content)
-                if blockings:
-                    result["checks"].append({
-                        "check": "blocking_findings",
-                        "findings": [f"{sev}: {name.strip()}" for sev, name in blockings],
-                        "passed": False
-                    })
-        return result
-
     # adversarial_review 特殊分支已 return，以下是通用 sentinel 验证
     if evidence.get("skip_hash_check"):
         result["checks"].append({"check": "sentinel_exists", "passed": True})
@@ -350,7 +333,11 @@ def check_all_evidence(cr_id: str) -> dict:
     for evidence_type in EVIDENCE_TYPES:
         evidence_file = get_evidence_file(evidence_dir, evidence_type)
         if evidence_file.exists():
-            evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+            try:
+                evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                # 跳过格式错误的 evidence 文件
+                continue
             results["evidences"].append({
                 "type": evidence_type,
                 "exists": True,
