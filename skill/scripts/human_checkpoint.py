@@ -106,6 +106,29 @@ AI 署名：[AI-{model_name}]
 输入 'N: 具体说明' 修改文案。
 """,
         "auto_proceed_allowed": False
+    },
+    # HK-V: verify 动词失败时的人工关卡（Layer 5）
+    "HK-V": {
+        "name": "Verify 失败核查",
+        "description": "verify 动词四步 Layer 失败后",
+        "wait_for": "用户'继续/go' 或 'N: 修改说明'",
+        "prompt": """
+verify 动词执行失败，请检查分层报告：
+
+{layer_report_summary}
+
+阻断项：
+{blockers}
+
+下一步：
+- 输入 'go' 或 '继续'：接受当前状态，继续推进（记录重试假设）
+- 输入 'N: 具体说明'：要求修改后重试
+- 输入 'stop'：暂停，保留当前状态
+
+提示：verify 四步（goal_contract → review → quality → anti_gaming）均失败，
+需逐层修复后重试。可用 `retry_guard.py` 记录同类失败次数。
+""",
+        "auto_proceed_allowed": False
     }
 }
 
@@ -273,6 +296,25 @@ def run_checkpoint(
         )
         print(prompt)
 
+    # HK-V: verify 失败人工核查（Layer 5）
+    elif checkpoint_id == "HK-V":
+        # context 形如 JSON 字符串，含分层报告摘要
+        import json as _json
+        layer_summary = "（无可用报告）"
+        blockers_text = "（无阻断项）"
+        try:
+            data = _json.loads(context) if context else {}
+            layer_summary = data.get("summary", layer_summary)
+            blockers_text = data.get("blockers_text", blockers_text)
+        except Exception:
+            blockers_text = context or blockers_text
+
+        prompt = cp["prompt"].format(
+            layer_report_summary=layer_summary,
+            blockers=blockers_text,
+        )
+        print(prompt)
+
     print()
     print("-" * 60)
 
@@ -335,7 +377,7 @@ def main():
     parser.add_argument(
         "checkpoint_id",
         choices=list(CHECKPOINTS.keys()),
-        help="关卡 ID"
+        help="关卡 ID（HK-0~HK-3 或 HK-V）"
     )
     parser.add_argument(
         "--cr-id",

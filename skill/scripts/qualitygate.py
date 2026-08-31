@@ -6,11 +6,13 @@ QualityGate - 质量门禁检查
 
 
 import argparse
+import json
 import os
 import re
 import shlex
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -504,6 +506,27 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
     return True, []
 
 
+def _write_evidence_json(cr_path: Path, passed: bool, blockers: List[str]):
+    """写 evidence/quality-result.json（供 verify_report.py 汇总）。"""
+    ev_dir = cr_path / "evidence"
+    ev_dir.mkdir(parents=True, exist_ok=True)
+    out = ev_dir / "quality-result.json"
+    payload = {
+        "schema_version": "deliverhq-gate-result/v1",
+        "gate_name": "quality",
+        "result": "pass" if passed else "blocked",
+        "timestamp": datetime.now().isoformat(),
+        "blocking_items": blockers,
+        "warnings": [],
+        "commands_run": [],
+        "artifacts": ["quality-report.md"],
+        "next_action": "进入 WritebackGate" if passed else "修复质量问题并重新运行 QualityGate",
+        "metadata": {},
+    }
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✅ evidence JSON 已写入：{out}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='QualityGate 检查')
     parser.add_argument('cr_path', help='CR 目录路径')
@@ -513,8 +536,12 @@ def main():
     args = parser.parse_args()
 
     mode = os.environ.get('QUALITYGATE_MODE') or args.mode
-    passed, _ = check_qualitygate(args.cr_path, mode=mode, lane=args.lane)
-
+    cr_path = Path(args.cr_path)
+    passed, blockers = check_qualitygate(cr_path, mode=mode, lane=args.lane)
+    try:
+        _write_evidence_json(cr_path, passed, blockers)
+    except Exception:
+        pass
     sys.exit(0 if passed else 1)
 
 

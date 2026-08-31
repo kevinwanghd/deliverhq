@@ -39,7 +39,11 @@ VERB_NON_GATE_STEPS = {
     "context", "dev", "drift_check", "anti_gaming", "rule_maturity",
     "goal_contract", "grill",
 }
-VERB_CONDITIONAL_STEPS = {"goal_contract": "goal-contract.yml", "grill": "request.md"}
+VERB_CONDITIONAL_STEPS = {
+    "goal_contract": "goal-contract.yml",
+    "grill": "request.md",
+    "anti_gaming": "goal-contract.yml",
+}
 VERB_STANDALONE_GATES = {"permissiongate", "deploygate", "structuregate", "reverse_spec_gate"}
 VERB_NO_ARG_STEPS = {"rule_maturity"}
 
