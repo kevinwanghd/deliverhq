@@ -17,3 +17,4 @@ jobs:
       config-path: governance.config.yml
       agentgate-repository: kevinwanghd/AgentGate
       agentgate-ref: github-stable
+      skip-auto-merge: true
