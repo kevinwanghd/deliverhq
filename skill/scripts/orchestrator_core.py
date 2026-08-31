@@ -438,6 +438,16 @@ class SkillOrchestrator:
             self._run_retry_status(cr_path)
             print("提示: 修复后若需记录重试，请显式带新假设调用 "
                   "`retry_guard.py <CR> record --gate <G> --blocker <..> --hypothesis <新假设>`")
+            print("\n── Layer 5: 人工核查点 ──")
+            print("verify 失败，可运行 HK-V 人工核查：")
+            print("  python human_checkpoint.py HK-V --cr-id <CR-ID> --context '<JSON>'")
+            print("提示: 可先 `python verify_report.py <CR> --json` 查看分层报告，")
+            print("      将输出作为 HK-V 的 --context 参数。")
+
+        # D8: verify 完成后生成分层报告（无论成功失败均写 evidence JSON）
+        if verb == "verify":
+            print("\n── 生成分层报告 ──")
+            self._run_verify_report(cr_path)
         print()
 
         return results
@@ -453,6 +463,26 @@ class SkillOrchestrator:
                 print(r.stdout.rstrip())
         except Exception as e:  # 只读辅助，失败不影响 verify 结论
             print(f"(retry_guard status 不可用: {e})")
+
+    def _run_verify_report(self, cr_path: str):
+        """生成分层报告（verify 动词每次执行后写入 evidence JSON）。"""
+        script = Path("scripts/verify_report.py")
+        if not script.exists():
+            print(f"(verify_report.py 不可用，跳过分层报告)")
+            return
+        try:
+            r = run_script(script, [cr_path, "--quiet"], timeout=60)
+            if r.ok:
+                report_path = Path(cr_path) / "evidence" / "verify-layer-report.json"
+                if report_path.exists():
+                    print(f"✅ 分层报告已写入：{report_path}")
+            else:
+                # verify 失败时也写报告，只是退出码为 1
+                report_path = Path(cr_path) / "evidence" / "verify-layer-report.json"
+                if report_path.exists():
+                    print(f"⚠️  分层报告已写入（verify 未全通过）：{report_path}")
+        except Exception as e:
+            print(f"(verify_report 不可用: {e})")
 
     def execute_next_gate(self, cr_path: str) -> bool:
         """Execute the gate required by state.yml."""

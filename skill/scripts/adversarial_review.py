@@ -99,6 +99,19 @@ def get_repo_root() -> Path:
     _, stdout, _ = run_git(["rev-parse", "--show-toplevel"])
     return Path(stdout.strip())
 
+
+def _evidence_output_for_cr(cr_id: str) -> Path | None:
+    """在 CR evidence/ 目录写 adversarial_review-result.json（供编排层汇总）。"""
+    repo_root = get_repo_root()
+    candidates = [
+        repo_root / "DeliverHQ" / "change-requests" / cr_id / "evidence",
+        repo_root / "change-requests" / cr_id / "evidence",
+    ]
+    for d in candidates:
+        if d.exists():
+            return d / "anti_gaming-result.json"
+    return None
+
 # =============================================================================
 # 核心审查逻辑
 # =============================================================================
@@ -504,13 +517,50 @@ Gate 判据：
 
     if len(blocking_unresolved) == 0:
         print(f"✅ verdict: PASS（无 blocking_findings）")
+        _write_evidence_json(cr_id, args.scope, changed_files, verdict="PASS",
+                             blocking=[], output=str(output_path))
         sys.exit(0)
     else:
         print(f"❌ verdict: FAIL（{len(blocking_unresolved)} 个 blocking findings）")
         for f in blocking_unresolved:
             print(f"   [{f['severity']}] {f['type']}")
         print(f"\n💡 提示：运行 `--llm-prompt` 获取供 LLM 执行的详细审查提示词")
+        _write_evidence_json(cr_id, args.scope, changed_files, verdict="FAIL",
+                             blocking=blocking_unresolved, output=str(output_path))
         sys.exit(1)
+
+
+def _write_evidence_json(cr_id, scope, changed_files, verdict, blocking, output):
+    """写入 adversarial_review-result.json，供编排层 verify 分层报告汇总。"""
+    ev_json = _evidence_output_for_cr(cr_id)
+    if not ev_json:
+        return
+    try:
+        import json as _json
+        payload = {
+            "schema_version": "deliverhq-gate-result/v1",
+            "gate_name": "adversarial_review",
+            "result": "pass" if verdict == "PASS" else "blocked",
+            "timestamp": datetime.now().isoformat(),
+            "blocking_items": [f"[{f['severity']}] {f['type']}" for f in blocking],
+            "warnings": [],
+            "commands_run": [f"adversarial_review.py {cr_id} --scope {scope}"],
+            "artifacts": [output],
+            "next_action": "进入下一阶段" if verdict == "PASS" else "修复 CRITICAL/HIGH 发现后重新审查",
+            "failure_attribution": [],
+            "metadata": {
+                "cr_id": cr_id,
+                "scope": scope,
+                "changed_files": changed_files,
+                "blocking_findings": len(blocking),
+                "verdict": verdict,
+            },
+        }
+        ev_json.parent.mkdir(parents=True, exist_ok=True)
+        ev_json.write_text(_json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        print(f"✅ evidence JSON 已写入：{ev_json}")
+    except Exception as e:
+        print(f"⚠️  evidence JSON 写入失败（不影响判定）: {e}")
 
 
 if __name__ == "__main__":

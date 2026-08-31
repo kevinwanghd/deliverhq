@@ -461,6 +461,33 @@ def update_gate_from_result(
     )
 
 
+def record_from_arg(arg: str, gate_name: str, passed: bool) -> None:
+    """兼容 wrapper：从 goal_contract.py / anti_gaming_check.py 等传入路径或 yml 文件。
+
+    调用方已用 try/except 包裹，缺失时不崩溃，只是 evidence 不落盘。
+    本函数把这两者统一转换为 CR 目录路径，再调用 update_gate_from_result。
+    """
+    from pathlib import Path
+
+    p = Path(arg)
+    if p.is_dir():
+        cr_path = p
+    else:
+        cr_path = p.parent
+
+    try:
+        update_gate_from_result(
+            cr_path=cr_path,
+            gate_name=gate_name,
+            passed=passed,
+            blockers=None,
+            commands_run=[gate_name],
+            next_action="继续下一阶段" if passed else "修复阻断项",
+        )
+    except Exception:
+        pass  # 降级：不落盘 evidence 不阻断主流程
+
+
 def set_worktree_path(cr_path: Path, worktree_path: Optional[str]) -> CRStateSnapshot:
     """Persist the worktree path associated with the CR."""
     state = ensure_state(cr_path)

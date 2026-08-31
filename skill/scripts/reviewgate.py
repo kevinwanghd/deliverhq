@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -507,14 +508,45 @@ def check_reviewgate(cr_path):
     return True, []
 
 
+def _write_evidence_json(cr_path: Path, passed: bool, blockers: List[str], warnings: List[str], commands_run: List[str], artifacts: List[str]):
+    """写 evidence/review-result.json（供 verify_report.py 汇总）。"""
+    ev_dir = cr_path / "evidence"
+    ev_dir.mkdir(parents=True, exist_ok=True)
+    out = ev_dir / "review-result.json"
+    result_val = "pass" if passed else "blocked"
+    if passed and warnings:
+        result_val = "pass_with_warnings"
+    payload = {
+        "schema_version": "deliverhq-gate-result/v1",
+        "gate_name": "review",
+        "result": result_val,
+        "timestamp": datetime.now().isoformat(),
+        "blocking_items": blockers,
+        "warnings": warnings,
+        "commands_run": commands_run,
+        "artifacts": artifacts,
+        "next_action": "进入 QualityGate" if passed else "修复 ReviewGate 阻断项并重新运行",
+        "metadata": {},
+    }
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"✅ evidence JSON 已写入：{out}")
+
+
 def main():
     if len(sys.argv) < 2:
         print("用法: python reviewgate.py <path/to/CR-XXX>")
         sys.exit(1)
 
-    cr_path = sys.argv[1]
-    passed, _ = check_reviewgate(cr_path)
-
+    cr_path = Path(sys.argv[1])
+    passed, blockers = check_reviewgate(cr_path)
+    warnings = []
+    # 从 gate evidence 文件读 warnings（简化：main 无法访问 check 内部变量）
+    try:
+        _write_evidence_json(cr_path, passed, blockers, warnings,
+                             ['reviewgate.py', str(cr_path)],
+                             ['review-report.md', 'traceability.yml', 'verification-manifest.yml'])
+    except Exception:
+        pass
     sys.exit(0 if passed else 1)
 
 
