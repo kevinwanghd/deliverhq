@@ -12,10 +12,9 @@ import subprocess
 import sys
 import yaml
 from pathlib import Path
-from datetime import datetime, timezone
 import json
 import hashlib
-from common import load_yaml
+from common import load_yaml, now_iso
 
 
 class RecoveryClass(Enum):
@@ -84,7 +83,13 @@ def handle(
     stash_note = ""
     if recovery_class in (RecoveryClass.NO_EVIDENCE, RecoveryClass.BUDGET_EXHAUSTED):
         stashed, stash_msg = _git_stash(cr_path, run_id)
-        stash_note = f"；{stash_msg}" if stashed else f"；⚠️ 现场保存失败: {stash_msg}"
+        if not stashed:
+            # 现场未保存：重试会在残留产出上运行，证据基线失真且现场可能被覆盖
+            next_state = "NEEDS_HUMAN"
+            reason = f"现场保存失败，需人工清理 worktree 后再重试: {stash_msg}"
+            _persist_recovery(cr_path, task_id, run_id, recovery_class, hypothesis, next_state, reason, failure_details)
+            return next_state, reason
+        stash_note = f"；{stash_msg}"
 
     next_state = "READY"
     reason = f"可重试（{hypothesis}）{stash_note}"
@@ -201,7 +206,7 @@ def _persist_recovery(cr_path: Path, task_id: str, run_id: str, recovery_class: 
     """Persist a tamper-evident recovery package and state, without retry writes."""
     package = {
         "schema_version": "arc-recovery/v1", "task_id": task_id, "run_id": run_id,
-        "recorded_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "recorded_at": now_iso(),
         "recovery_class": recovery_class.value, "hypothesis": hypothesis,
         "next_state": next_state, "reason": reason, "failure_details": failure_details,
     }

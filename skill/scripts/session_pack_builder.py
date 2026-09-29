@@ -13,10 +13,8 @@ Token 预算: 40K token ≈ 160K 字符
 """
 import hashlib
 import yaml
-import os
 from pathlib import Path
-from datetime import datetime, timezone
-from common import load_yaml
+from common import load_yaml, now_iso
 
 
 TOKEN_BUDGET = 160_000  # 字符数（40K token × 4 chars/token）
@@ -29,16 +27,11 @@ class TokenBudgetExceeded(Exception):
 
 def _now() -> str:
     """
-    返回当前 UTC 时间戳（ISO 8601 格式）。
+    返回当前时间戳（ISO 8601，带时区偏移）。
 
-    优先读 SOURCE_DATE_EPOCH 环境变量（支持可复现构建）。
+    SOURCE_DATE_EPOCH 存在时返回该时刻（UTC），支持可复现构建。
     """
-    source_date_epoch = os.environ.get("SOURCE_DATE_EPOCH")
-    if source_date_epoch:
-        dt = datetime.fromtimestamp(int(source_date_epoch), tz=timezone.utc)
-    else:
-        dt = datetime.now(timezone.utc)
-    return dt.isoformat().replace("+00:00", "Z")
+    return now_iso()
 
 
 def build(cr_path: Path, task_id: str, run_id: str) -> Path:

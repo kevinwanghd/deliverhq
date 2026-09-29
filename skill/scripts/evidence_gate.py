@@ -20,8 +20,9 @@ import hashlib
 import json
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from common import now_iso
 
 # =============================================================================
 # 配置
@@ -130,7 +131,7 @@ def record_evidence(
     evidence_dir = get_evidence_dir(cr_id)
     evidence_file = get_evidence_file(evidence_dir, evidence_type)
 
-    now = datetime.now().isoformat()
+    now = now_iso()
 
     # 构建 evidence 记录
     evidence = {
@@ -196,7 +197,7 @@ def verify_evidence(
             "verified": False
         }
 
-    now = datetime.now().isoformat()
+    now = now_iso()
     result = {
         "success": True,
         "type": evidence_type,

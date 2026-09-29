@@ -15,7 +15,6 @@ import re
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -24,7 +23,7 @@ import yaml
 sys.dont_write_bytecode = True
 
 from runtime_support import configure_console, ensure_cr_runtime_dirs
-from common import load_yaml, load_yaml_all, resolve_executable, split_command
+from common import load_yaml, load_yaml_all, now_iso, resolve_executable, split_command
 
 configure_console()
 
@@ -253,7 +252,7 @@ def run_baseline(cr_path: Path, manifest: Dict) -> BaselineResult:
 
     commands = _manifest_to_commands(manifest)
     result = BaselineResult(
-        timestamp=datetime.now().isoformat(),
+        timestamp=now_iso(),
         commit_hash=commit_hash,
         commands_run=[item["command"] for item in commands],
         build_passed=True,

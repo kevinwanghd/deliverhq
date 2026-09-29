@@ -8,22 +8,18 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import shutil
 import subprocess
 import sys
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
-from common import load_yaml, parse_porcelain_z, split_command
+from common import load_yaml, now_iso, parse_porcelain_z, split_command
 
 
 def _now() -> str:
-    value = os.environ.get("SOURCE_DATE_EPOCH")
-    dt = datetime.fromtimestamp(int(value), tz=timezone.utc) if value else datetime.now(timezone.utc)
-    return dt.isoformat().replace("+00:00", "Z")
+    return now_iso()
 
 
 def _result(ok: bool, blockers: list[str], warnings: list[str], paths: list[str], **extra: Any):

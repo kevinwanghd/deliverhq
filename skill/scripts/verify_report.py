@@ -34,8 +34,9 @@ verify 动词四步对应 Layer：
 import argparse
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from common import now_iso
 
 # 步骤名 → evidence JSON 文件名（与 orchestrator_core SkillConfig outputs 一致）
 STEP_FILES = {
@@ -167,7 +168,7 @@ def _build_layer_report(cr_dir: Path) -> dict:
 
     report = {
         "schema_version": "deliverhq-verify-layer-report/v1",
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": now_iso(),
         "cr_id": cr_dir.name,
         "verdict": verdict,
         "needs_human": needs_human,

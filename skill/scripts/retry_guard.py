@@ -27,7 +27,7 @@ import argparse
 import sys
 from datetime import datetime
 from pathlib import Path
-from common import load_yaml
+from common import load_yaml, now_iso
 from runtime_support import configure_console
 
 try:
@@ -131,7 +131,7 @@ def record_failure(cr_dir, gate, blocker, hypothesis):
         "blocker": blocker,
         "hypothesis": hypothesis or "",
         "attempt": attempt,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso(),
     })
     save_ledger(cr_dir, ledger)
 
@@ -158,11 +158,11 @@ def _escalate_needs_human(cr_dir, sig, attempt):
         state.current_state = CRState.NEEDS_HUMAN
         state.requires_human = True
         state.blocking_reason = "重试耗尽（%s，%d 次）需人工介入" % (sig, attempt)
-        state.updated_at = datetime.now().isoformat()
+        state.updated_at = now_iso()
         try:
             state.transitions.append(StateTransition(
                 from_state=prev, to_state="needs_human",
-                timestamp=datetime.now().isoformat(),
+                timestamp=now_iso(),
                 trigger="retry_exhausted", operator="retry_guard"))
         except Exception:
             pass

@@ -164,6 +164,28 @@ class RetryStatusScopedToTaskTests(unittest.TestCase):
         self.assertIn("arc:T1::", reason)
 
 
+class StashFailureEscalatesTests(unittest.TestCase):
+    """现场未能 stash 时不得回 READY：重试会在残留产出上运行，证据基线失真。"""
+
+    DETAILS = {"exit_kind": "error", "blockers": ["agent-result.yml 不存在"]}
+
+    def _handle(self, stash_result):
+        from unittest import mock
+        cr = make_tmp(self)
+        with mock.patch.object(recovery_manager, "_call_retry_guard", return_value=(True, "ok")), \
+                mock.patch.object(recovery_manager, "_git_stash", return_value=stash_result):
+            return recovery_manager.handle(cr, "T1", "run-1", self.DETAILS)
+
+    def test_stash_failure_needs_human(self):
+        state, reason = self._handle((False, "git stash 失败: index.lock exists"))
+        self.assertEqual("NEEDS_HUMAN", state)
+        self.assertIn("index.lock", reason)
+
+    def test_stash_success_or_clean_tree_stays_ready(self):
+        self.assertEqual("READY", self._handle((True, "已 stash 现场: arc-recovery:run-1"))[0])
+        self.assertEqual("READY", self._handle((True, "无改动，跳过 stash"))[0])
+
+
 class BaselineRunCommandTests(unittest.TestCase):
     """缺陷6：超时/命令不存在直接抛异常中断整个 baseline；路径白名单用字符串前缀。"""
 

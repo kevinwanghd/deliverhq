@@ -33,7 +33,7 @@ Loop Engineering 原则的具体落地：不是"让 Agent 干到完成"，而是
 import json
 import sys
 from pathlib import Path
-from common import Color
+from common import Color, now_iso
 
 try:
     import yaml
@@ -130,13 +130,12 @@ def run_evidence_loop(cr_path, json_only=False):
     # 写回状态（缺口→needs_human）
     try:
         from cr_state import load_state as _ls, save_state, CRState
-        from datetime import datetime
         st = _ls(cr_dir)
         if st and gaps:
             st.current_state = CRState.NEEDS_HUMAN
             st.requires_human = True
             st.blocking_reason = "证据补全 Loop: %d 项证据缺口" % len(gaps)
-            st.updated_at = datetime.now().isoformat()
+            st.updated_at = now_iso()
             save_state(cr_dir, st)
     except Exception:
         pass
