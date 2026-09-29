@@ -12,13 +12,12 @@ import os
 import shutil
 import subprocess
 import sys
-import shlex
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import yaml
-from common import load_yaml
+from common import load_yaml, parse_porcelain_z, split_command
 
 
 def _now() -> str:
@@ -151,9 +150,9 @@ def _check_verification_manifest(cr_path: Path, agent_result: dict, worktree: Pa
     entry = entries[0]
     cwd = worktree / str(entry.get("working_dir", "."))
     try:
-        argv = shlex.split(command, posix=True)
+        argv = split_command(command)
         if not argv: return False, "manifest command 为空", {}
-        proc = subprocess.run(argv, cwd=str(cwd), shell=False, capture_output=True, text=True, timeout=int(entry.get("timeout", 600)))
+        proc = subprocess.run(argv, cwd=str(cwd), shell=False, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=int(entry.get("timeout", 600)))
     except Exception as exc: return False, f"命令执行失败: {exc}", {}
     record = {"command": command, "returncode": proc.returncode, "stdout": proc.stdout[-4000:], "stderr": proc.stderr[-4000:]}
     return (True, "pass", record) if proc.returncode == 0 else (False, f"命令返回 {proc.returncode}", record)
@@ -161,17 +160,15 @@ def _check_verification_manifest(cr_path: Path, agent_result: dict, worktree: Pa
 
 def _git_files(worktree: Path) -> set[str] | None:
     try:
-        diff = subprocess.run(["git", "diff", "--name-only", "HEAD"], cwd=str(worktree), capture_output=True, text=True, timeout=30)
+        # core.quotepath=false + -z：中文/空格路径不被加引号转义，按 NUL 精确分隔
+        diff = subprocess.run(["git", "-c", "core.quotepath=false", "diff", "--name-only", "-z", "HEAD"], cwd=str(worktree), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if diff.returncode != 0: return None
-        files = {line.strip().replace("\\", "/") for line in diff.stdout.splitlines() if line.strip()}
+        files = {p.replace("\\", "/") for p in diff.stdout.split("\0") if p.strip()}
         # git diff does not include untracked files; include them from porcelain.
-        status = subprocess.run(["git", "status", "--porcelain", "--untracked-files=all"], cwd=str(worktree), capture_output=True, text=True, timeout=30)
+        status = subprocess.run(["git", "-c", "core.quotepath=false", "status", "--porcelain", "-z", "--untracked-files=all"], cwd=str(worktree), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
         if status.returncode != 0:
             return None
-        for line in status.stdout.splitlines():
-            raw = line[3:] if len(line) > 3 else ""
-            if " -> " in raw: raw = raw.split(" -> ", 1)[1]
-            if raw.strip(): files.add(raw.strip().replace("\\", "/"))
+        files.update(parse_porcelain_z(status.stdout))
         files.discard("agent-result.yml")
         return files
     except Exception: return None

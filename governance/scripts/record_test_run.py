@@ -30,6 +30,7 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -93,8 +94,15 @@ def main() -> int:
 
     sys.stderr.write(f"[record-test] 运行: {' '.join(cmd)}\n")
     # 实时透传输出, 同时捕获用于解析
+    # Windows 上 npm/npx 等是 .cmd 包装脚本, CreateProcess 不会自动补扩展名, 先用 which 解析
+    run_cmd = list(cmd)
+    if os.name == "nt":
+        resolved = shutil.which(run_cmd[0])
+        if resolved:
+            run_cmd[0] = resolved
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, errors="replace")
+        proc = subprocess.run(run_cmd, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace")
     except FileNotFoundError:
         sys.stderr.write(f"[record-test] 找不到命令: {cmd[0]}\n")
         return 127
@@ -107,6 +115,13 @@ def main() -> int:
     counts = parse_counts(combined)
     covers = [c.strip() for c in args.covers.split(",") if c.strip()]
 
+    try:
+        git_state = repository_state()
+    except RuntimeError as exc:
+        # 新仓库尚无 HEAD (或不在 git 仓库中) 时仍记录本次运行, 标记为 no-head
+        sys.stderr.write(f"[record-test] 警告: {exc}, git_state 记为 no-head\n")
+        git_state = "no-head"
+
     record = {
         "ts": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "cmd": " ".join(cmd),
@@ -117,7 +132,7 @@ def main() -> int:
         "failed": counts["failed"] if counts["failed"] is not None
                   else (0 if proc.returncode == 0 else -1),
         "covers": covers,
-        "git_state": repository_state(),
+        "git_state": git_state,
     }
     if args.tool:
         record["tool"] = args.tool

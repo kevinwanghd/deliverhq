@@ -5,5 +5,9 @@
 
 from .colors import Color
 from .yaml_utils import load_yaml, load_yaml_all
+from .command_utils import parse_porcelain_z, resolve_executable, split_command
 
-__all__ = ["Color", "load_yaml", "load_yaml_all"]
+__all__ = [
+    "Color", "load_yaml", "load_yaml_all",
+    "parse_porcelain_z", "resolve_executable", "split_command",
+]

@@ -65,20 +65,9 @@ jobs:
           BASE_REF="${{ github.event.pull_request.base.ref }}"
           if [ -z "$BASE_REF" ]; then echo "::error::PR base.ref 缺失, 拒绝扫描"; exit 1; fi
           git fetch -q origin "$BASE_REF"
-          if [ -z "$PR_BODY" ]; then
-            echo "## 背景" > /tmp/pr_body.txt
-            echo "请填写 PR 背景" >> /tmp/pr_body.txt
-            echo "" >> /tmp/pr_body.txt
-            echo "## 变更内容" >> /tmp/pr_body.txt
-            echo "请填写变更内容" >> /tmp/pr_body.txt
-            echo "" >> /tmp/pr_body.txt
-            echo "## 自测确认" >> /tmp/pr_body.txt
-            echo "[ ] 已完成自测" >> /tmp/pr_body.txt
-            python governance/scripts/validate_mr.py --diff-base "origin/$BASE_REF" --config governance.config.yml --file /tmp/pr_body.txt
-          else
-            printf '%s' "$PR_BODY" \
-              | python governance/scripts/validate_mr.py --diff-base "origin/$BASE_REF" --config governance.config.yml
-          fi
+          # 如实传入 PR 描述 (可能为空); 空描述由 validate_mr 在硬模式下判定失败, 不代填模板
+          printf '%s' "$PR_BODY" \
+            | python governance/scripts/validate_mr.py --diff-base "origin/$BASE_REF" --config governance.config.yml
 
   # 测试痕迹检测: 硬门禁
   test-check:
@@ -160,6 +149,7 @@ jobs:
 
   # 自测: 跑 governance 脚本自己的回归套件
   selftest:
+    name: governance-selftest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -173,7 +163,8 @@ jobs:
   # GateResult 汇总器: 只有该 job 成功后 Merge Bot 才能自动合并
   gate-decision:
     needs: [risk-scan, secret-scan, mr-validate, test-check, python-test, node-test, selftest]
-    if: github.event.pull_request.draft == false
+    # always(): 上游 job 失败时仍需运行, 让 fail 映射进入 GateResult 并阻断
+    if: always() && github.event.pull_request.draft == false
     outputs:
       merge_action: ${{ steps.compute.outputs.merge_action }}
     runs-on: ubuntu-latest

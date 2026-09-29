@@ -143,6 +143,12 @@ function parseArgs(argv) {
       out._.push(a);
     }
   }
+  for (const key of VALUE_FLAGS) {
+    if (out.flags[key] === true) {
+      console.log(C.r(`参数 --${key} 需要一个值`));
+      process.exit(1);
+    }
+  }
   return out;
 }
 
@@ -151,6 +157,10 @@ function ask(question) {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     rl.question(question, (ans) => { rl.close(); resolve(ans.trim()); });
   });
+}
+
+function isInteractive() {
+  return Boolean(process.stdin.isTTY);
 }
 
 async function confirm(question) {
@@ -171,6 +181,72 @@ function copyDir(src, dst) {
       fs.copyFileSync(path.join(src, entry.name), path.join(dst, entry.name));
     }
   }
+}
+
+// 覆盖安装（--force）时保留的用户内容：旧版本优先，新模板中缺失的文件照常补齐。
+// change-requests/CR-TEMPLATE 属于核心模板，允许刷新。
+const USER_CONTENT_DIRS = ['docs', 'journal', 'notes', 'inbox', '_archived', 'context-packs', 'delivery', 'legacy'];
+const USER_CONTENT_FILES = ['COMMANDS.yml', 'REPO_MAP.md', 'attention.md', 'STATE.md'];
+
+function mergeTree(src, dst) {
+  // 原样合并（不跳过任何子目录），src 覆盖 dst 同名文件
+  fs.mkdirSync(dst, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const from = path.join(src, entry.name);
+    const to = path.join(dst, entry.name);
+    if (entry.isDirectory()) mergeTree(from, to);
+    else if (entry.isFile()) fs.copyFileSync(from, to);
+  }
+}
+
+function preserveUserContent(oldDir, newDir) {
+  for (const rel of USER_CONTENT_DIRS) {
+    const from = path.join(oldDir, rel);
+    if (fs.existsSync(from) && fs.statSync(from).isDirectory()) mergeTree(from, path.join(newDir, rel));
+  }
+  for (const rel of USER_CONTENT_FILES) {
+    const from = path.join(oldDir, rel);
+    if (fs.existsSync(from) && fs.statSync(from).isFile()) fs.copyFileSync(from, path.join(newDir, rel));
+  }
+  const crDir = path.join(oldDir, 'change-requests');
+  if (!fs.existsSync(crDir) || !fs.statSync(crDir).isDirectory()) return;
+  for (const entry of fs.readdirSync(crDir, { withFileTypes: true })) {
+    if (entry.name === 'CR-TEMPLATE') continue;
+    const from = path.join(crDir, entry.name);
+    const to = path.join(newDir, 'change-requests', entry.name);
+    if (entry.isDirectory()) mergeTree(from, to);
+    else if (entry.isFile()) {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    }
+  }
+}
+
+// 先在同级临时目录生成新安装（失败则旧安装原样保留），再迁入用户内容，最后替换。
+function installPreservingUserContent(targetDir, populate) {
+  if (!fs.existsSync(targetDir)) {
+    populate(targetDir);
+    return;
+  }
+  const staging = `${targetDir}.deliverhq-new-${process.pid}`;
+  const backup = `${targetDir}.deliverhq-old-${process.pid}`;
+  fs.rmSync(staging, { recursive: true, force: true });
+  try {
+    populate(staging);
+    preserveUserContent(targetDir, staging);
+  } catch (e) {
+    fs.rmSync(staging, { recursive: true, force: true });
+    throw e;
+  }
+  fs.renameSync(targetDir, backup);
+  try {
+    fs.renameSync(staging, targetDir);
+  } catch (e) {
+    fs.renameSync(backup, targetDir);
+    fs.rmSync(staging, { recursive: true, force: true });
+    throw e;
+  }
+  fs.rmSync(backup, { recursive: true, force: true });
 }
 
 function normalizeInstallProfile(raw) {
@@ -314,6 +390,10 @@ function injectPointer(instructionPath, coreRelDir) {
 async function chooseScope(flags) {
   if (flags.global) return 'global';
   if (flags.local || flags.yes) return 'local';
+  if (!isInteractive()) {
+    console.log(C.y('非交互环境，默认安装到项目级（可用 --global / --local 显式指定）'));
+    return 'local';
+  }
   const ans = await ask('安装到 1) 项目级  2) 全局 ?  [1]: ');
   return ans === '2' ? 'global' : 'local';
 }
@@ -343,9 +423,8 @@ async function cmdInit(flags) {
       console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
       process.exit(1);
     }
-    if (fs.existsSync(installedDir)) fs.rmSync(installedDir, { recursive: true, force: true });
-    console.log(`复制核心 → ${installedDir}`);
-    copyInstallProfile(profile, installedDir);
+    console.log(`复制核心 → ${installedDir}${fs.existsSync(installedDir) ? '（覆盖核心，保留 docs/、change-requests/ 等用户内容）' : ''}`);
+    installPreservingUserContent(installedDir, (dir) => copyInstallProfile(profile, dir));
   } else {
     // 扁平型：核心固定放项目 .deliverhq/，指针注入指令文件
     installedDir = path.join(installRoot, '.deliverhq');
@@ -353,9 +432,8 @@ async function cmdInit(flags) {
       console.log(C.y(`⚠ 已存在: ${installedDir}（用 --force 覆盖）`));
       process.exit(1);
     }
-    if (fs.existsSync(installedDir)) fs.rmSync(installedDir, { recursive: true, force: true });
-    console.log(`复制核心 → ${installedDir}`);
-    copyInstallProfile(profile, installedDir);
+    console.log(`复制核心 → ${installedDir}${fs.existsSync(installedDir) ? '（覆盖核心，保留 docs/、change-requests/ 等用户内容）' : ''}`);
+    installPreservingUserContent(installedDir, (dir) => copyInstallProfile(profile, dir));
 
     const instrPath = path.join(installRoot, t.instructionFile);
     console.log(`注入指针 → ${instrPath}`);
@@ -418,6 +496,7 @@ async function resolveProductInstallRoot(flags) {
   if (!(await confirm('\n请确认这是你要写 PRD 的项目/需求目录。继续安装？[Y/n] '))) {
     console.log(C.y('\n已取消安装。请先在 Codex 打开正确的项目目录，或显式指定路径：'));
     console.log('  npx deliverhq product --path <项目或需求目录>');
+    if (!isInteractive()) console.log('  非交互环境下可加 --yes 确认当前目录');
     process.exit(1);
   }
 
@@ -435,6 +514,10 @@ async function chooseProfile(flags) {
   if (typeof flags.profile === 'string' && flags.profile) return flags.profile;
   if (flags['governance-only']) return 'governance-only';
   if (flags.yes) return 'fullstack-web';
+  if (!isInteractive()) {
+    console.log(C.y('非交互环境，默认 governance-only（可用 --profile 显式指定）'));
+    return 'governance-only';
+  }
   console.log('选择初始化范围：');
   console.log('  1) 仅治理层        只在项目根建 DeliverHQ/，不碰业务目录结构（库/CLI/移动端/已有结构的项目）');
   console.log('  2) 全栈 Web 骨架    额外生成 apps/ packages/ 等 monorepo 业务骨架');
@@ -456,9 +539,9 @@ async function cmdInitProject(flags) {
   try {
     const deliverhqDir = path.join(targetPath, 'DeliverHQ');
     if (fs.existsSync(deliverhqDir) && flags.force) {
-      fs.rmSync(deliverhqDir, { recursive: true, force: true });
-    }
-    if (!fs.existsSync(deliverhqDir)) {
+      console.log(`刷新 DeliverHQ 核心 → ${deliverhqDir}（保留 change-requests/、docs/、journal/ 等用户内容）`);
+      installPreservingUserContent(deliverhqDir, (dir) => copyDir(SKILL_SRC, dir));
+    } else if (!fs.existsSync(deliverhqDir)) {
       console.log(`复制 DeliverHQ 核心 → ${deliverhqDir}`);
       copyDir(SKILL_SRC, deliverhqDir);
     }
@@ -832,14 +915,15 @@ function help() {
 
   --global / --local   仅文件夹型：全局或项目级（默认问；--yes 取项目级）
   --profile            安装范围：full（默认完整治理包）或 product（产品经理 PRD 包）
-  --force              覆盖已存在的安装；product 未传 --path 时也表示确认当前目录
-  --yes                非交互
+  --force              覆盖已存在安装的核心文件（保留 docs/、change-requests/CR-* 等用户内容）
+  --yes                非交互；product 未传 --path 时表示确认当前目录（--force 仍兼容）
 
   npx deliverhq init-project [--profile <名称>] [--governance-only] [--path <项目目录>] [--force] [--yes]
       初始化项目治理空间。无 --profile/--yes 时交互选择范围：
         · governance-only（默认）— 只建 DeliverHQ/，不碰业务目录结构（库/CLI/移动端/已有结构）
         · fullstack-web        — 额外生成 apps/ packages/ 等 monorepo 业务骨架
       --governance-only 等价于 --profile governance-only；--yes 非交互时默认 fullstack-web
+      --force 刷新 DeliverHQ/ 核心文件，保留 change-requests/、docs/、journal/ 等用户内容
 
   npx deliverhq doctor [--path <核心目录>] [--verbose]
       检测 Python/PyYAML + 运行 health_check（默认摘要输出，--verbose 显示完整输出）

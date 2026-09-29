@@ -32,13 +32,14 @@ class RecoveryClass(Enum):
 def record_retry(cr_path: Path, task_id: str, failure_details: dict) -> tuple[bool, str]:
     """Record one failed attempt in the retry ledger; orchestration owns when to call this."""
     recovery_class = _classify_failure(failure_details)
-    hypothesis = _generate_hypothesis(recovery_class, failure_details)
+    attempt = _count_prior_attempts(cr_path, f"arc:{task_id}", recovery_class.value) + 1
+    hypothesis = _retry_hypothesis(recovery_class, failure_details, attempt)
     script_path = Path(__file__).parent / "retry_guard.py"
     result = subprocess.run(
         [sys.executable, str(script_path), str(cr_path), "record",
          "--gate", f"arc:{task_id}", "--blocker", recovery_class.value,
          "--hypothesis", hypothesis],
-        capture_output=True, text=True, timeout=30,
+        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
     )
     if result.returncode == 0:
         return True, result.stdout.strip() or "retry recorded"
@@ -80,11 +81,13 @@ def handle(
         return next_state, retry_reason
 
     # 4. git stash（仅特定失败类型）
+    stash_note = ""
     if recovery_class in (RecoveryClass.NO_EVIDENCE, RecoveryClass.BUDGET_EXHAUSTED):
-        _git_stash(cr_path, run_id)
+        stashed, stash_msg = _git_stash(cr_path, run_id)
+        stash_note = f"；{stash_msg}" if stashed else f"；⚠️ 现场保存失败: {stash_msg}"
 
     next_state = "READY"
-    reason = f"可重试（{hypothesis}）"
+    reason = f"可重试（{hypothesis}）{stash_note}"
     _persist_recovery(cr_path, task_id, run_id, recovery_class, hypothesis, next_state, reason, failure_details)
     return next_state, reason
 
@@ -136,6 +139,26 @@ def _generate_hypothesis(recovery_class: RecoveryClass, failure_details: dict) -
     return hypotheses.get(recovery_class, "未知失败")
 
 
+def _count_prior_attempts(cr_path: Path, gate: str, blocker: str) -> int:
+    """统计账本中同 gate + 同 blocker（即同一签名）已记录的次数。"""
+    ledger = load_yaml(cr_path / "evidence" / "retry-ledger.yml")
+    entries = ledger.get("entries") or []
+    return sum(1 for e in entries if isinstance(e, dict) and e.get("gate") == gate and e.get("blocker") == blocker)
+
+
+def _retry_hypothesis(recovery_class: RecoveryClass, failure_details: dict, attempt: int) -> str:
+    """带尝试序号与失败摘要的假设：未达上限的合法重试不会因类别相同被判为原地重复。"""
+    blockers = failure_details.get("blockers") or []
+    detail = f"exit_kind={failure_details.get('exit_kind')}"
+    if blockers:
+        detail += f"; blocker={str(blockers[0])[:80]}"
+    digest = hashlib.sha256(
+        json.dumps(failure_details, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
+    ).hexdigest()[:8]
+    base = _generate_hypothesis(recovery_class, failure_details)
+    return f"{base}（第 {attempt} 次尝试; {detail}; details={digest}）"
+
+
 def _call_retry_guard(
     cr_path: Path,
     task_id: str,
@@ -157,14 +180,19 @@ def _call_retry_guard(
         [sys.executable, str(script_path), str(cr_path), "status"],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=30,
     )
 
     if result.returncode != 0:
-        return False, f"retry_guard status 执行错误: {result.stderr.strip()}"
-    output = (result.stdout or "").lower()
-    if "needs_human" in output or "重试耗尽" in output:
-        return False, result.stdout.strip() or "重试次数耗尽"
+        return False, f"retry_guard status 执行错误: {(result.stderr or result.stdout or '').strip()}"
+    # 只看本任务签名（arc:{task_id}::...）的行，其他任务/Gate 耗尽不影响本任务
+    prefix = f"{gate_label}::"
+    for line in (result.stdout or "").splitlines():
+        stripped = line.strip()
+        if stripped.startswith(prefix) and "[needs_human]" in stripped:
+            return False, f"重试次数耗尽（{blocker_summary}）: {stripped}"
     return True, "retry_guard status: can_retry"
 
 
@@ -195,29 +223,46 @@ def _git_stash(cr_path: Path, run_id: str):
     仅在以下情况调用:
         - NO_EVIDENCE（agent 没产出任何东西，工作树可能脏）
         - BUDGET_EXHAUSTED（session pack 生成失败前可能有残留）
+
+    Returns:
+        (ok, message)；git 失败/超时时 ok=False，不再静默当作成功。
     """
     worktree_path = _get_worktree_path(cr_path)
     if not worktree_path:
-        return  # 无 worktree，跳过
+        return True, "无 worktree，跳过 stash"
 
-    # 检查是否有改动
-    result = subprocess.run(
-        ["git", "status", "--porcelain"],
-        cwd=str(worktree_path),
-        capture_output=True,
-        text=True,
-    )
+    try:
+        # 检查是否有改动
+        result = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=str(worktree_path),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+        if result.returncode != 0:
+            return False, f"git status 失败: {result.stderr.strip()}"
+        if not result.stdout.strip():
+            return True, "无改动，跳过 stash"
 
-    if not result.stdout.strip():
-        return  # 无改动，跳过
-
-    # 执行 stash
-    stash_msg = f"arc-recovery:{run_id}"
-    subprocess.run(
-        ["git", "stash", "push", "-m", stash_msg],
-        cwd=str(worktree_path),
-        capture_output=True,
-    )
+        # 执行 stash
+        stash_msg = f"arc-recovery:{run_id}"
+        stash = subprocess.run(
+            ["git", "stash", "push", "-m", stash_msg],
+            cwd=str(worktree_path),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        return False, f"git stash 执行失败: {exc}"
+    if stash.returncode != 0:
+        return False, f"git stash 失败: {stash.stderr.strip() or stash.stdout.strip()}"
+    return True, f"已 stash 现场: {stash_msg}"
 
 
 def _get_worktree_path(cr_path: Path) -> Path | None:
@@ -228,5 +273,8 @@ def _get_worktree_path(cr_path: Path) -> Path | None:
 
     state = load_yaml(state_path)
     worktree_path = state.get("worktree_path")
-
-    return Path(worktree_path) if worktree_path else None
+    if not worktree_path:
+        return None
+    path = Path(worktree_path)
+    # 相对路径按 CR 目录解析（与 evidence_verifier / arc_scheduler 一致），避免 git stash 落到宿主仓库
+    return path if path.is_absolute() else cr_path / path

@@ -30,15 +30,20 @@ configure_console()
 
 
 def _is_git_repo(path: Path) -> bool:
-    result = subprocess.run(
-        ["git", "rev-parse", "--show-toplevel"],
-        cwd=str(path),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--show-toplevel"],
+            cwd=str(path),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"{Color.YELLOW}git rev-parse 超时（30 秒），按非 git 仓库处理{Color.END}")
+        return False
     return result.returncode == 0
 
 
@@ -49,15 +54,19 @@ def _try_create_worktree(cr_id: str) -> Tuple[Optional[str], str]:
     if not _is_git_repo(DELIVERHQ_ROOT):
         return None, "DeliverHQ 当前不在 git repo 内，无法自动创建 worktree；请在目标项目仓库中手动准备开发目录"
 
-    result = subprocess.run(
-        [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
-        cwd=str(DELIVERHQ_ROOT),
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
+            cwd=str(DELIVERHQ_ROOT),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        return None, "worktree_manager.py 执行超时（120 秒），请手动创建 worktree"
     if result.returncode != 0:
         return None, result.stderr.strip() or result.stdout.strip() or "worktree 创建失败"
 
@@ -89,16 +98,20 @@ def prepare_dev_phase(cr_path: str, lane: Optional[str] = None) -> bool:
     env = {**dict(os.environ), "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1"}
     if os.environ.get("DELIVERHQ_SELFTEST"):
         env["DELIVERHQ_SELFTEST"] = "1"
-    result = subprocess.run(
-        [sys.executable, str(DELIVERHQ_ROOT / "scripts" / "pre_dev_gate.py"), cr_dir.name, "--lane", lane],
-        cwd=str(DELIVERHQ_ROOT),
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        encoding="utf-8",
-        errors="replace",
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, str(DELIVERHQ_ROOT / "scripts" / "pre_dev_gate.py"), cr_dir.name, "--lane", lane],
+            cwd=str(DELIVERHQ_ROOT),
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=600,
+        )
+    except subprocess.TimeoutExpired:
+        result = subprocess.CompletedProcess([], 124, "", "pre_dev_gate.py 执行超时（600 秒）")
     commands_run.append("pre_dev_gate.py")
     if result.stdout:
         print(result.stdout)

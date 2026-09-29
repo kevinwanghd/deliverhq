@@ -196,18 +196,26 @@ def _fnmatch_any(path: str, patterns: list[str]) -> bool:
 
 
 def detect_large_change(cfg: dict, diff_base: str | None) -> tuple[bool, list[str]]:
-    """返回 (是否大变更, 触发原因列表)。无 git 时返回 (False, [])。"""
+    """返回 (是否大变更, 触发原因列表)。
+
+    无法计算 diff (基准不存在 / git 不可用) 时 fail-closed: 按大变更处理,
+    强制要求 ## 风险与回滚, 避免规模未知的变更被静默放行。
+    """
     lc = cfg["large_change"]
     reasons: list[str] = []
+    base = diff_base or "HEAD~1"
     try:
-        base = diff_base or "HEAD~1"
         out = subprocess.run(
             ["git", "diff", "--numstat", f"{base}...HEAD"],
             check=True, capture_output=True, text=True,
             encoding="utf-8", errors="replace",
         ).stdout
-    except Exception:
-        return (False, [])
+    except (OSError, subprocess.CalledProcessError) as exc:
+        detail = (getattr(exc, "stderr", None) or str(exc)).strip().splitlines()
+        return (True, [
+            f"无法计算 diff 基准 {base}...HEAD ({detail[0] if detail else type(exc).__name__}), "
+            "变更规模未知, 按大变更处理"
+        ])
 
     total = 0
     excluded = lc.get("excluded_paths", [])

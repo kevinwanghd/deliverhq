@@ -9,7 +9,6 @@ import argparse
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 from datetime import datetime
@@ -22,7 +21,7 @@ from baseline_comparison import compare_after_baseline
 from cr_state import ensure_state, update_gate_from_result
 from runtime_support import configure_console
 from common import Color
-from common import load_yaml
+from common import load_yaml, split_command
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
@@ -160,8 +159,8 @@ def execute_verification_command(command, working_dir='.', timeout=300):
     try:
         # 处理 python/python3 路径兼容性问题
         command = normalize_verification_command(command)
-        # 安全：使用 shlex.split 将命令转换为列表，避免 shell 注入
-        cmd_list = shlex.split(command) if isinstance(command, str) else command
+        # 安全：拆分为 argv（Windows 下保留反斜杠），避免 shell 注入
+        cmd_list = split_command(command)
         result = subprocess.run(
             cmd_list,
             shell=False,
@@ -169,6 +168,8 @@ def execute_verification_command(command, working_dir='.', timeout=300):
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
         return {
@@ -466,9 +467,11 @@ def check_qualitygate(cr_path, mode='hybrid', lane=None):
                         failure_summary,
                         '质量检查未通过',
                         '加强单元测试和代码审查',
-                    ], check=False)
+                    ], check=False, timeout=60)
                     print(f"\n{Color.BLUE}ℹ️  已自动记录到 docs/mistake-book.md{Color.END}")
                     print(f"{Color.BLUE}   （设置 DELIVERHQ_AUTO_MISTAKE_BOOK=0 可禁用自动记录）{Color.END}")
+                except subprocess.TimeoutExpired:
+                    print(f"\n{Color.YELLOW}⚠️  记录错误案例超时（60 秒），已跳过{Color.END}")
                 except Exception as exc:
                     print(f"\n{Color.YELLOW}⚠️  记录错误案例失败: {exc}{Color.END}")
         else:

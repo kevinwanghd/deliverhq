@@ -44,11 +44,17 @@ def section(title):
     print(f"{'='*50}")
 
 
-def _run(script_args):
-    return subprocess.run(
-        [sys.executable, *[str(a) for a in script_args]],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-    )
+def _run(script_args, timeout=300):
+    try:
+        return subprocess.run(
+            [sys.executable, *[str(a) for a in script_args]],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired:
+        message = f"子进程超时（{timeout} 秒）: {' '.join(str(a) for a in script_args)}"
+        print(f"  {FAIL} {message}")
+        return subprocess.CompletedProcess(script_args, 124, b"", message.encode("utf-8"))
 
 
 def check_skeleton():

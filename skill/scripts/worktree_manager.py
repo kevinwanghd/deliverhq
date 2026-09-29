@@ -193,7 +193,8 @@ class WorktreeManager:
             )
 
         # Get worktree path and branch name
-        worktree_path = self.config.get_worktree_path(cr_id)
+        # Anchor to project_root (git runs there), not the process cwd.
+        worktree_path = (self.project_root / self.config.get_worktree_path(cr_id)).resolve()
         branch_name = self.config.get_branch_name(cr_id)
 
         # Create worktree
@@ -210,7 +211,7 @@ class WorktreeManager:
         # Create worktree info
         import datetime
         info = WorktreeInfo(
-            path=str(worktree_path.absolute()),
+            path=str(worktree_path),
             branch=branch_name,
             cr_id=cr_id,
             status=WorktreeStatus.ACTIVE,
@@ -418,6 +419,10 @@ class WorktreeManager:
 def main():
     """CLI entry point"""
     import argparse
+    from runtime_support import configure_console
+
+    # 管道输出到 GBK 控制台时 emoji 会触发 UnicodeEncodeError
+    configure_console()
 
     parser = argparse.ArgumentParser(description="DeliverHQ Worktree Manager")
     subparsers = parser.add_subparsers(dest='command', help='Commands')

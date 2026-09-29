@@ -95,7 +95,7 @@ class MemoryStore:
         """Load memory index"""
         if self.index_file.exists():
             try:
-                with open(self.index_file, 'r') as f:
+                with open(self.index_file, 'r', encoding="utf-8") as f:
                     data = json.load(f)
             except (json.JSONDecodeError, OSError):
                 # Corrupted or unreadable index: degrade to empty store.
@@ -429,7 +429,7 @@ class MemoryStore:
         if memory_file.exists():
             print(f"📥 Importing from {memory_file}...")
             # Parse MEMORY.md and extract decisions
-            content = memory_file.read_text()
+            content = memory_file.read_text(encoding="utf-8")
 
             # Simple parsing - look for decision entries in table
             import re

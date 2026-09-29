@@ -120,6 +120,7 @@ def run_gate(script, args):
         errors='replace',
         cwd=ROOT,
         env=SUBPROCESS_ENV,
+        timeout=120,
     )
 
     return result.returncode, result.stdout, result.stderr

@@ -23,7 +23,6 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
-from common import load_yaml
 
 # =============================================================================
 # 配置
@@ -190,23 +189,6 @@ def get_subtasks_path(cr_dir: Path) -> Path:
 def get_timeline_path(cr_dir: Path) -> Path:
     """获取 timeline.txt 路径"""
     return cr_dir / "timeline.txt"
-
-
-def load_yaml_robust(path: Path) -> dict:
-    """安全加载 YAML（容错）"""
-    import yaml
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return load_yaml(f)
-    except Exception:
-        return {}
-
-
-def save_yaml_robust(path: Path, data: dict):
-    """安全保存 YAML"""
-    import yaml
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
 
 
 # =============================================================================

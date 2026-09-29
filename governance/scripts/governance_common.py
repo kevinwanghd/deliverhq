@@ -83,22 +83,23 @@ def _validate_config(config: dict[str, Any]) -> None:
 
 
 def repository_state() -> str:
-    """Hash HEAD plus changed/untracked file content, independent of staging state."""
+    """Hash HEAD plus changed/untracked file content, independent of staging state.
+
+    所有 git 命令都在仓库根目录执行, 文件路径也按仓库根解析, 保证从子目录调用结果一致。
+    """
+    def _git(*args: str, cwd: str | None = None) -> str:
+        return subprocess.run(
+            ["git", "-c", "core.quotePath=false", *args], check=True, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", cwd=cwd,
+        ).stdout
+
     try:
-        head = subprocess.run(
-            ["git", "rev-parse", "HEAD"], check=True, capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
-        ).stdout.strip()
-        changed = subprocess.run(
-            ["git", "diff", "HEAD", "--name-only", "--no-ext-diff", "--"],
-            check=True, capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
-        ).stdout.splitlines()
-        untracked = subprocess.run(
-            ["git", "ls-files", "--others", "--exclude-standard"],
-            check=True, capture_output=True, text=True,
-            encoding="utf-8", errors="replace",
-        ).stdout.splitlines()
+        toplevel = _git("rev-parse", "--show-toplevel").strip()
+        head = _git("rev-parse", "HEAD", cwd=toplevel).strip()
+        changed = _git(
+            "diff", "HEAD", "--name-only", "--no-ext-diff", "--", cwd=toplevel,
+        ).splitlines()
+        untracked = _git("ls-files", "--others", "--exclude-standard", cwd=toplevel).splitlines()
     except (FileNotFoundError, subprocess.CalledProcessError) as exc:
         raise RuntimeError("无法计算测试证据对应的 Git 状态") from exc
 
@@ -112,7 +113,7 @@ def repository_state() -> str:
     for name in sorted(relevant):
         digest.update(b"\0")
         digest.update(name.replace("\\", "/").encode("utf-8", errors="surrogateescape"))
-        path = Path(name)
+        path = Path(toplevel) / name
         if path.is_file():
             digest.update(b"\0")
             digest.update(hashlib.sha256(path.read_bytes()).digest())

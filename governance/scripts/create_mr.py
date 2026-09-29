@@ -36,6 +36,7 @@ import fnmatch
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -105,6 +106,28 @@ def run_git(args: list[str], check: bool = True) -> str:
 
 def current_branch() -> str:
     return run_git(["rev-parse", "--abbrev-ref", "HEAD"]).strip()
+
+
+def default_target_branch() -> str:
+    """默认目标分支: origin/HEAD 指向的分支, 否则依次尝试 main、master。"""
+    def _git_ok(args: list[str]) -> tuple[bool, str]:
+        try:
+            r = subprocess.run(
+                ["git", *args], capture_output=True, text=True,
+                encoding="utf-8", errors="replace", timeout=30,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            return (False, "")
+        return (r.returncode == 0, (r.stdout or "").strip())
+
+    ok, ref = _git_ok(["symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"])
+    if ok and ref:
+        return ref[len("origin/"):] if ref.startswith("origin/") else ref
+    for name in ("main", "master"):
+        for ref in (f"refs/heads/{name}", f"refs/remotes/origin/{name}"):
+            if _git_ok(["rev-parse", "--verify", "--quiet", ref])[0]:
+                return name
+    return "main"
 
 
 def numstat(base: str) -> list[tuple[int, int, str]]:
@@ -613,7 +636,8 @@ def main() -> int:
     ap.add_argument("--excludes", help="## 不包含的内容")
     ap.add_argument("--link", action="append", help="## 关联项, 可多次 (Issue/REQ-xxx)")
     ap.add_argument("--title", help="MR 标题 (默认取最新 commit subject)")
-    ap.add_argument("--target-branch", default="master", help="目标分支")
+    ap.add_argument("--target-branch", default=None,
+                    help="目标分支 (默认 origin/HEAD 指向的分支, 否则 main/master)")
     ap.add_argument("--config", help="governance.config.yml 路径")
     ap.add_argument("--evidence", default=EVIDENCE_PATH, help="测试证据文件")
     ap.add_argument("--meta-style", choices=["details", "section", "comment"],
@@ -634,6 +658,8 @@ def main() -> int:
     ap.add_argument("--remove-source-branch", action="store_true",
                     help="MR 合并后删除源分支")
     args = ap.parse_args()
+    if not args.target_branch:
+        args.target_branch = default_target_branch()
 
     if args.gitlab_preflight:
         return gitlab_api_preflight(args)
@@ -682,15 +708,26 @@ def main() -> int:
     title = infer_title(args, args.target_branch)
 
     if args.interactive:
-        editor = os.environ.get("EDITOR", "vi")
+        default_editor = "notepad" if os.name == "nt" else "vi"
+        editor_cmd = shlex.split(os.environ.get("EDITOR") or default_editor,
+                                 posix=(os.name != "nt"))
         with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False,
                                          encoding="utf-8") as tf:
             tf.write(description)
             path = tf.name
-        subprocess.run([editor, path])
-        with open(path, encoding="utf-8") as f:
-            description = f.read()
-        os.unlink(path)
+        try:
+            subprocess.run([*editor_cmd, path])
+            with open(path, encoding="utf-8") as f:
+                description = f.read()
+        except FileNotFoundError:
+            sys.stderr.write(
+                f"[create-mr] 找不到编辑器: {editor_cmd[0] if editor_cmd else '(空)'}。"
+                "请设置 EDITOR 环境变量 (例: EDITOR=\"code --wait\"), 或去掉 --interactive。\n"
+            )
+            return 2
+        finally:
+            if os.path.exists(path):
+                os.unlink(path)
 
     if args.dry_run:
         print(f"# [DRY-RUN] 标题: {title}\n# 目标分支: {args.target_branch}\n")
@@ -705,15 +742,23 @@ def main() -> int:
         # risk:untested reason:"fallback path for manual MR creation - needs env setup and browser interaction to test" owner:@wangwf reviewed:2026-07-26
         # 尝试拼出带模板参数的 GitLab 创建 MR 链接（解决 GitLab 11.4 不自动加载模板的问题）
         gitlab_url = getattr(args, "gitlab_url", None) or os.environ.get("AGENTGATE_GITLAB_URL") or os.environ.get("CI_SERVER_URL")
-        project_id = getattr(args, "gitlab_project_id", None) or os.environ.get("AGENTGATE_GITLAB_PROJECT_ID") or os.environ.get("CI_PROJECT_ID")
+        project_id = getattr(args, "gitlab_project_id", None) or os.environ.get("AGENTGATE_GITLAB_PROJECT_ID")
         source = getattr(args, "source_branch", None) or current_branch()
 
-        if gitlab_url and project_id:
-            encoded_project = urllib.parse.quote(str(project_id), safe="")
+        # Web 链接必须用项目路径 (group/project); 数字 project id 不能直接拼进 URL
+        project_url = os.environ.get("CI_PROJECT_URL")
+        if not project_url and gitlab_url:
+            project_path = os.environ.get("CI_PROJECT_PATH")
+            if not project_path and project_id and not str(project_id).isdigit():
+                project_path = urllib.parse.unquote(str(project_id))
+            if project_path:
+                project_url = f"{gitlab_url.rstrip('/')}/{project_path.strip('/')}"
+
+        if project_url:
             encoded_source = urllib.parse.quote(source, safe="")
             encoded_target = urllib.parse.quote(args.target_branch, safe="")
             mr_url = (
-                f"{gitlab_url.rstrip('/')}/{project_id}/-/merge_requests/new"
+                f"{project_url.rstrip('/')}/-/merge_requests/new"
                 f"?merge_request[source_branch]={encoded_source}"
                 f"&merge_request[target_branch]={encoded_target}"
                 f"&issuable_template=default"
@@ -731,7 +776,8 @@ def main() -> int:
             )
         print(f"标题: {title}\n")
         print(description)
-        return 1
+        # 降级路径: 已打印链接与描述供人工创建 MR, 工具链缺失不阻断代码提交
+        return 0
 
     return submit_mr(title, description, args.target_branch, cli)
 

@@ -55,7 +55,7 @@ class ExecutionRuntimeTests(unittest.TestCase):
         self.assertFalse(result.timed_out)
 
     def test_timeout_returns_a_failure_result(self):
-        script = self.make_script("import time\ntime.sleep(2)\n")
+        script = self.make_script("import time\ntime.sleep(30)\n")
 
         result = self.runtime.run_script(script, timeout=0.05)
 

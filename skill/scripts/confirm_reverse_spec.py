@@ -22,7 +22,7 @@ confirm_reverse_spec.py —— 逆向需求人工裁决辅助
 
 import argparse
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from common import load_yaml
 
@@ -45,6 +45,20 @@ def save(path, data):
         yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
 
 
+def _to_aware_utc(value):
+    """把 created_at（datetime 或 ISO 字符串，可带时区/Z）规范化为 aware UTC；无时区视为本地时间。"""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        text = str(value).strip()
+        if text.endswith(("Z", "z")):
+            text = text[:-1] + "+00:00"
+        dt = datetime.fromisoformat(text)
+    if dt.tzinfo is None:
+        dt = dt.astimezone()  # 按本地时区解释
+    return dt.astimezone(timezone.utc)
+
+
 def check_timeout(candidates_data, timeout_hours=DEFAULT_TIMEOUT_HOURS):
     """检查是否有未裁决条目超过超时时间。
 
@@ -52,19 +66,20 @@ def check_timeout(candidates_data, timeout_hours=DEFAULT_TIMEOUT_HOURS):
         List of (candidate, hours_pending) tuples that have exceeded timeout.
     """
     timed_out = []
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     for c in candidates_data.get("candidates", []) or []:
         hd = c.get("human_decision", {}) or {}
         if c.get("review_required") and hd.get("status") == "unconfirmed":
             created = hd.get("created_at") or c.get("created_at")
             if created:
                 try:
-                    created_dt = datetime.fromisoformat(created)
-                    pending_hours = (now - created_dt).total_seconds() / 3600
-                    if pending_hours >= timeout_hours:
-                        timed_out.append((c.get("id"), c.get("source", {}).get("module", ""), pending_hours))
-                except Exception:
-                    pass
+                    created_dt = _to_aware_utc(created)
+                except (TypeError, ValueError) as exc:
+                    print("警告: %s 的 created_at 无法解析（%r）：%s，跳过超时检查" % (c.get("id"), created, exc))
+                    continue
+                pending_hours = (now - created_dt).total_seconds() / 3600
+                if pending_hours >= timeout_hours:
+                    timed_out.append((c.get("id"), c.get("source", {}).get("module", ""), pending_hours))
     return timed_out
 
 
