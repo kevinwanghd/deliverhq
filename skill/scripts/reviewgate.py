@@ -9,7 +9,6 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -17,7 +16,7 @@ import yaml
 
 from cr_state import load_state, update_gate_from_result
 from runtime_support import configure_console
-from common import Color, load_yaml, parse_porcelain_z
+from common import Color, load_yaml, now_iso, parse_porcelain_z
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
@@ -516,7 +515,7 @@ def _write_evidence_json(cr_path: Path, passed: bool, blockers: List[str], warni
         "schema_version": "deliverhq-gate-result/v1",
         "gate_name": "review",
         "result": result_val,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso(),
         "blocking_items": blockers,
         "warnings": warnings,
         "commands_run": commands_run,

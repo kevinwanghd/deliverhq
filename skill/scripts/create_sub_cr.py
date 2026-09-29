@@ -25,7 +25,7 @@ import yaml
 
 from runtime_support import configure_console
 from common import Color
-from common import load_yaml
+from common import load_yaml, now_iso
 
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 configure_console()
@@ -49,7 +49,7 @@ def load_sub_crs(epic_path: Path) -> dict:
     return {
         'epic': epic_path.name,
         'title': '',
-        'created_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': now_iso(),
         'sub_crs': []
     }
 
@@ -169,7 +169,7 @@ def create_sub_cr(epic_id: str, title: str, depends_on: list[str] = None):
         'sub_cr_id': sub_cr_id,
         'title': title,
         'depends_on': depends_on or [],
-        'created_at': datetime.now(timezone.utc).isoformat()
+        'created_at': now_iso()
     }
     with open(sub_cr_path / 'parent.yml', 'w', encoding='utf-8') as f:
         yaml.dump(parent_data, f, allow_unicode=True, default_flow_style=False)
@@ -188,8 +188,8 @@ def create_sub_cr(epic_id: str, title: str, depends_on: list[str] = None):
         'last_gate': None,
         'next_required_gate': 'spec',
         'gate_status': {},
-        'created_at': datetime.now(timezone.utc).isoformat(),
-        'updated_at': datetime.now(timezone.utc).isoformat(),
+        'created_at': now_iso(),
+        'updated_at': now_iso(),
     }
     with open(sub_cr_path / 'state.yml', 'w', encoding='utf-8') as f:
         yaml.dump(state_data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
@@ -200,7 +200,7 @@ def create_sub_cr(epic_id: str, title: str, depends_on: list[str] = None):
         'title': title,
         'status': 'pending',
         'depends_on': depends_on or [],
-        'created_at': datetime.now(timezone.utc).isoformat()
+        'created_at': now_iso()
     })
     save_sub_crs(epic_path, sub_crs_data)
 

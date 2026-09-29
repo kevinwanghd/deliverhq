@@ -21,8 +21,9 @@ TECH_SPEC Manager — 跨会话知识传承
 import argparse
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from common import now_iso
 
 # =============================================================================
 # 配置
@@ -202,7 +203,7 @@ def cmd_init(cr_id: str, force: bool = False) -> dict:
     subtasks_path = get_subtasks_path(cr_dir)
     timeline_path = get_timeline_path(cr_dir)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = now_iso()
 
     results = []
 
@@ -255,7 +256,7 @@ def cmd_add_task(cr_id: str, title: str, task_type: str = "new",
     else:
         data = SUBTASKS_TEMPLATE.copy()
         data["cr_id"] = cr_id
-        data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data["created_at"] = now_iso()
 
     # 生成 ID
     task_id = f"TASK-{len(data['tasks']) + 1:03d}"
@@ -271,7 +272,7 @@ def cmd_add_task(cr_id: str, title: str, task_type: str = "new",
     }
 
     data["tasks"].append(task)
-    data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["updated_at"] = now_iso()
 
     subtasks_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -295,7 +296,7 @@ def cmd_update_task(cr_id: str, task_id: str, status: str = None,
                 task["status"] = status
             if title:
                 task["title"] = title
-            data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data["updated_at"] = now_iso()
             subtasks_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             return {"success": True, "task": task}
 
@@ -307,7 +308,7 @@ def cmd_append_timeline(cr_id: str, event_type: str, detail: str) -> dict:
     cr_dir = get_cr_dir(cr_id)
     timeline_path = get_timeline_path(cr_dir)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = now_iso()
 
     # 事件类型映射
     type_icons = {

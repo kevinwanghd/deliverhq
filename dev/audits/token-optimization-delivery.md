@@ -126,8 +126,8 @@ export DELIVERHQ_FORCE_RUN=1
 ### 新增文件
 - `scripts/gate_cache.py` — Fingerprint 计算和缓存逻辑
 - `scripts/gate_wrapper.py` — Gate 执行包装器
-- `scripts/lazy_load.py` — 延迟加载工具（备用）
-- `scripts/diagnose_token_usage.py` — Token 使用诊断工具
+- `scripts/lazy_load.py` — 延迟加载工具（备用；未被任何 Gate 采用，2026-09-29 已归档至 dev/archived-scripts/）
+- `scripts/diagnose_token_usage.py` — Token 使用诊断工具（一次性分析工具，2026-09-29 已归档至 dev/archived-scripts/）
 - `references/token-optimization.md` — 优化设计 v1
 - `references/token-optimization-v2.md` — 优化设计 v2（最终方案）
 - `references/gate-cache-guide.md` — 使用指南

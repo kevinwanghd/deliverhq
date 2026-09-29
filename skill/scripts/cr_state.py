@@ -8,7 +8,6 @@ CR State Machine - CR 状态机管理
 
 
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -16,7 +15,7 @@ from typing import Dict, List, Optional
 import yaml
 
 from runtime_support import write_gate_evidence
-from common import load_yaml
+from common import hours_since, load_yaml, now_iso
 
 STATE_FILE = "state.yml"
 DEFAULT_LANE = "standard"
@@ -105,7 +104,7 @@ class CRStateSnapshot:
 
 
 def _now() -> str:
-    return datetime.now().isoformat()
+    return now_iso()
 
 
 def _state_file(cr_path: Path) -> Path:
@@ -504,10 +503,8 @@ def _blocked_duration_hours(state: CRStateSnapshot) -> Optional[int]:
     if not state.updated_at:
         return None
     try:
-        updated = datetime.fromisoformat(state.updated_at)
-        delta = datetime.now() - updated
-        return int(delta.total_seconds() / 3600)
-    except Exception:
+        return int(hours_since(state.updated_at))
+    except (TypeError, ValueError):
         return None
 
 

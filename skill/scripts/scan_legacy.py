@@ -30,6 +30,8 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+from common import now_iso
+
 try:
     import yaml
 except ImportError:
@@ -409,7 +411,7 @@ def main():
         "version": 1,
         "project": {
             "name": root.name,
-            "scanned_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "scanned_at": now_iso(),
             "scan_root": str(root),
             "tech_stack": tech_stack,
             "input_hash": flatten["input_hash"],

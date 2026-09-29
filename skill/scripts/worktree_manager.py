@@ -15,6 +15,8 @@ from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 
+from common import now_iso
+
 
 CR_ID_PATTERN = re.compile(r"^CR-[A-Z0-9]+(?:-[A-Z0-9]+)*$")
 
@@ -209,13 +211,12 @@ class WorktreeManager:
             raise RuntimeError(f"Failed to create worktree: {result.stderr}")
 
         # Create worktree info
-        import datetime
         info = WorktreeInfo(
             path=str(worktree_path),
             branch=branch_name,
             cr_id=cr_id,
             status=WorktreeStatus.ACTIVE,
-            created_at=datetime.datetime.now().isoformat()
+            created_at=now_iso()
         )
 
         # Save to registry

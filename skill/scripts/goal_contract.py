@@ -21,10 +21,9 @@ goal_contract.py —— Goal Contract 校验器
 
 import json
 import sys
-from datetime import datetime
 from pathlib import Path
 from common import Color
-from common import load_yaml
+from common import load_yaml, now_iso
 
 try:
     import yaml
@@ -162,7 +161,7 @@ def _write_evidence_json(cr_dir: Path, passed: bool, blockers: list):
         "schema_version": "deliverhq-gate-result/v1",
         "gate_name": "goal_contract",
         "result": "pass" if passed else "blocked",
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": now_iso(),
         "blocking_items": blockers,
         "warnings": [],
         "commands_run": [f"goal_contract.py {cr_dir.name}"],

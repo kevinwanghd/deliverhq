@@ -24,7 +24,7 @@ import argparse
 import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from common import load_yaml
+from common import load_yaml, parse_ts
 
 try:
     import yaml
@@ -47,16 +47,7 @@ def save(path, data):
 
 def _to_aware_utc(value):
     """把 created_at（datetime 或 ISO 字符串，可带时区/Z）规范化为 aware UTC；无时区视为本地时间。"""
-    if isinstance(value, datetime):
-        dt = value
-    else:
-        text = str(value).strip()
-        if text.endswith(("Z", "z")):
-            text = text[:-1] + "+00:00"
-        dt = datetime.fromisoformat(text)
-    if dt.tzinfo is None:
-        dt = dt.astimezone()  # 按本地时区解释
-    return dt.astimezone(timezone.utc)
+    return parse_ts(value).astimezone(timezone.utc)
 
 
 def check_timeout(candidates_data, timeout_hours=DEFAULT_TIMEOUT_HOURS):

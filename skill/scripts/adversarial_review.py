@@ -24,8 +24,9 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
+
+from common import now_iso
 
 # =============================================================================
 # 配置
@@ -306,7 +307,7 @@ def generate_report(
     lines = [
         f"# 对抗式审查报告 — CR-{cr_id}",
         "",
-        f"> 生成时间：{datetime.now().isoformat()}",
+        f"> 生成时间：{now_iso()}",
         "> 来源：数字生命卡兹克 Vibe Coding Prompt 技巧",
         "",
         "## 元数据",
@@ -388,7 +389,7 @@ def generate_report(
         "",
         "---",
         "",
-        f"*本报告由 adversarial_review.py 生成 | {datetime.now().isoformat()}*",
+        f"*本报告由 adversarial_review.py 生成 | {now_iso()}*",
     ])
 
     return "\n".join(lines)
@@ -541,7 +542,7 @@ def _write_evidence_json(cr_id, scope, changed_files, verdict, blocking, output)
             "schema_version": "deliverhq-gate-result/v1",
             "gate_name": "adversarial_review",
             "result": "pass" if verdict == "PASS" else "blocked",
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_iso(),
             "blocking_items": [f"[{f['severity']}] {f['type']}" for f in blocking],
             "warnings": [],
             "commands_run": [f"adversarial_review.py {cr_id} --scope {scope}"],

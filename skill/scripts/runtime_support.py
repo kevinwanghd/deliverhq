@@ -10,10 +10,10 @@ Shared helpers for:
 
 
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Iterable, List, Optional
 
+from common import now_iso
 from failure_attribution import classify_failure
 from gate_json_output import build_gate_result_payload, save_gate_result_json
 
@@ -76,7 +76,7 @@ def write_gate_evidence(
     payload = build_gate_result_payload(
         gate_name=gate_name,
         result=result,
-        timestamp=datetime.now().isoformat(),
+        timestamp=now_iso(),
         blocking_items=blockers,
         warnings=warnings,
         commands_run=commands_run,

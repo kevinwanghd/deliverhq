@@ -12,7 +12,8 @@ import hashlib
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict, fields
-from datetime import datetime
+
+from common import now_iso, sort_key
 
 
 VALID_STATUSES = {"active", "superseded", "deprecated", "obsolete"}
@@ -156,7 +157,7 @@ class MemoryStore:
             None,
         )
         entry_id = existing.id if existing else self._generate_id(fingerprint)
-        now = datetime.now().isoformat()
+        now = now_iso()
 
         # Check if exists
         if existing:
@@ -208,7 +209,7 @@ class MemoryStore:
         entry = self.entries[entry_id]
         entry.status = "superseded"
         entry.superseded_by = replacement_id
-        entry.updated_at = datetime.now().isoformat()
+        entry.updated_at = now_iso()
         self._save_index()
         return entry
 
@@ -219,7 +220,7 @@ class MemoryStore:
         entry = self.entries[entry_id]
         entry.status = "deprecated"
         entry.revalidate_when = revalidate_when
-        entry.updated_at = datetime.now().isoformat()
+        entry.updated_at = now_iso()
         self._save_index()
         return entry
 
@@ -230,7 +231,7 @@ class MemoryStore:
         entry = self.entries[entry_id]
         entry.status = "obsolete"
         entry.revalidate_when = reason
-        entry.updated_at = datetime.now().isoformat()
+        entry.updated_at = now_iso()
         self._save_index()
         return entry
 
@@ -244,7 +245,7 @@ class MemoryStore:
                 or bool(PROMOTION_TAGS.intersection(set(entry.tags)))
             )
         ]
-        candidates.sort(key=lambda entry: (entry.occurrences, entry.updated_at), reverse=True)
+        candidates.sort(key=lambda entry: (entry.occurrences, sort_key(entry.updated_at)), reverse=True)
         return candidates
 
     def audit_lifecycle(self, root: Optional[str] = None, min_occurrences: int = 3) -> Dict[str, Any]:
@@ -320,7 +321,7 @@ class MemoryStore:
                          query_lower in e.context.lower()]
 
         # Sort by updated_at (newest first)
-        results.sort(key=lambda e: e.updated_at, reverse=True)
+        results.sort(key=lambda e: sort_key(e.updated_at), reverse=True)
 
         return results
 

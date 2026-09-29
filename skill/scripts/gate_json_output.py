@@ -266,12 +266,12 @@ def load_gate_output_json(json_path: str) -> GateOutput:
 
 
 if __name__ == "__main__":
-    from datetime import datetime
+    from common import now_iso
 
     payload = build_gate_result_payload(
         gate_name="SpecGate",
         result="blocked",
-        timestamp=datetime.now().isoformat(),
+        timestamp=now_iso(),
         blocking_items=["包含 3 处 [待确认] 或 [TODO] 未解决"],
         warnings=["包含模糊词但无量化指标: 优化"],
         commands_run=["specgate.py"],
