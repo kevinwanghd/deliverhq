@@ -132,7 +132,13 @@ AI 署名：[AI-{model_name}]
     }
 }
 
-DEFAULT_CONFIG_PATH = Path(__file__).parent.parent / "governance.config.yml"
+# 治理配置位于仓库根目录 (DeliverHQ/scripts/ 的上两级); 兼容旧布局回退到 DeliverHQ/
+_REPO_ROOT_CONFIG = Path(__file__).parent.parent.parent / "governance.config.yml"
+_LEGACY_CONFIG = Path(__file__).parent.parent / "governance.config.yml"
+DEFAULT_CONFIG_PATH = (
+    _LEGACY_CONFIG if not _REPO_ROOT_CONFIG.exists() and _LEGACY_CONFIG.exists()
+    else _REPO_ROOT_CONFIG
+)
 
 
 # =============================================================================

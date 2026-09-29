@@ -2,6 +2,7 @@ import importlib.util
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -44,6 +45,7 @@ class GateWrapperEntrypointTests(unittest.TestCase):
         self.assertEqual({}, missing)
 
 
+@unittest.skipUnless(shutil.which("node"), "需要 node")
 class CliEntrypointTests(unittest.TestCase):
     def run_cli(self, *args):
         return subprocess.run(
@@ -407,6 +409,73 @@ class CliEntrypointTests(unittest.TestCase):
 
         self.assertEqual(0, result.returncode, result.stderr.decode(errors="replace"))
 
+
+@unittest.skipUnless(shutil.which("node"), "需要 node")
+class CliForceAndArgsRegressionTests(unittest.TestCase):
+    """--force 不得销毁用户内容；缺值参数必须给出中文报错而非 TypeError。"""
+
+    def run_cli(self, *args, cwd=ROOT):
+        return subprocess.run(
+            ["node", str(ROOT / "bin" / "cli.js"), *args],
+            cwd=cwd,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+
+    def test_init_project_force_preserves_user_change_requests(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-init-project-force-") as tmp:
+            root = Path(tmp)
+            first = self.run_cli("init-project", "--governance-only", "--path", tmp)
+            self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+            home = root / "DeliverHQ"
+            user_cr = home / "change-requests" / "CR-001" / "notes.md"
+            user_cr.parent.mkdir(parents=True)
+            user_cr.write_text("用户需求记录\n", encoding="utf-8")
+            (home / "docs" / "PRD.md").write_text("用户 PRD\n", encoding="utf-8")
+            stale_script = home / "scripts" / "health_check.py"
+            stale_script.write_text("# stale\n", encoding="utf-8")
+
+            second = self.run_cli("init-project", "--governance-only", "--path", tmp, "--force")
+
+            self.assertEqual(0, second.returncode, second.stdout + second.stderr)
+            self.assertEqual("用户需求记录\n", user_cr.read_text(encoding="utf-8"))
+            self.assertEqual("用户 PRD\n", (home / "docs" / "PRD.md").read_text(encoding="utf-8"))
+            self.assertNotEqual("# stale\n", stale_script.read_text(encoding="utf-8"))
+            self.assertTrue((home / "change-requests" / "CR-TEMPLATE").is_dir())
+            self.assertEqual(["DeliverHQ"], [p.name for p in root.iterdir() if p.name.startswith("DeliverHQ")])
+
+    def test_init_force_preserves_flat_target_prd(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-init-force-") as tmp:
+            args = ("init", "--target", "codex", "--profile", "product", "--yes")
+            first = self.run_cli(*args, cwd=tmp)
+            self.assertEqual(0, first.returncode, first.stdout + first.stderr)
+            prd = Path(tmp) / ".deliverhq" / "docs" / "PRD.md"
+            prd.write_text("产品经理写好的 PRD\n", encoding="utf-8")
+
+            second = self.run_cli(*args, "--force", cwd=tmp)
+
+            self.assertEqual(0, second.returncode, second.stdout + second.stderr)
+            self.assertEqual("产品经理写好的 PRD\n", prd.read_text(encoding="utf-8"))
+            self.assertTrue((Path(tmp) / ".deliverhq" / "scripts" / "prd_validate.py").is_file())
+
+    def test_value_flag_without_value_fails_with_chinese_message(self):
+        result = self.run_cli("doctor", "--path")
+
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn("参数 --path 需要一个值", result.stdout + result.stderr)
+        self.assertNotIn("TypeError", result.stdout + result.stderr)
+
+    def test_init_project_without_tty_uses_default_instead_of_hanging(self):
+        with tempfile.TemporaryDirectory(prefix="deliverhq-init-project-notty-") as tmp:
+            result = self.run_cli("init-project", "--path", tmp)
+
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assertIn("governance-only", result.stdout)
+            self.assertTrue((Path(tmp) / "DeliverHQ").is_dir())
 
 class CommandConfigurationTests(unittest.TestCase):
     def assert_commands_are_unconfigured(self, content):

@@ -46,8 +46,10 @@ echo "  ✓ 已发布 ${NAME}@${VER}"
 # 5. 全新目录真实安装验证
 echo "[5/5] 全新目录验证 npx 安装..."
 TMP=$(mktemp -d)
-( cd "$TMP" && npx -y "${NAME}@${VER}" init --yes >/dev/null 2>&1 && npx -y "${NAME}@${VER}" doctor 2>&1 | grep -E "通过:|selftest" )
-rm -rf "$TMP"
+trap 'rm -rf "$TMP"' EXIT
+if ! ( cd "$TMP" && npx -y "${NAME}@${VER}" init --yes >/dev/null 2>&1 && npx -y "${NAME}@${VER}" doctor 2>&1 | grep -E "通过:|selftest" ); then
+  echo "  ⚠ 安装验证未通过（包已发布），请手动执行：npx ${NAME}@${VER} doctor"
+fi
 
 echo ""
 echo "==================================================="

@@ -21,6 +21,7 @@ Context 隔离的根因：
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import hashlib
@@ -97,8 +98,9 @@ def load_tier_config() -> dict:
 
 def run_git(cmd: list, cwd: Path = None) -> tuple[int, str, str]:
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=60)
-        return r.returncode, r.stdout, r.stderr
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=60)
+        return r.returncode, r.stdout or "", r.stderr or ""
     except Exception as e:
         return -1, "", str(e)
 
@@ -110,8 +112,19 @@ def get_repo_root(cr_dir: Path) -> Path:
     return cr_dir
 
 
+def get_untracked_files(repo_root: Path, scope: str = ".") -> list[str]:
+    _, stdout, _ = run_git(["git", "ls-files", "--others", "--exclude-standard", "--", scope], cwd=repo_root)
+    return [f for f in stdout.splitlines() if f]
+
+
 def get_git_diff(repo_root: Path, scope: str = ".") -> str:
-    _, stdout, _ = run_git(["git", "diff", "--", scope], cwd=repo_root)
+    # 相对 HEAD 比较, 同时覆盖已暂存和未暂存改动; 未跟踪文件以新增 diff 形式追加
+    rc, stdout, _ = run_git(["git", "diff", "HEAD", "--", scope], cwd=repo_root)
+    if rc != 0:
+        _, stdout, _ = run_git(["git", "diff", "--", scope], cwd=repo_root)
+    for f in get_untracked_files(repo_root, scope):
+        _, extra, _ = run_git(["git", "diff", "--no-index", "--", os.devnull, f], cwd=repo_root)
+        stdout += extra
     return stdout
 
 
@@ -121,8 +134,11 @@ def get_git_status(repo_root: Path, scope: str = ".") -> str:
 
 
 def get_changed_files(repo_root: Path, scope: str = ".") -> list[str]:
-    _, stdout, _ = run_git(["git", "diff", "--name-only", "--", scope], cwd=repo_root)
-    return [f for f in stdout.strip().split("\n") if f]
+    rc, stdout, _ = run_git(["git", "diff", "HEAD", "--name-only", "--", scope], cwd=repo_root)
+    if rc != 0:
+        _, stdout, _ = run_git(["git", "diff", "--name-only", "--", scope], cwd=repo_root)
+    files = [f for f in stdout.splitlines() if f]
+    return files + [f for f in get_untracked_files(repo_root, scope) if f not in files]
 
 
 def compute_sha256(text: str) -> str:

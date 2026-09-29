@@ -19,45 +19,18 @@ drift_fix.py —— PRD↔CR 漂移修复工具
 """
 
 import argparse
-import hashlib
 import re
 import sys
 from pathlib import Path
 
 from runtime_support import configure_console
+# 锚点章节/哈希算法与 drift_check 共用同一实现，避免两处漂移
+from drift_check import _anchor_hash, _anchor_section
 
 configure_console()
 
 DERIVED_RE = re.compile(r'prd_section:\s*([A-Za-z0-9_\-]+)')
 PRD_HASH_RE = re.compile(r'prd_hash:\s*["\']?([0-9a-f]+)["\']?')
-
-
-def _anchor_section(prd_text, anchor_id):
-    """返回单个 PRD 锚点章节文本（## [ID] ... 到下一个 ##）。"""
-    m = re.search(r'^##\s*\[' + re.escape(anchor_id) + r'\].*$', prd_text, re.M)
-    if not m:
-        return None
-    rest = prd_text[m.end():]
-    nxt = re.search(r'^##\s', rest, re.M)
-    return prd_text[m.start(): m.end() + (nxt.start() if nxt else len(rest))]
-
-
-def _is_assoc_line(line):
-    """识别「关联 CR」行(允许 markdown 粗体 ** 与缩进)。"""
-    s = line.lstrip()
-    while s.startswith('*'):
-        s = s[1:]
-    return s.startswith('关联 CR')
-
-
-def _anchor_hash(prd_text, anchor_id):
-    """锚点章节哈希，排除「关联 CR」行。"""
-    section = _anchor_section(prd_text, anchor_id)
-    if section is None:
-        return None
-    kept = [l for l in section.splitlines() if not _is_assoc_line(l)]
-    norm = '\n'.join(kept).strip()
-    return hashlib.sha256(norm.encode('utf-8')).hexdigest()[:12]
 
 
 def diagnose_drift(cr_dir, root):

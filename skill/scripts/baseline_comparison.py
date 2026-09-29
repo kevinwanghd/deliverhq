@@ -12,7 +12,6 @@ Baseline Comparison - 基线对比机制
 import json
 import os
 import re
-import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -25,7 +24,7 @@ import yaml
 sys.dont_write_bytecode = True
 
 from runtime_support import configure_console, ensure_cr_runtime_dirs
-from common import load_yaml, load_yaml_all
+from common import load_yaml, load_yaml_all, resolve_executable, split_command
 
 configure_console()
 
@@ -105,6 +104,13 @@ def load_verification_manifest(cr_path: Path) -> Tuple[Optional[Dict], Optional[
         return None, f"解析 verification-manifest.yml 失败: {exc}"
 
 
+def _is_within(path: Path, root: Path) -> bool:
+    """按路径组件判断 path 是否位于 root 内（Windows 下大小写不敏感），避免 str 前缀误判 /repo2 属于 /repo。"""
+    norm_path = Path(os.path.normcase(str(path)))
+    norm_root = Path(os.path.normcase(str(root)))
+    return norm_path == norm_root or norm_path.is_relative_to(norm_root)
+
+
 def _resolve_working_dir(path_str: str) -> Path:
     path = Path(path_str)
     if path.is_absolute():
@@ -114,7 +120,7 @@ def _resolve_working_dir(path_str: str) -> Path:
         resolved = (base_dir / path).resolve()
     # 安全验证：确保路径在允许范围内（防止 path traversal）
     allowed_roots = [HOST_REPO_ROOT.resolve(), DELIVERHQ_ROOT.resolve(), Path.cwd().resolve()]
-    if not any(str(resolved).startswith(str(root)) for root in allowed_roots if root.exists()):
+    if not any(_is_within(resolved, root) for root in allowed_roots if root.exists()):
         # 如果路径不在允许范围内，默认使用项目根目录
         return DELIVERHQ_ROOT.resolve()
     return resolved
@@ -122,28 +128,37 @@ def _resolve_working_dir(path_str: str) -> Path:
 
 def _run_command(name: str, category: str, command: str, working_dir: str, timeout: int) -> CommandResult:
     resolved_cwd = _resolve_working_dir(working_dir)
-    # 安全：使用 shell=False 防止命令注入
-    cmd_list = shlex.split(command) if isinstance(command, str) else command
-    proc = subprocess.run(
-        cmd_list,
-        shell=False,
-        cwd=resolved_cwd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        timeout=timeout,
-        env={**dict(os.environ), **SUBPROCESS_ENV},
-    )
+    # 安全：使用 shell=False 防止命令注入；Windows 下保留反斜杠并解析 .cmd shim
+    try:
+        cmd_list = resolve_executable(split_command(command))
+        proc = subprocess.run(
+            cmd_list,
+            shell=False,
+            cwd=resolved_cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+            env={**dict(os.environ), **SUBPROCESS_ENV},
+        )
+    except subprocess.TimeoutExpired:
+        returncode, stdout, stderr = -1, "", f"命令超时（{timeout} 秒）"
+    except (OSError, ValueError) as exc:
+        returncode, stdout, stderr = -1, "", f"命令无法执行: {exc}"
+    else:
+        returncode, stdout, stderr = proc.returncode, proc.stdout, proc.stderr
     return CommandResult(
         name=name,
         category=category,
         command=command,
         working_dir=str(resolved_cwd),
         timeout=timeout,
-        success=proc.returncode == 0,
-        returncode=proc.returncode,
-        stdout=proc.stdout,
-        stderr=proc.stderr,
+        success=returncode == 0,
+        returncode=returncode,
+        stdout=stdout,
+        stderr=stderr,
     )
 
 
@@ -231,6 +246,7 @@ def run_baseline(cr_path: Path, manifest: Dict) -> BaselineResult:
             universal_newlines=True,
             stderr=subprocess.DEVNULL,
             env={**dict(os.environ), **SUBPROCESS_ENV},
+            timeout=30,
         ).strip()
     except Exception:
         commit_hash = "unknown"

@@ -17,7 +17,7 @@ import yaml
 
 from cr_state import load_state, update_gate_from_result
 from runtime_support import configure_console
-from common import Color, load_yaml
+from common import Color, load_yaml, parse_porcelain_z
 
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
@@ -216,27 +216,23 @@ def _collect_changed_files_from_evidence(cr_path: Path) -> List[str]:
 def _collect_changed_files() -> Optional[List[str]]:
     try:
         result = subprocess.run(
-            ['git', '-C', str(PROJECT_ROOT), 'status', '--porcelain'],
+            ['git', '-C', str(PROJECT_ROOT), '-c', 'core.quotepath=false', 'status', '--porcelain', '-z'],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
+            encoding='utf-8',
+            errors='replace',
             timeout=10,
         )
+    # risk:swallowed-exception reason:"git 不可用时返回 None，由调用方按无法收集变更证据处理" owner:@deliverhq reviewed:2026-09-29
     except Exception:
         return None
 
     if result.returncode != 0:
         return None
 
-    changed_files: List[str] = []
-    for line in result.stdout.splitlines():
-        if len(line) < 4:
-            continue
-        path = line[3:].strip()
-        if ' -> ' in path:
-            path = path.split(' -> ')[-1].strip()
-        changed_files.append(path.replace('\\', '/'))
-    return changed_files
+    # -z 输出按 NUL 分隔、路径不加引号转义，重命名条目带额外原路径字段
+    return parse_porcelain_z(result.stdout)
 
 
 def _relevant_changed_files(changed_files: Optional[List[str]]) -> List[str]:

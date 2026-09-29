@@ -28,12 +28,15 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
 except ImportError:
     print("需要 PyYAML：pip install PyYAML")
     sys.exit(2)
+
+configure_console()
 
 
 DEFAULT_MAX_RETRIES = 3
@@ -43,14 +46,31 @@ def _ledger_path(cr_dir):
     return cr_dir / "evidence" / "retry-ledger.yml"
 
 
+class LedgerCorruptError(Exception):
+    """重试账本存在但无法解析：已备份，调用方必须 fail closed，不得覆盖历史。"""
+
+
 def load_ledger(cr_dir):
     p = _ledger_path(cr_dir)
     if not p.exists():
         return {"entries": []}
     try:
-        return load_yaml(p) or {"entries": []}
-    except Exception:
-        return {"entries": []}
+        data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    except (yaml.YAMLError, OSError, UnicodeDecodeError) as exc:
+        reason = "解析失败: %s" % exc
+    else:
+        if data is None:
+            return {"entries": []}
+        if isinstance(data, dict) and isinstance(data.get("entries", []), list):
+            data.setdefault("entries", [])
+            return data
+        reason = "顶层不是含 entries 列表的映射"
+    backup = p.with_name("%s.corrupt-%s" % (p.name, datetime.now().strftime("%Y%m%d%H%M%S%f")))
+    try:
+        backup.write_bytes(p.read_bytes())
+    except OSError as exc:
+        raise LedgerCorruptError("重试账本 %s 损坏（%s），且备份失败: %s" % (p, reason, exc))
+    raise LedgerCorruptError("重试账本 %s 损坏（%s），已备份到 %s；请人工修复后重试" % (p, reason, backup))
 
 
 def save_ledger(cr_dir, ledger):
@@ -185,15 +205,19 @@ def main():
         print("CR 目录不存在: %s" % cr_dir)
         sys.exit(1)
 
-    if args.action == "status":
-        show_status(cr_dir)
-        sys.exit(0)
+    try:
+        if args.action == "status":
+            show_status(cr_dir)
+            sys.exit(0)
 
-    if not args.gate or not args.blocker:
-        print("record 需要 --gate 和 --blocker")
-        sys.exit(1)
+        if not args.gate or not args.blocker:
+            print("record 需要 --gate 和 --blocker")
+            sys.exit(1)
 
-    can_retry, reason = record_failure(cr_dir, args.gate, args.blocker, args.hypothesis)
+        can_retry, reason = record_failure(cr_dir, args.gate, args.blocker, args.hypothesis)
+    except LedgerCorruptError as exc:
+        print("❌ %s" % exc)
+        sys.exit(2)
     # exit 0=可继续重试；非0=不可（needs_human / 拒绝原地重复）
     sys.exit(0 if can_retry else 1)
 

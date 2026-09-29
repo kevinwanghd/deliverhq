@@ -289,13 +289,17 @@ def _create_runtime_dirs(target_dir: Path):
 
 def _create_worktree(cr_id: str, project_root: Path, fail_on_error: bool = True):
     _print("\n🌲 创建 worktree...")
-    result = subprocess.run(
-        [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-        cwd=str(project_root),
-    )
+    try:
+        result = subprocess.run(
+            [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            universal_newlines=True,
+            cwd=str(project_root),
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        result = subprocess.CompletedProcess([], 124, "", "worktree_manager.py 执行超时（120 秒）")
 
     if result.returncode == 0:
         _print("✅ Worktree 创建成功")
