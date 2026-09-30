@@ -28,11 +28,20 @@ from runtime_support import configure_console
 # 示例 CR 夹具存放于 dev/fixtures/change-requests/（不随项目发布）。
 EXAMPLE_CR_ROOT = Path(__file__).resolve().parent.parent / "fixtures" / "change-requests"
 
-# 被测核心（提供 gate 脚本与其依赖的 docs）默认为同仓库 skill/；可用 argv[1] 覆盖。
-ROOT = _SKILL_SCRIPTS.parent
-positional = [a for a in sys.argv[1:] if not a.startswith("--")]
-if positional:
-    ROOT = Path(positional[0]).resolve()
+def _resolve_root(argv):
+    """解析被测核心 ROOT。返回 (root, explicit)。
+
+    显式传入 argv[1] 时直接使用（selftest 传入的是临时副本）；
+    缺省返回同仓库 skill/ 并标记 explicit=False，由 main() 先复制到临时目录再运行，
+    避免示例 CR 与 gate 产物落进真实 skill/change-requests。
+    """
+    positional = [a for a in argv[1:] if not a.startswith("--")]
+    if positional:
+        return Path(positional[0]).resolve(), True
+    return _SKILL_SCRIPTS.parent, False
+
+
+ROOT, _EXPLICIT_ROOT = _resolve_root(sys.argv)
 configure_console()
 SUBPROCESS_ENV = {**dict(os.environ), "PYTHONIOENCODING": "utf-8", "PYTHONDONTWRITEBYTECODE": "1", "DELIVERHQ_SELFTEST": "1", "DELIVERHQ_AUTO_MISTAKE_BOOK": "0"}
 
@@ -201,13 +210,29 @@ def check_gate_pass_blocked():
     return all_correct
 
 def main():
+    global ROOT
+    isolated_parent = None
+    if not _EXPLICIT_ROOT:
+        # 单独运行：复制 skill/ 到临时目录，示例 CR 与 gate 产物只落在副本里
+        isolated_parent = Path(tempfile.mkdtemp(prefix="deliverhq-gate-contract-"))
+        copy = isolated_parent / ROOT.name
+        shutil.copytree(str(ROOT), str(copy), ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        ROOT = copy
+
     print("=" * 60)
     print("  DeliverHQ Gate Contract Check")
     print("=" * 60)
-    print(f"  Root: {ROOT}\n")
+    print(f"  Root: {ROOT}")
+    if isolated_parent is not None:
+        print("  （隔离副本：不触碰真实 skill/change-requests）")
+    print()
 
-    exists_ok = check_gate_exists()
-    contract_ok = check_gate_pass_blocked()
+    try:
+        exists_ok = check_gate_exists()
+        contract_ok = check_gate_pass_blocked()
+    finally:
+        if isolated_parent is not None:
+            shutil.rmtree(str(isolated_parent), ignore_errors=True)
 
     print("\n" + "=" * 60)
     print("  总结")
