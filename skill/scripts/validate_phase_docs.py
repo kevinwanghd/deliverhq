@@ -21,6 +21,7 @@ SKILL_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(SKILL_ROOT / "scripts"))
 
 from common import Color
+from runtime_support import configure_console
 
 
 # 按阶段定义必需文档（相对于 CR 目录或 DeliverHQ 根目录）
@@ -133,6 +134,7 @@ def print_phase_report(cr_path: Path, phase: str, passed: bool, blockers: List[s
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="验证 CR 当前阶段所需的文档是否存在")
     parser.add_argument("cr_path", help="CR 目录路径")
     parser.add_argument(

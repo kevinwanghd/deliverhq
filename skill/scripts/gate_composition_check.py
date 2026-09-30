@@ -31,6 +31,7 @@ import re
 import sys
 from pathlib import Path
 from common import Color
+from runtime_support import configure_console
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPTS = ROOT / "scripts"
@@ -163,6 +164,7 @@ def check(verbose=True):
 
 
 def main():
+    configure_console()
     if "--list" in sys.argv:
         print("=== 冻结 Gate 集合 (FROZEN_GATES) ===")
         for name, role in FROZEN_GATES.items():

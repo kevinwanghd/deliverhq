@@ -11,6 +11,7 @@ from datetime import date
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from runtime_support import configure_console
 
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 sys.dont_write_bytecode = True
@@ -157,6 +158,7 @@ def mark_promoted_candidates(
 
 
 def main() -> int:
+    configure_console()
     parser = build_parser()
     args = parser.parse_args()
 

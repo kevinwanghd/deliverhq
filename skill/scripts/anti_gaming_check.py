@@ -30,6 +30,7 @@ import sys
 from pathlib import Path
 from common import Color
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -254,6 +255,7 @@ def check_anti_gaming(cr_path, base="HEAD"):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="反钻空子客观检查")
     parser.add_argument("cr_path", help="CR 目录")
     parser.add_argument("--base", default="HEAD", help="git 对比基线，默认 HEAD")

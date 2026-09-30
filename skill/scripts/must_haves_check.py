@@ -29,6 +29,7 @@ import re
 import sys
 from pathlib import Path
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -138,6 +139,7 @@ def check_must_haves(cr_dir, root):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="must_haves 谓词校验（确定性，借 GSD 判据语法）")
     parser.add_argument("cr_path", help="CR 目录")
     parser.add_argument("--root", help="仓库根（默认自动定位）")

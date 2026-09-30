@@ -11,6 +11,12 @@ from pathlib import Path
 
 import yaml
 
+try:
+    from runtime_support import configure_console
+except Exception:  # product 最小安装下 runtime_support 依赖链可能缺失，不应让 dir-graph 校验崩溃
+    def configure_console() -> None:
+        pass
+
 DELIVERHQ_ROOT = Path(__file__).resolve().parent.parent
 
 
@@ -86,6 +92,7 @@ def lint_dir_graph(path: Path):
 
 
 def main():
+    configure_console()
     path = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else DELIVERHQ_ROOT / "dir-graph.yaml"
     blockers, warnings = lint_dir_graph(path)
 

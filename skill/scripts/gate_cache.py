@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import List, Optional
 import yaml
 from common import load_yaml
+from runtime_support import configure_console
 
 
 # Gate 依赖关系定义（哪些文件影响哪个 Gate）
@@ -261,6 +262,7 @@ def invalidate_downstream_gates(cr_path: Path, changed_gate: str):
 
 # CLI for debugging
 if __name__ == "__main__":
+    configure_console()
     import argparse
 
     parser = argparse.ArgumentParser(description="Gate 缓存工具")

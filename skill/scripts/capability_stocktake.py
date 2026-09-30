@@ -10,6 +10,7 @@ from pathlib import Path
 import sys
 from typing import Sequence
 
+from runtime_support import configure_console
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 if str(SKILL_ROOT) not in sys.path:
@@ -89,6 +90,7 @@ def check_stocktake(
 
 
 def main() -> int:
+    configure_console()
     parser = argparse.ArgumentParser(description="DeliverHQ capability stocktake")
     parser.add_argument("--intent", required=True, help="What the new capability should do")
     parser.add_argument("--proposed-name", required=True, help="Proposed capability name")

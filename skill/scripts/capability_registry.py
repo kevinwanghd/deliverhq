@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import sys
 
+from runtime_support import configure_console
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 if str(SKILL_ROOT) not in sys.path:
@@ -120,6 +121,7 @@ def command_migrate(args: argparse.Namespace) -> int:
 
 
 def main() -> int:
+    configure_console()
     parser = argparse.ArgumentParser(description="DeliverHQ capability registry")
     subparsers = parser.add_subparsers(dest="command", required=True)
 

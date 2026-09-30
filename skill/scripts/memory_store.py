@@ -14,6 +14,7 @@ from typing import List, Dict, Any, Optional
 from dataclasses import dataclass, asdict, fields
 
 from common import now_iso, sort_key
+from runtime_support import configure_console
 
 
 VALID_STATUSES = {"active", "superseded", "deprecated", "obsolete"}
@@ -470,6 +471,7 @@ def _looks_like_path(value: str) -> bool:
 
 def main():
     """CLI entry point"""
+    configure_console()
     import argparse
 
     parser = argparse.ArgumentParser(description="DeliverHQ External Memory Store")

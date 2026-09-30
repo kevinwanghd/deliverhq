@@ -18,6 +18,8 @@ import json
 import sys
 from pathlib import Path
 
+from runtime_support import configure_console
+
 # =============================================================================
 # 配置
 # =============================================================================
@@ -307,6 +309,7 @@ def run_five_step_locator(
 # =============================================================================
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="五步定位法 — 把大型项目代码定位拆成5个收敛步骤",
         formatter_class=argparse.RawDescriptionHelpFormatter,

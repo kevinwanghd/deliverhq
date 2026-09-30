@@ -31,6 +31,7 @@ from datetime import datetime
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -356,6 +357,7 @@ def write_report(report_path, project_name, root, tech_stack, lang_counts, candi
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="老项目逆向扫描（填客观层 + 推导 review_required）")
     parser.add_argument("scan_root", help="老项目源码目录")
     parser.add_argument("--out", default=None, help="输出 YAML 路径；省略则自动定位到 <DeliverHQ home>/change-requests/<cr>/reverse-spec-candidates.yml")
