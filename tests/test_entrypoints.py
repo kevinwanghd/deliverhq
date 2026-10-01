@@ -109,6 +109,12 @@ class CliEntrypointTests(unittest.TestCase):
             self.assertFalse((home / "scripts" / "qualitygate.py").exists())
             self.assertFalse((home / "scripts" / "reviewgate.py").exists())
             self.assertFalse((home / "capabilities.yml").exists())
+            # ARC 运行时四件套不随 product 包安装（依赖链不随包且 product 上下文不引用，
+            # 装上是一运行就 ImportError 的死文件）
+            for arc_script in ("session_pack_builder.py", "evidence_verifier.py",
+                               "recovery_manager.py", "arc_scheduler.py"):
+                self.assertFalse((home / "scripts" / arc_script).exists(),
+                                 "product 包不应携带 %s" % arc_script)
             self.assertIn("产品经理", (home / "SKILL.md").read_text(encoding="utf-8"))
             self.assertTrue((Path(tmp) / "AGENTS.md").is_file())
 

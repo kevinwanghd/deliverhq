@@ -70,10 +70,9 @@ const INSTALL_PROFILES = {
       'scripts/agent_adapter.py',
       'scripts/adapter_mock.py',
       'scripts/adapter_claude_code.py',
-      'scripts/session_pack_builder.py',
-      'scripts/evidence_verifier.py',
-      'scripts/recovery_manager.py',
-      'scripts/arc_scheduler.py',
+      // ARC 运行时四件套（session_pack_builder/evidence_verifier/recovery_manager/arc_scheduler）
+      // 不在 product 包：依赖链（common/ 等）不随包安装且 product 上下文不引用它们，
+      // 装上反而是一运行就 ImportError 的死文件。CLI 的 arc-run 走 SKILL_SRC 不受影响。
     ],
     mappings: [
       ['product/AGENTS.md', 'AGENTS.md'],

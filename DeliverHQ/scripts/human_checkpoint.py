@@ -129,6 +129,29 @@ AI 署名：[AI-{model_name}]
 输入 'N: 具体说明' 修改文案。
 """,
         "auto_proceed_allowed": False
+    },
+    # HK-V: verify 动词失败时的人工关卡（Layer 5），与 skill 侧一致
+    "HK-V": {
+        "name": "Verify 失败核查",
+        "description": "verify 动词四步 Layer 失败后",
+        "wait_for": "用户'继续/go' 或 'N: 修改说明'",
+        "prompt": """
+verify 动词执行失败，请检查分层报告：
+
+{layer_report_summary}
+
+阻断项：
+{blockers}
+
+下一步：
+- 输入 'go' 或 '继续'：接受当前状态，继续推进（记录重试假设）
+- 输入 'N: 具体说明'：要求修改后重试
+- 输入 'stop'：暂停，保留当前状态
+
+提示：verify 四步（goal_contract → review → quality → anti_gaming）均失败，
+需逐层修复后重试。可用 `retry_guard.py` 记录同类失败次数。
+""",
+        "auto_proceed_allowed": False
     }
 }
 
@@ -154,11 +177,12 @@ def load_checkpoints_config(config_path: Path = DEFAULT_CONFIG_PATH) -> dict:
         with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
         if config and "human_checkpoints" in config:
-            # 用配置文件覆盖默认配置
-            custom = {}
+            # 按 id 逐字段合并：配置只覆盖给出的字段，内置 prompt 等字段保留
+            # （整体替换会让不含 prompt 的配置条目触发 KeyError，HK-2.5 即如此）
+            merged = {cp_id: dict(cp) for cp_id, cp in CHECKPOINTS.items()}
             for cp in config["human_checkpoints"]:
-                custom[cp["id"]] = cp
-            return {**CHECKPOINTS, **custom}
+                merged[cp["id"]] = {**merged.get(cp["id"], {}), **cp}
+            return merged
     except Exception:
         pass
 
@@ -282,6 +306,38 @@ def run_checkpoint(
         prompt = cp["prompt"].format(tech_spec_preview=preview)
         print(prompt)
 
+    # HK-2.5: 对抗式审查确认（读取 reviewer_agent 的审查报告，渲染结论与发现列表）
+    elif checkpoint_id == "HK-2.5":
+        import re as _re
+        summary = "（未找到对抗式审查报告，请先运行 reviewer_agent.py）"
+        findings = ["- （无）"]
+        if cr_id:
+            cr_paths = [
+                Path("DeliverHQ") / "change-requests" / cr_id,
+                Path("change-requests") / cr_id,
+            ]
+            for cr_dir in cr_paths:
+                report = None
+                for candidate in (cr_dir / "evidence" / "adversarial_review_report.md",
+                                  cr_dir / "adversarial_review_report.md"):
+                    if candidate.exists():
+                        report = candidate
+                        break
+                if report:
+                    content = report.read_text(encoding="utf-8")
+                    m = _re.search(r"verdict[*_]*\s*:\s*(PASS|FAIL)", content, _re.IGNORECASE)
+                    verdict = m.group(1).upper() if m else "未知"
+                    found = _re.findall(r"\[(CRITICAL|HIGH)\]\s+([^\n]+)", content)
+                    summary = f"verdict: {verdict}；CRITICAL/HIGH 发现 {len(found)} 条（{report.name}）"
+                    findings = ([f"- [{sev}] {name.strip()}" for sev, name in found[:10]]
+                                if found else ["- （无 CRITICAL/HIGH 发现）"])
+                    break
+        prompt = cp["prompt"].format(
+            adversarial_summary=summary,
+            findings_list="\n".join(findings),
+        )
+        print(prompt)
+
     # HK-3: commit 文案确认
     elif checkpoint_id == "HK-3":
         commit_message = context or "（未提供 commit 文案）"
@@ -294,6 +350,25 @@ def run_checkpoint(
             commit_message=commit_message,
             model_name="Claude/GPT",
             code_gen_rate=code_gen_rate
+        )
+        print(prompt)
+
+    # HK-V: verify 失败人工核查（Layer 5）
+    elif checkpoint_id == "HK-V":
+        # context 形如 JSON 字符串，含分层报告摘要
+        import json as _json
+        layer_summary = "（无可用报告）"
+        blockers_text = "（无阻断项）"
+        try:
+            data = _json.loads(context) if context else {}
+            layer_summary = data.get("summary", layer_summary)
+            blockers_text = data.get("blockers_text", blockers_text)
+        except Exception:
+            blockers_text = context or blockers_text
+
+        prompt = cp["prompt"].format(
+            layer_report_summary=layer_summary,
+            blockers=blockers_text,
         )
         print(prompt)
 
@@ -322,7 +397,13 @@ def run_checkpoint(
             print(f"📝 要求修改：{modification}")
             return {"approved": False, "message": f"需要修改：{modification}"}
 
-        elif user_input.lower() == "stop":
+        elif user_input.startswith("有 blocking"):
+            # HK-2.5 声明的阻断输入：有未解决的 blocking findings，暂停提交
+            note = user_input.split(":", 1)[-1].split("：", 1)[-1].strip()
+            print(f"🛑 有未解决的 blocking findings：{note}")
+            return {"approved": False, "message": f"blocking 未解决：{note}"}
+
+        elif user_input.lower() in ("stop", "暂停"):
             print("⏹️ 已暂停")
             return {"approved": False, "message": "用户暂停"}
 

@@ -133,22 +133,29 @@ def check_reverse_spec_gate(arg):
     return True, []
 
 
+USAGE = "用法: python reverse_spec_gate.py <CR目录 或 reverse-spec-candidates.yml>"
+
+
 def main():
     configure_console()
     if len(sys.argv) < 2:
-        print("用法: python reverse_spec_gate.py <CR目录 或 reverse-spec-candidates.yml>")
+        print(USAGE)
         sys.exit(1)
+    if sys.argv[1] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
 
     arg = sys.argv[1]
     passed, blockers = check_reverse_spec_gate(arg)
 
-    # 写回状态机（若可用且参数是 CR 目录）
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from cr_state import record_from_arg
-        record_from_arg(arg, "reverse_spec", passed)
-    except Exception:
-        pass
+    # 写回状态机（若可用且参数是真实存在的路径）
+    if Path(arg).exists():
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from cr_state import record_from_arg
+            record_from_arg(arg, "reverse_spec", passed)
+        except Exception:
+            pass
 
     sys.exit(0 if passed else 1)
 

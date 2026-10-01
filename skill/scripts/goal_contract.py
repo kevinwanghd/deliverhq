@@ -174,23 +174,31 @@ def _write_evidence_json(cr_dir: Path, passed: bool, blockers: list):
     print(f"✅ evidence JSON 已写入：{out}")
 
 
+USAGE = "用法: python goal_contract.py <CR目录 或 goal-contract.yml>"
+
+
 def main():
     configure_console()
     if len(sys.argv) < 2:
-        print("用法: python goal_contract.py <CR目录 或 goal-contract.yml>")
+        print(USAGE)
         sys.exit(1)
+    if sys.argv[1] in ("-h", "--help"):
+        print(USAGE)
+        sys.exit(0)
     arg = sys.argv[1]
     passed, blockers = check_goal_contract(arg)
-    try:
-        sys.path.insert(0, str(Path(__file__).resolve().parent))
-        from cr_state import record_from_arg
-        record_from_arg(arg, "goal_contract", passed)
-        # 写 evidence JSON（供 verify 分层报告汇总）
-        p = Path(arg)
-        cr_dir = p if p.is_dir() else p.parent
-        _write_evidence_json(cr_dir, passed, blockers)
-    except Exception:
-        pass
+    # 仅参数为真实存在的路径时写状态与 evidence，避免 --help/错误路径污染 cwd
+    if Path(arg).exists():
+        try:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from cr_state import record_from_arg
+            record_from_arg(arg, "goal_contract", passed)
+            # 写 evidence JSON（供 verify 分层报告汇总）
+            p = Path(arg)
+            cr_dir = p if p.is_dir() else p.parent
+            _write_evidence_json(cr_dir, passed, blockers)
+        except Exception:
+            pass
     sys.exit(0 if passed else 1)
 
 

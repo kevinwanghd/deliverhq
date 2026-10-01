@@ -154,11 +154,12 @@ def load_checkpoints_config(config_path: Path = DEFAULT_CONFIG_PATH) -> dict:
         with open(config_path, "r", encoding="utf-8") as f:
             config = load_yaml(f)
         if config and "human_checkpoints" in config:
-            # 用配置文件覆盖默认配置
-            custom = {}
+            # 按 id 逐字段合并：配置只覆盖给出的字段，内置 prompt 等字段保留
+            # （整体替换会让不含 prompt 的配置条目触发 KeyError）
+            merged = {cp_id: dict(cp) for cp_id, cp in CHECKPOINTS.items()}
             for cp in config["human_checkpoints"]:
-                custom[cp["id"]] = cp
-            return {**CHECKPOINTS, **custom}
+                merged[cp["id"]] = {**merged.get(cp["id"], {}), **cp}
+            return merged
     except Exception:
         pass
 
