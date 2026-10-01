@@ -13,6 +13,7 @@ import yaml
 
 from scan_legacy import detect_tech_stack, find_source_files, find_test_files
 from scan_legacy_structure import collect_findings
+from runtime_support import configure_console
 
 DOC_PATTERNS = (
     "AGENTS.md", "CLAUDE.md", "CONTEXT.md", "ARCHITECTURE.md",
@@ -177,6 +178,7 @@ def validate_home(root: Path, home: Path) -> Path:
 
 
 def main() -> int:
+    configure_console()
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default=".")
     parser.add_argument("--home", default=None)

@@ -34,6 +34,7 @@ import json
 import sys
 from pathlib import Path
 from common import Color, now_iso
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -165,6 +166,7 @@ def run_evidence_loop(cr_path, json_only=False):
 
 
 def main():
+    configure_console()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     if not args:
         print("用法: python evidence_loop.py <CR目录> [--json]")

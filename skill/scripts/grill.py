@@ -34,6 +34,7 @@ SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
 from common import Color
+from runtime_support import configure_console
 
 
 # ---------------------------------------------------------------------------
@@ -405,6 +406,7 @@ def resolve_request_path(arg: str) -> tuple[Path, Path]:
 
 
 def main() -> int:
+    configure_console()
     parser = argparse.ArgumentParser(
         description="DeliverHQ 需求澄清烤问工具",
         formatter_class=argparse.RawDescriptionHelpFormatter,

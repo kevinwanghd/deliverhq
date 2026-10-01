@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -70,8 +71,9 @@ RISK_PATTERNS = {
 
 def run_git(cmd: list, cwd: Path = None) -> tuple[int, str, str]:
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=30)
-        return r.returncode, r.stdout, r.stderr
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=30)
+        return r.returncode, r.stdout or "", r.stderr or ""
     except Exception as e:
         return -1, "", str(e)
 
@@ -400,6 +402,7 @@ def generate_report(
 # =============================================================================
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="对抗式审查 Gate — 扮演恶意用户，主动找漏洞",
         formatter_class=argparse.RawDescriptionHelpFormatter,

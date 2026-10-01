@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 TECH_SPEC Manager — 跨会话知识传承
 
@@ -23,6 +23,13 @@ import json
 import sys
 from datetime import datetime
 from pathlib import Path
+
+
+def _now_iso() -> str:
+    """带本地时区偏移的 ISO-8601（秒精度）。与 common.timeutil.now_iso 一致；
+    本文件自包含，不依赖 skill/scripts/common。"""
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
 
 # =============================================================================
 # 配置
@@ -191,23 +198,6 @@ def get_timeline_path(cr_dir: Path) -> Path:
     return cr_dir / "timeline.txt"
 
 
-def load_yaml_robust(path: Path) -> dict:
-    """安全加载 YAML（容错）"""
-    import yaml
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return yaml.safe_load(f) or {}
-    except Exception:
-        return {}
-
-
-def save_yaml_robust(path: Path, data: dict):
-    """安全保存 YAML"""
-    import yaml
-    with open(path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
-
 # =============================================================================
 # 核心操作
 # =============================================================================
@@ -219,7 +209,7 @@ def cmd_init(cr_id: str, force: bool = False) -> dict:
     subtasks_path = get_subtasks_path(cr_dir)
     timeline_path = get_timeline_path(cr_dir)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = _now_iso()
 
     results = []
 
@@ -272,7 +262,7 @@ def cmd_add_task(cr_id: str, title: str, task_type: str = "new",
     else:
         data = SUBTASKS_TEMPLATE.copy()
         data["cr_id"] = cr_id
-        data["created_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        data["created_at"] = _now_iso()
 
     # 生成 ID
     task_id = f"TASK-{len(data['tasks']) + 1:03d}"
@@ -288,7 +278,7 @@ def cmd_add_task(cr_id: str, title: str, task_type: str = "new",
     }
 
     data["tasks"].append(task)
-    data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data["updated_at"] = _now_iso()
 
     subtasks_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -312,7 +302,7 @@ def cmd_update_task(cr_id: str, task_id: str, status: str = None,
                 task["status"] = status
             if title:
                 task["title"] = title
-            data["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            data["updated_at"] = _now_iso()
             subtasks_path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
             return {"success": True, "task": task}
 
@@ -324,7 +314,7 @@ def cmd_append_timeline(cr_id: str, event_type: str, detail: str) -> dict:
     cr_dir = get_cr_dir(cr_id)
     timeline_path = get_timeline_path(cr_dir)
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = _now_iso()
 
     # 事件类型映射
     type_icons = {

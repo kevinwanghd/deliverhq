@@ -12,6 +12,11 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    from runtime_support import configure_console
+except Exception:  # product 最小安装下 runtime_support 依赖链可能缺失，不应让 PRD 校验崩溃
+    def configure_console() -> None:
+        pass
 
 STATUSES = {"draft", "reviewed", "approved", "frozen", "superseded"}
 FEATURE_STATUSES = {"draft", "pending_confirmation", "confirmed", "deferred", "deprecated"}
@@ -145,6 +150,7 @@ def validate(path: Path, strict: bool = False):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="Validate an agent-friendly DeliverHQ PRD")
     parser.add_argument("prd", help="path to PRD.md")
     parser.add_argument("--strict", action="store_true", help="treat unresolved placeholders as blockers")

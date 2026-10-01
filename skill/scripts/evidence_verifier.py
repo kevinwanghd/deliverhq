@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -118,7 +119,10 @@ def _check_anti_gaming(cr_path: Path) -> tuple[bool, str]:
     script = Path(__file__).parent / "anti_gaming_check.py"
     if not script.exists(): return False, "anti_gaming_check.py 不存在"
     try:
-        result = subprocess.run([sys.executable, str(script), str(cr_path)], capture_output=True, text=True, timeout=60)
+        # 子脚本可能 configure_console 输出 UTF-8：强制子进程 UTF-8 并按 UTF-8 解码，避免 GBK 下乱码/解码异常
+        env = {**os.environ, "PYTHONIOENCODING": "utf-8"}
+        result = subprocess.run([sys.executable, str(script), str(cr_path)], capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", env=env, timeout=60)
     except Exception as exc: return False, str(exc)
     return (True, "pass") if result.returncode == 0 else (False, result.stdout.strip() or result.stderr.strip() or "检查失败")
 

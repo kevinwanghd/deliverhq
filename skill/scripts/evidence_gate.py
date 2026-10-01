@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -108,9 +109,11 @@ def run_git_command(cmd: list[str], cwd: Path = None) -> tuple[int, str, str]:
             cwd=cwd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30
         )
-        return result.returncode, result.stdout.strip(), result.stderr.strip()
+        return result.returncode, (result.stdout or "").strip(), (result.stderr or "").strip()
     except Exception as e:
         return -1, "", str(e)
 
@@ -365,6 +368,7 @@ def check_all_evidence(cr_id: str) -> dict:
 # =============================================================================
 
 def main():
+    configure_console()
     # argparse subparsers break when sys.argv[0] contains path separators on Windows
     sys.argv[0] = Path(sys.argv[0]).name
 

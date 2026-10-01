@@ -24,6 +24,7 @@ import sys
 import yaml
 from pathlib import Path
 from common import load_yaml
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -357,6 +358,7 @@ def run_checkpoint(
 # =============================================================================
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="Human Checkpoint — 人工硬关卡",
         formatter_class=argparse.RawDescriptionHelpFormatter,

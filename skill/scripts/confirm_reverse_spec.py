@@ -25,6 +25,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from common import load_yaml, parse_ts
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -118,6 +119,7 @@ def apply_decision(data, cid, action, criteria, note, by):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="逆向需求人工裁决")
     parser.add_argument("candidates", help="reverse-spec-candidates.yml 路径")
     parser.add_argument("--list", action="store_true", help="列出待裁决条目")

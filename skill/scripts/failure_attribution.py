@@ -217,6 +217,10 @@ Gate: {attribution.gate_name}
 
 
 if __name__ == "__main__":
+    # runtime_support 会反向 import 本模块，顶层 import 会形成循环依赖，故延迟到此
+    from runtime_support import configure_console
+    configure_console()
+
     # 测试用例
     test_cases = [
         ("SpecGate", "包含 3 处 [待确认] 或 [TODO] 未解决"),

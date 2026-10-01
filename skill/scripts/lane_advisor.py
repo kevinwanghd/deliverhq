@@ -34,6 +34,7 @@ import re
 import sys
 from pathlib import Path
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -143,6 +144,7 @@ def advise(cr_dir):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="客观规模分档建议器")
     parser.add_argument("cr_path", help="CR 目录")
     parser.add_argument("--json", action="store_true", help="机器可读输出")

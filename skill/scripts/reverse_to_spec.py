@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -163,6 +164,7 @@ def build_known_deviations(project_name, rejected):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="逆向需求 → acceptance-spec + traceability")
     parser.add_argument("cr_path", help="CR 目录路径")
     parser.add_argument("--candidates", default=None, help="自定义 candidates.yml 路径")

@@ -23,6 +23,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+
+def _now_iso() -> str:
+    """带本地时区偏移的 ISO-8601（秒精度）。与 common.timeutil.now_iso 一致；
+    本文件自包含，不依赖 skill/scripts/common。"""
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
 # =============================================================================
 # 配置
 # =============================================================================
@@ -131,7 +138,7 @@ def record_evidence(
     evidence_dir = get_evidence_dir(cr_id)
     evidence_file = get_evidence_file(evidence_dir, evidence_type)
 
-    now = datetime.now().isoformat()
+    now = _now_iso()
 
     # 构建 evidence 记录
     evidence = {
@@ -188,9 +195,16 @@ def verify_evidence(
             "verified": False
         }
 
-    evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+    try:
+        evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as e:
+        return {
+            "success": False,
+            "error": f"evidence 文件格式错误：{evidence_type}, {e}",
+            "verified": False
+        }
 
-    now = datetime.now().isoformat()
+    now = _now_iso()
     result = {
         "success": True,
         "type": evidence_type,
@@ -351,7 +365,11 @@ def check_all_evidence(cr_id: str) -> dict:
     for evidence_type in EVIDENCE_TYPES:
         evidence_file = get_evidence_file(evidence_dir, evidence_type)
         if evidence_file.exists():
-            evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+            try:
+                evidence = json.loads(evidence_file.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                # 跳过格式错误的 evidence 文件
+                continue
             results["evidences"].append({
                 "type": evidence_type,
                 "exists": True,

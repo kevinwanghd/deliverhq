@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 from common import Color
 from common import load_yaml, now_iso
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -174,6 +175,7 @@ def _write_evidence_json(cr_dir: Path, passed: bool, blockers: list):
 
 
 def main():
+    configure_console()
     if len(sys.argv) < 2:
         print("用法: python goal_contract.py <CR目录 或 goal-contract.yml>")
         sys.exit(1)
