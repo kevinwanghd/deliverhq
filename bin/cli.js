@@ -174,7 +174,10 @@ function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
     if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue; // evidence 保留（含 fixture）
+      // CR-TEMPLATE 的占位目录含 README，必须随模板下发；其他 CR 下的同名目录是运行时产物，跳过
+      const templatePlaceholder = path.basename(src) === 'CR-TEMPLATE'
+        && (entry.name === 'workspace' || entry.name === 'outputs' || entry.name === 'artifacts');
+      if (SKIP_DIRS.has(entry.name) && !templatePlaceholder) continue; // evidence 保留（含 fixture）
       copyDir(path.join(src, entry.name), path.join(dst, entry.name));
     } else if (entry.isFile()) {
       if (entry.name.endsWith('.pyc') || entry.name.endsWith('.backup')) continue;
