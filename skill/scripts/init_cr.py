@@ -290,11 +290,15 @@ def _create_runtime_dirs(target_dir: Path):
 def _create_worktree(cr_id: str, project_root: Path, fail_on_error: bool = True):
     _print("\n🌲 创建 worktree...")
     try:
+        # worktree_manager 走 configure_console 输出 UTF-8：强制子进程 UTF-8 并按 UTF-8 解码
         result = subprocess.run(
             [sys.executable, str(WORKTREE_SCRIPT), "create", cr_id],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             universal_newlines=True,
+            encoding="utf-8",
+            errors="replace",
+            env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             cwd=str(project_root),
             timeout=120,
         )

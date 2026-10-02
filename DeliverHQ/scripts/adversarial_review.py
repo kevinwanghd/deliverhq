@@ -27,6 +27,13 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
+
+def _now_iso() -> str:
+    """带本地时区偏移的 ISO-8601（秒精度）。与 common.timeutil.now_iso 一致；
+    本文件自包含，不依赖 skill/scripts/common。"""
+    return datetime.now().astimezone().replace(microsecond=0).isoformat()
+
+
 # =============================================================================
 # 配置
 # =============================================================================
@@ -294,7 +301,7 @@ def generate_report(
     lines = [
         f"# 对抗式审查报告 — CR-{cr_id}",
         "",
-        f"> 生成时间：{datetime.now().isoformat()}",
+        f"> 生成时间：{_now_iso()}",
         "> 来源：数字生命卡兹克 Vibe Coding Prompt 技巧",
         "",
         "## 元数据",
@@ -376,7 +383,7 @@ def generate_report(
         "",
         "---",
         "",
-        f"*本报告由 adversarial_review.py 生成 | {datetime.now().isoformat()}*",
+        f"*本报告由 adversarial_review.py 生成 | {_now_iso()}*",
     ])
 
     return "\n".join(lines)

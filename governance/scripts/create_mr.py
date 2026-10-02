@@ -597,11 +597,25 @@ def submit_gitlab_api(title: str, description: str, target: str, args) -> int:
     return 0
 
 
-def detect_cli() -> str | None:
-    if shutil.which("glab"):
-        return "glab"
-    if shutil.which("gh"):
-        return "gh"
+def _origin_url() -> str:
+    """读取 origin 远端地址，失败返回空串。"""
+    try:
+        r = subprocess.run(["git", "remote", "get-url", "origin"],
+                           capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return r.stdout.strip() if r.returncode == 0 else ""
+
+
+def detect_cli(remote_url: str = "") -> str | None:
+    """按远端选择 CLI：GitHub 优先 gh，GitLab 优先 glab；首选缺失时退而求其次。"""
+    url = (remote_url or "").lower()
+    preferred = "gh" if "github.com" in url else ("glab" if "gitlab" in url else None)
+    candidates = ([preferred] if preferred else []) + ["glab", "gh"]
+    for name in candidates:
+        if shutil.which(name):
+            return name
     return None
 
 
@@ -611,19 +625,109 @@ def submit_mr(title: str, description: str, target: str, cli: str) -> int:
                                      encoding="utf-8") as tf:
         tf.write(description)
         desc_file = tf.name
+    target = target.removeprefix("origin/")  # CLI 不接受 origin/main 形式的目标分支
+    exe = shutil.which(cli) or cli  # Windows 下解析 .cmd shim 全路径
     try:
         if cli == "glab":
-            cmd = ["glab", "mr", "create", "--title", title,
+            # 注意：glab 不允许 --fill 与 --title/--description 同用
+            cmd = [exe, "mr", "create", "--title", title,
                    "--description", description,
-                   "--target-branch", target, "--fill"]
+                   "--target-branch", target]
         else:  # gh
-            cmd = ["gh", "pr", "create", "--title", title,
+            cmd = [exe, "pr", "create", "--title", title,
                    "--body-file", desc_file, "--base", target]
         sys.stderr.write(f"[create-mr] 提交: {cli} ...\n")
         r = subprocess.run(cmd, text=True)
         return r.returncode
     finally:
-        os.unlink(desc_file)
+        try:
+            os.unlink(desc_file)
+        # risk:swallowed-exception reason:"临时描述文件清理失败不影响 MR 提交结果" owner:@deliverhq reviewed:2026-09-30
+        except OSError:
+            pass
+
+
+def submit_with_fallback(title: str, description: str, target: str, cli: str,
+                         submit_fn=submit_mr) -> int:
+    """首选 CLI 提交失败时尝试另一个 CLI；都失败返回非 0，由调用方降级为手动创建。"""
+    rc = submit_fn(title, description, target, cli)
+    if rc == 0:
+        return 0
+    other = "gh" if cli == "glab" else "glab"
+    if shutil.which(other):
+        sys.stderr.write(f"[create-mr] {cli} 提交失败(rc={rc})，改用 {other} 重试\n")
+        return submit_fn(title, description, target, other)
+    return rc
+
+
+def _split_editor_command(editor: str | None) -> list[str]:
+    """拆分 EDITOR：Windows 用非 POSIX 模式保留反斜杠，并剥掉 token 两侧成对引号。"""
+    raw = editor or ("notepad" if os.name == "nt" else "vi")
+    tokens = shlex.split(raw, posix=(os.name != "nt"))
+    if os.name == "nt":
+        tokens = [t[1:-1] if len(t) >= 2 and t[0] == t[-1] and t[0] in ('"', "'") else t
+                  for t in tokens]
+    return tokens
+
+
+def _project_web_url(remote_url: str) -> str:
+    """git@host:group/proj.git / https://host/group/proj.git → https://host/group/proj"""
+    url = (remote_url or "").strip()
+    if not url:
+        return ""
+    m = re.match(r"^git@([^:]+):(.+)$", url)
+    if m:
+        url = f"https://{m.group(1)}/{m.group(2)}"
+    url = url.removesuffix(".git").removesuffix("/")
+    return url if url.startswith("http") else ""
+
+
+def _manual_mr_url(web_url: str, source: str, target: str) -> str:
+    """按平台拼创建 MR/PR 的链接：GitHub 用 compare，GitLab 用 merge_requests/new。"""
+    base = web_url.rstrip("/")
+    encoded_source = urllib.parse.quote(source, safe="")
+    encoded_target = urllib.parse.quote(target, safe="")
+    if "github.com" in base:
+        return f"{base}/compare/{encoded_target}...{encoded_source}?expand=1"
+    return (f"{base}/-/merge_requests/new"
+            f"?merge_request[source_branch]={encoded_source}"
+            f"&merge_request[target_branch]={encoded_target}"
+            f"&issuable_template=default")
+
+
+def print_manual_fallback(args, title: str, description: str) -> int:
+    """打印手动创建 MR 的链接与描述（不阻断代码提交），返回 0。"""
+    gitlab_url = getattr(args, "gitlab_url", None) or os.environ.get("AGENTGATE_GITLAB_URL") or os.environ.get("CI_SERVER_URL")
+    project_id = getattr(args, "gitlab_project_id", None) or os.environ.get("AGENTGATE_GITLAB_PROJECT_ID")
+    source = getattr(args, "source_branch", None) or current_branch()
+
+    # Web 链接必须用项目路径 (group/project); 数字 project id 不能直接拼进 URL
+    project_url = os.environ.get("CI_PROJECT_URL")
+    if not project_url and gitlab_url:
+        project_path = os.environ.get("CI_PROJECT_PATH")
+        if not project_path and project_id and not str(project_id).isdigit():
+            project_path = urllib.parse.unquote(str(project_id))
+        if project_path:
+            project_url = f"{gitlab_url.rstrip('/')}/{project_path.strip('/')}"
+    if not project_url:
+        project_url = _project_web_url(_origin_url())
+
+    if project_url:
+        mr_url = _manual_mr_url(project_url, source, args.target_branch.removeprefix("origin/"))
+        sys.stderr.write(
+            "[create-mr] 未自动创建 MR。请在浏览器中打开以下链接（已预填模板）:\n"
+            f"  {mr_url}\n\n"
+            "  MR 描述已生成如下，复制粘贴到描述框后替换模板内容:\n\n"
+        )
+    else:
+        sys.stderr.write(
+            "[create-mr] 未自动创建 MR。已生成描述如下, 请手动创建:\n"
+            "  提示: 若使用 GitLab 11.4，可在创建 MR 的 URL 末尾加 ?issuable_template=default 来加载模板。\n\n"
+        )
+    print(f"标题: {title}\n")
+    print(description)
+    # 降级路径: 已打印链接与描述供人工创建 MR, 工具链缺失不阻断代码提交
+    return 0
 
 
 def main() -> int:
@@ -708,9 +812,7 @@ def main() -> int:
     title = infer_title(args, args.target_branch)
 
     if args.interactive:
-        default_editor = "notepad" if os.name == "nt" else "vi"
-        editor_cmd = shlex.split(os.environ.get("EDITOR") or default_editor,
-                                 posix=(os.name != "nt"))
+        editor_cmd = _split_editor_command(os.environ.get("EDITOR"))
         with tempfile.NamedTemporaryFile("w", suffix=".md", delete=False,
                                          encoding="utf-8") as tf:
             tf.write(description)
@@ -737,49 +839,12 @@ def main() -> int:
     if args.gitlab_api:
         return submit_gitlab_api(title, description, args.target_branch, args)
 
-    cli = detect_cli()
-    if not cli:
-        # risk:untested reason:"fallback path for manual MR creation - needs env setup and browser interaction to test" owner:@wangwf reviewed:2026-07-26
-        # 尝试拼出带模板参数的 GitLab 创建 MR 链接（解决 GitLab 11.4 不自动加载模板的问题）
-        gitlab_url = getattr(args, "gitlab_url", None) or os.environ.get("AGENTGATE_GITLAB_URL") or os.environ.get("CI_SERVER_URL")
-        project_id = getattr(args, "gitlab_project_id", None) or os.environ.get("AGENTGATE_GITLAB_PROJECT_ID")
-        source = getattr(args, "source_branch", None) or current_branch()
-
-        # Web 链接必须用项目路径 (group/project); 数字 project id 不能直接拼进 URL
-        project_url = os.environ.get("CI_PROJECT_URL")
-        if not project_url and gitlab_url:
-            project_path = os.environ.get("CI_PROJECT_PATH")
-            if not project_path and project_id and not str(project_id).isdigit():
-                project_path = urllib.parse.unquote(str(project_id))
-            if project_path:
-                project_url = f"{gitlab_url.rstrip('/')}/{project_path.strip('/')}"
-
-        if project_url:
-            encoded_source = urllib.parse.quote(source, safe="")
-            encoded_target = urllib.parse.quote(args.target_branch, safe="")
-            mr_url = (
-                f"{project_url.rstrip('/')}/-/merge_requests/new"
-                f"?merge_request[source_branch]={encoded_source}"
-                f"&merge_request[target_branch]={encoded_target}"
-                f"&issuable_template=default"
-            )
-            sys.stderr.write(
-                "[create-mr] 未找到 glab 或 gh CLI。\n"
-                f"  请在浏览器中打开以下链接创建 MR（已预填模板）:\n"
-                f"  {mr_url}\n\n"
-                "  MR 描述已生成如下，复制粘贴到描述框后替换模板内容:\n\n"
-            )
-        else:
-            sys.stderr.write(
-                "[create-mr] 未找到 glab 或 gh CLI。已生成描述如下, 请手动创建 MR:\n"
-                "  提示: 若使用 GitLab 11.4，可在创建 MR 的 URL 末尾加 ?issuable_template=default 来加载模板。\n\n"
-            )
-        print(f"标题: {title}\n")
-        print(description)
-        # 降级路径: 已打印链接与描述供人工创建 MR, 工具链缺失不阻断代码提交
-        return 0
-
-    return submit_mr(title, description, args.target_branch, cli)
+    cli = detect_cli(_origin_url())
+    if cli:
+        if submit_with_fallback(title, description, args.target_branch, cli) == 0:
+            return 0
+        sys.stderr.write("[create-mr] CLI 提交失败，降级为手动创建（不阻断分支提交）\n")
+    return print_manual_fallback(args, title, description)
 
 
 if __name__ == "__main__":

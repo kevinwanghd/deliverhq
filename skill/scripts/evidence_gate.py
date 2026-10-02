@@ -109,9 +109,11 @@ def run_git_command(cmd: list[str], cwd: Path = None) -> tuple[int, str, str]:
             cwd=cwd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30
         )
-        return result.returncode, result.stdout.strip(), result.stderr.strip()
+        return result.returncode, (result.stdout or "").strip(), (result.stderr or "").strip()
     except Exception as e:
         return -1, "", str(e)
 

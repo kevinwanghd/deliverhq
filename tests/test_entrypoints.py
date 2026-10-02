@@ -477,6 +477,44 @@ class CliForceAndArgsRegressionTests(unittest.TestCase):
             self.assertIn("governance-only", result.stdout)
             self.assertTrue((Path(tmp) / "DeliverHQ").is_dir())
 
+    def test_init_project_keeps_cr_template_placeholder_dirs(self):
+        """copyDir 跳过运行时产物目录时，不得误伤 CR-TEMPLATE 的占位目录（含 README）。"""
+        with tempfile.TemporaryDirectory(prefix="deliverhq-init-template-dirs-") as tmp:
+            result = self.run_cli("init-project", "--governance-only", "--path", tmp)
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            template = Path(tmp) / "DeliverHQ" / "change-requests" / "CR-TEMPLATE"
+            for sub in ("artifacts", "evidence", "outputs", "workspace"):
+                self.assertTrue((template / sub / "README.md").is_file(),
+                                f"CR-TEMPLATE/{sub}/README.md 应随模板安装")
+
+
+@unittest.skipUnless(shutil.which("npm"), "需要 npm")
+class NpmPackContentsTests(unittest.TestCase):
+    """npm 包内容：CR-TEMPLATE 占位 README 必须随包发布，运行时产物不得入包。"""
+
+    PLACEHOLDER_READMES = [
+        "skill/change-requests/CR-TEMPLATE/artifacts/README.md",
+        "skill/change-requests/CR-TEMPLATE/evidence/README.md",
+        "skill/change-requests/CR-TEMPLATE/outputs/README.md",
+        "skill/change-requests/CR-TEMPLATE/workspace/README.md",
+    ]
+
+    def test_pack_includes_template_placeholders(self):
+        result = subprocess.run(
+            [shutil.which("npm"), "pack", "--dry-run", "--json"],  # Windows 下 npm 是 .cmd shim，需解析全路径
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
+        )
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        packed = {entry["path"] for entry in json.loads(result.stdout)[0]["files"]}
+        for rel in self.PLACEHOLDER_READMES:
+            self.assertIn(rel, packed)
+        self.assertFalse(any("__pycache__" in p or p.endswith(".pyc") for p in packed))
+
 class CommandConfigurationTests(unittest.TestCase):
     def assert_commands_are_unconfigured(self, content):
         commands = yaml.safe_load(content)
