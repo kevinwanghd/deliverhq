@@ -27,6 +27,8 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
+from runtime_support import configure_console
+
 try:
     from cr_state import load_state
 except Exception:
@@ -97,6 +99,7 @@ def render(summaries):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="极小 STATE 指针（替代 SessionStart hook）")
     parser.add_argument("--home", required=True, help="<项目根>/DeliverHQ")
     parser.add_argument("--cr", help="只刷新某 CR")

@@ -25,6 +25,12 @@ import prd_validate
 
 import yaml
 
+try:
+    from runtime_support import configure_console
+except Exception:  # product 最小安装下 runtime_support 依赖链可能缺失，不应让 PRD 同步崩溃
+    def configure_console() -> None:
+        pass
+
 
 def _load_yaml(path: Path) -> dict:
     """Load YAML file, returns empty dict on failure."""
@@ -336,6 +342,7 @@ def sync(prd_path: Path, out_dir: Path, strict: bool = False) -> dict:
 
 
 def main() -> None:
+    configure_console()
     root = Path(__file__).resolve().parent.parent
     parser = argparse.ArgumentParser(description="Sync PRD.md into agent-facing derived artifacts")
     parser.add_argument("--prd", default=str(root / "docs" / "PRD.md"), help="path to PRD.md")

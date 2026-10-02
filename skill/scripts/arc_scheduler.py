@@ -17,6 +17,7 @@ from typing import Any, Callable
 
 import yaml
 from common import load_yaml
+from runtime_support import configure_console
 
 
 class ArcState(str, Enum):
@@ -272,4 +273,5 @@ def _cli() -> int:
 
 
 if __name__ == "__main__":
+    configure_console()
     raise SystemExit(_cli())

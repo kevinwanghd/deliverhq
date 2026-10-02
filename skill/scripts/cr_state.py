@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 
 import yaml
 
-from runtime_support import write_gate_evidence
+from runtime_support import configure_console, write_gate_evidence
 from common import hours_since, load_yaml, now_iso
 
 STATE_FILE = "state.yml"
@@ -604,6 +604,7 @@ def format_state_report(state: CRStateSnapshot, cr_path: Optional[Path] = None) 
 
 
 if __name__ == "__main__":
+    configure_console()
     import sys
 
     if len(sys.argv) < 2:

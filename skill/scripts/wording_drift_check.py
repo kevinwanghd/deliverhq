@@ -9,6 +9,7 @@ from pathlib import Path
 import re
 import sys
 
+from runtime_support import configure_console
 
 SKILL_ROOT = Path(__file__).resolve().parent.parent
 if str(SKILL_ROOT) not in sys.path:
@@ -50,6 +51,7 @@ def check_wording_drift(root: Path | str = SKILL_ROOT, docs: tuple[str, ...] = D
 
 
 def main() -> int:
+    configure_console()
     parser = argparse.ArgumentParser(description="DeliverHQ wording drift check")
     parser.add_argument("--root", default=str(SKILL_ROOT))
     parser.add_argument("--json", action="store_true")

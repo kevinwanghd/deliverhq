@@ -27,6 +27,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -401,6 +402,7 @@ def generate_report(
 # =============================================================================
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="对抗式审查 Gate — 扮演恶意用户，主动找漏洞",
         formatter_class=argparse.RawDescriptionHelpFormatter,

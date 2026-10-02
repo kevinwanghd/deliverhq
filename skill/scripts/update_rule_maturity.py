@@ -15,6 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
+from runtime_support import configure_console
+
 # 定位 DeliverHQ 根目录（脚本在 DeliverHQ/scripts/ 下）
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 
@@ -174,6 +176,7 @@ def update_rules_md(rule_refs: Dict[str, Set[str]]) -> bool:
 
 
 def main():
+    configure_console()
     print("=== 规则成熟度自动更新 ===\n")
 
     # P3-3: 扫描规则引用（带 CR 溯源）

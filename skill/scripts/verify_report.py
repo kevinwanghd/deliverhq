@@ -37,6 +37,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # 步骤名 → evidence JSON 文件名（与 orchestrator_core SkillConfig outputs 一致）
 STEP_FILES = {
@@ -250,6 +251,7 @@ def _print_report(report: dict, verbose: bool = True) -> None:
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="verify 动词分层报告生成器",
         formatter_class=argparse.RawDescriptionHelpFormatter,

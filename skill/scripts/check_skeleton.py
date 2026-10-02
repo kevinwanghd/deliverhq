@@ -4,6 +4,12 @@
 import sys
 from pathlib import Path
 
+try:
+    from runtime_support import configure_console
+except Exception:  # product 最小安装下 runtime_support 依赖链可能缺失，不应让骨架检查崩溃
+    def configure_console() -> None:
+        pass
+
 
 REQUIRED_FILES = [
     "CLAUDE.md",
@@ -165,6 +171,7 @@ def check_completeness(base_dir=".") -> bool:
 
 
 def main() -> None:
+    configure_console()
     base_dir = sys.argv[1] if len(sys.argv) > 1 else "."
     passed = check_completeness(base_dir)
     sys.exit(0 if passed else 1)

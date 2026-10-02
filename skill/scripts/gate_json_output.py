@@ -266,6 +266,10 @@ def load_gate_output_json(json_path: str) -> GateOutput:
 
 
 if __name__ == "__main__":
+    # runtime_support 会反向 import 本模块，顶层 import 会形成循环依赖，故延迟到此
+    from runtime_support import configure_console
+    configure_console()
+
     from common import now_iso
 
     payload = build_gate_result_payload(

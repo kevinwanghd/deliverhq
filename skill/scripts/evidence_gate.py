@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -367,6 +368,7 @@ def check_all_evidence(cr_id: str) -> dict:
 # =============================================================================
 
 def main():
+    configure_console()
     # argparse subparsers break when sys.argv[0] contains path separators on Windows
     sys.argv[0] = Path(sys.argv[0]).name
 

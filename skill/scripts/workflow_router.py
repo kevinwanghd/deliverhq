@@ -11,9 +11,11 @@ import json
 import sys
 
 from routing_rules import route_request
+from runtime_support import configure_console
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="Route a user request to a low-noise DeliverHQ workflow decision")
     parser.add_argument("prompt", nargs="*", help="user request text")
     args = parser.parse_args()

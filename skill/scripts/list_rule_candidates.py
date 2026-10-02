@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from runtime_support import configure_console
 
 DELIVERHQ_ROOT = Path(__file__).parent.parent
 sys.dont_write_bytecode = True
@@ -131,6 +132,7 @@ def print_summary(grouped: Dict[str, List[CandidateSummary]]) -> None:
 
 
 def main() -> int:
+    configure_console()
     parser = build_parser()
     args = parser.parse_args()
 

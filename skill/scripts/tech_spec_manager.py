@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 from common import now_iso
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -467,6 +468,7 @@ def cmd_handover(cr_id: str) -> dict:
 # =============================================================================
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(
         description="TECH_SPEC Manager — 跨会话知识传承",
         formatter_class=argparse.RawDescriptionHelpFormatter,

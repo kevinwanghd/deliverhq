@@ -26,6 +26,8 @@ import json
 import sys
 from pathlib import Path
 
+from runtime_support import configure_console
+
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -65,6 +67,7 @@ def classify(rows):
 
 
 def main():
+    configure_console()
     parser = argparse.ArgumentParser(description="能力调用分层（Pocock 双轴）")
     parser.add_argument("--tier", choices=["core", "on-demand"], help="只列某一层")
     parser.add_argument("--json", action="store_true", help="机器可读")

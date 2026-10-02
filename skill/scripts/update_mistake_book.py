@@ -14,6 +14,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from runtime_support import configure_console
+
 
 def _fingerprint(cr_id: str, gate_type: str, failure_reason: str) -> str:
     normalized = re.sub(r"\s+", " ", failure_reason.strip().lower())
@@ -223,6 +225,7 @@ def parse_gate_report(report_path: str):
 
 
 def main():
+    configure_console()
     if len(sys.argv) < 2:
         print("用法:")
         print("  python update_mistake_book.py <CR-ID> <gate_type> <failure_reason> [root_cause] [improvement]")

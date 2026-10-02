@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Set
 from common import Color
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -165,6 +166,7 @@ def format_report(diff: Dict, verbose: bool = False) -> str:
 # =============================================================================
 
 def main():
+    configure_console()
     import io
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 

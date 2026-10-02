@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Optional
 from common import Color
 from common import load_yaml
+from runtime_support import configure_console
 
 # =============================================================================
 # 配置
@@ -230,6 +231,7 @@ def get_phase_report(phase: str, red_lines: dict) -> str:
 # =============================================================================
 
 def main():
+    configure_console()
     # 设置输出编码为 UTF-8
     import io
     import sys

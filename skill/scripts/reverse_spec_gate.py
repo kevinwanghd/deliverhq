@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 from common import Color
 from common import load_yaml
+from runtime_support import configure_console
 
 try:
     import yaml
@@ -133,6 +134,7 @@ def check_reverse_spec_gate(arg):
 
 
 def main():
+    configure_console()
     if len(sys.argv) < 2:
         print("用法: python reverse_spec_gate.py <CR目录 或 reverse-spec-candidates.yml>")
         sys.exit(1)
