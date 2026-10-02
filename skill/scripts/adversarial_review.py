@@ -70,8 +70,9 @@ RISK_PATTERNS = {
 
 def run_git(cmd: list, cwd: Path = None) -> tuple[int, str, str]:
     try:
-        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=30)
-        return r.returncode, r.stdout, r.stderr
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True,
+                           encoding="utf-8", errors="replace", timeout=30)
+        return r.returncode, r.stdout or "", r.stderr or ""
     except Exception as e:
         return -1, "", str(e)
 
