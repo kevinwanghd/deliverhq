@@ -23,7 +23,11 @@ if str(SCRIPT_DIR) not in sys.path:
 
 import prd_validate
 
-import yaml
+try:
+    from runtime_support import configure_console
+except Exception:  # product 最小安装下 runtime_support 依赖链可能缺失，不应让 PRD 同步崩溃
+    def configure_console() -> None:
+        pass
 
 try:
     from runtime_support import configure_console
