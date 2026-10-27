@@ -1,0 +1,4 @@
+# DeliverHQ 运行时依赖
+# 全仓唯一第三方 import 为 yaml（PyYAML）；版本与 CI 固定一致
+# （.github/workflows/governance.yml 的 test-check job: pyyaml==6.0.3）
+PyYAML==6.0.3
