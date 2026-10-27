@@ -4,7 +4,8 @@
 
 | 日期 | 决策内容 | 理由 | 影响范围 |
 |---|---|---|---|
-| | | | |
+| 2026-10-27 | 受保护路径审批路径对齐：lane_advisor 识别 protected_paths 并直接判 high-risk；protected_paths 清掉本仓库不存在的模板条目并写明批准路径 | PermissionGate 只在 lane=high-risk 且该 CR 的 exceptions.yml 有 gate_override{gate: PermissionGate, approved_by 非空} 时放行，但建议器此前完全不知道 protected_paths，会给出 standard lane 的建议——开发者照建议走必然在 PermissionGate 被 BLOCK；CR-FLOW-LANES.md 早已声明「修改 protected_paths → 自动判定为 High-Risk」，是实现缺失而非规则缺失 | skill/scripts/lane_advisor.py、skill/dir-graph.yaml、skill/docs/decisions.md |
+| 2026-10-27 | 批准 PR #66 改动受保护路径 package.json / requirements.txt（engines 由 >=14 对齐到 >=20、新增依赖清单与锁文件） | 依赖清单维护是例行工作，原 engines >=14 覆盖已停止安全维护的 Node 14 且宽于 CI 实际验证面（CI 两处均用 node-version 20）；仓库内无任何依赖清单导致依赖不可复现，且 CI 的 python-test job 因找不到标记文件长期整段跳过。审批人：仓库所有者 | package.json、requirements.txt、package-lock.json、.github/workflows/governance.yml |
 
 ---
 

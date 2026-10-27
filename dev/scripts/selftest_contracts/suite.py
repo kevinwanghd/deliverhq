@@ -2314,6 +2314,16 @@ def check_lane_advisor_contract():
         else:
             print(f"  {FAIL} 敏感域应 high-risk，得 {r.stdout[:80]}"); ok = False
 
+        # 受保护路径 → high-risk：建议器必须与 PermissionGate 的放行条件同口径，
+        # 否则开发者照建议走必然在 PermissionGate 被 BLOCK（见 CR-FLOW-LANES.md）
+        r = run(make("## 验收条件\n### 场景 1: a\n",
+                     "schema: x\nX:\n  implementation:\n    - file: package.json\n"))
+        _j = _json.loads(r.stdout)
+        if _j["lane"] == "high-risk" and "package.json" in (_j.get("signals", {}).get("protected_paths") or []):
+            print(f"  {PASS} 受保护路径 → high-risk（与 PermissionGate 放行条件对齐）")
+        else:
+            print(f"  {FAIL} 受保护路径应 high-risk，得 {r.stdout[:160]}"); ok = False
+
         r = run(make("## 验收条件\n### 场景 1: a\n", trace_files(9)))
         if r.returncode == 2 and _json.loads(r.stdout)["decision"] == "split":
             print(f"  {PASS} 超硬阈值 → 建议拆分 (exit 2)")
