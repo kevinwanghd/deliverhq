@@ -41,23 +41,44 @@ directories:
 
 # 受保护路径（相对仓库根 ../ ）
 # AI 不得随意修改这些文件，需明确批准
+#
+# 批准路径（与 permissiongate.py 同口径，缺一不可）：
+#   1) 该 CR 的 state.yml 写 lane: high-risk
+#      —— lane_advisor.py 现在会识别受保护路径并直接建议 high-risk，
+#         不会再给出"按建议走却在 PermissionGate 被 BLOCK"的错误建议
+#   2) 该 CR 的 exceptions.yml 写明豁免：
+#        exceptions:
+#          - gate_override:
+#              gate: "PermissionGate"
+#              reason: "<为什么这次必须改受保护路径>"
+#              approved_by: "<审批人>"
+#              approved_date: "<YYYY-MM-DD>"
+#              conditions: "<复审/回滚条件>"
+#      approved_by 为空不放行（fail-closed）
+#
+# 匹配口径（permissiongate.py 与 lane_advisor.py 共用）：
+#   去掉 "../" 前缀后，用 fnmatch 匹配【仓库根相对路径】。
+#   因此本文件里的 "docs/rules.md" 这类 skill 相对写法目前匹配不到
+#   "skill/docs/rules.md"；要真正生效需写成 "../skill/docs/rules.md"。
+#   本次不改该行为（那会收紧门禁，属独立决策），另行处理。
 protected_paths:
-  # 配置文件示例（根据实际项目调整）
-  - ../config/production.yml
-  - ../**/appsettings*.json      # .NET 项目
-  - ../config/database.yml
-  - ../.env.production
-
-  # 项目核心约定（根据实际项目调整）
-  - ../docs/architecture.md      # 架构设计文档
-  - ../package.json              # 依赖锁定
-  - ../requirements.txt          # Python 依赖
+  # 依赖清单：依赖变更需要显式批准
+  # （PR #66 属此类，已获仓库所有者批准）
+  - ../package.json              # Node 依赖清单 / engines
+  - ../requirements.txt          # Python 依赖清单
 
   # DeliverHQ 核心文件
   - docs/rules.md
   - docs/decisions.md
   - AGENTS.md
   - dir-graph.yaml
+
+  # 以下为模板示例（本仓库当前没有对应文件；出现时再启用）
+  # - ../config/production.yml
+  # - ../**/appsettings*.json      # .NET 项目
+  # - ../config/database.yml
+  # - ../.env.production
+  # - ../docs/architecture.md      # 架构设计文档
 
 # Agent 权限定义
 agents:
