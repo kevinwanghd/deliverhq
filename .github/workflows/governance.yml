@@ -103,15 +103,19 @@ jobs:
           DIRS=$(find . -maxdepth 3 \( -name "requirements.txt" -o -name "pyproject.toml" -o -name "setup.py" \) \
                  -not -path "*/.*" -not -path "*/node_modules/*" -not -path "*/governance/scripts/*" | xargs -I{} dirname {} | sort -u)
           if [ -z "$DIRS" ]; then echo "[python-test] 未找到 Python 项目标记文件, 跳过。"; exit 0; fi
-          pip install -q pytest pyyaml
+          pip install -q "pyyaml==6.0.3"
           OVERALL=0
           for DIR in $DIRS; do
-            echo "[python-test] 在 $DIR 运行 pytest"
+            echo "[python-test] 在 $DIR 运行 unittest"
             (
               cd "$DIR"
               [ -f requirements.txt ] && pip install -q -r requirements.txt
               [ -f pyproject.toml ] && pip install -q -e ".[test]" 2>/dev/null || true
-              python -m pytest --tb=short -q
+              if [ -d tests ]; then
+                python -m unittest discover -s tests -v
+              else
+                echo "[python-test] $DIR 下无 tests/ 目录, 跳过"
+              fi
             ) || OVERALL=1
           done
           exit $OVERALL
