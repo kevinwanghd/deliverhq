@@ -38,6 +38,6 @@
     "LICENSE"
   ],
   "engines": {
-    "node": ">=14"
+    "node": ">=20"
   }
 }
