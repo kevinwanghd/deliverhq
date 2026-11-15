@@ -100,6 +100,19 @@ testing:
 auto_merge:
   enabled: true
   single_maintainer_mode: true
+  # 仓库自己的 CI：gate 等 selftest 在该 PR 提交上跑完，失败或超时阻止自动合并
+  ci_workflows:
+    - selftest.yml
+  # AI 审查：glm-5.3 按 ops/review-points.md 审分支 diff
+  ai_review:
+    model: glm-5.3
+    points: ops/review-points.md
+    internal:
+      - "docs/*.md"
+      - "*.md"
+  required_checks:
+    - ci
+    - review
 
 deliverhq_integration:
   enabled: true
