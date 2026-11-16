@@ -249,5 +249,20 @@ class CreateWorktreeEncodingTests(unittest.TestCase):
         self.assertEqual(tmp / ".claude" / "worktrees" / "CR-1", result)
 
 
+
+class HostMatchTests(unittest.TestCase):
+    """域名判断必须按 hostname，不能用子串（github.com.evil.com 不算 GitHub）。"""
+
+    def test_exact_and_subdomain(self):
+        self.assertTrue(create_mr._host_is("https://github.com/a/b", "github.com"))
+        self.assertTrue(create_mr._host_is("git@github.com:a/b.git", "github.com"))
+        self.assertTrue(create_mr._host_is("https://api.github.com/x", "github.com"))
+
+    def test_lookalike_rejected(self):
+        self.assertFalse(create_mr._host_is("https://github.com.evil.com/x", "github.com"))
+        self.assertFalse(create_mr._host_is("https://notgithub.com/x", "github.com"))
+        self.assertFalse(create_mr._host_is("", "github.com"))
+
+
 if __name__ == "__main__":
     unittest.main()
