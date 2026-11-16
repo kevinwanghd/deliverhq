@@ -249,9 +249,6 @@ class CreateWorktreeEncodingTests(unittest.TestCase):
         self.assertEqual(tmp / ".claude" / "worktrees" / "CR-1", result)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class HostMatchTests(unittest.TestCase):
     """域名判断必须按 hostname，不能用子串（github.com.evil.com 不算 GitHub）。"""
@@ -265,3 +262,7 @@ class HostMatchTests(unittest.TestCase):
         self.assertFalse(create_mr._host_is("https://github.com.evil.com/x", "github.com"))
         self.assertFalse(create_mr._host_is("https://notgithub.com/x", "github.com"))
         self.assertFalse(create_mr._host_is("", "github.com"))
+
+
+if __name__ == "__main__":
+    unittest.main()
