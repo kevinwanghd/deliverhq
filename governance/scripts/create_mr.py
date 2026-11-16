@@ -608,10 +608,20 @@ def _origin_url() -> str:
     return r.stdout.strip() if r.returncode == 0 else ""
 
 
+
+def _host_is(url_or_base: str, domain: str) -> bool:
+    """按 hostname 判断域名，不用子串（避免 github.com.evil.com 命中）。"""
+    candidate = url_or_base if "://" in url_or_base else f"https://{url_or_base}"
+    try:
+        host = (urllib.parse.urlparse(candidate).hostname or "").lower()
+    except ValueError:
+        return False
+    return host == domain or host.endswith(f".{domain}")
+
 def detect_cli(remote_url: str = "") -> str | None:
     """按远端选择 CLI：GitHub 优先 gh，GitLab 优先 glab；首选缺失时退而求其次。"""
     url = (remote_url or "").lower()
-    preferred = "gh" if "github.com" in url else ("glab" if "gitlab" in url else None)
+    preferred = "gh" if _host_is(url, "github.com") else ("glab" if _host_is(url, "gitlab.com") else None)
     candidates = ([preferred] if preferred else []) + ["glab", "gh"]
     for name in candidates:
         if shutil.which(name):
@@ -687,7 +697,7 @@ def _manual_mr_url(web_url: str, source: str, target: str) -> str:
     base = web_url.rstrip("/")
     encoded_source = urllib.parse.quote(source, safe="")
     encoded_target = urllib.parse.quote(target, safe="")
-    if "github.com" in base:
+    if _host_is(base, "github.com"):
         return f"{base}/compare/{encoded_target}...{encoded_source}?expand=1"
     return (f"{base}/-/merge_requests/new"
             f"?merge_request[source_branch]={encoded_source}"

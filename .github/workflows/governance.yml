@@ -11,6 +11,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
 
+# 最小权限：全部 job 只读仓库内容，CodeQL 的 missing-workflow-permissions 要求显式声明
+permissions:
+  contents: read
+
 jobs:
   # 风险扫描: 硬阻断
   risk-scan:
